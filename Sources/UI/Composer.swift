@@ -206,8 +206,13 @@ struct Composer: View {
       : "Image input is switched off. Turn it on in Settings › Model, then Reload model."
   }
 
-  /// A plain globe when it's off, the same globe on a filled circle when it's on. The label it
-  /// used to grow when switched on changed the width of the row, which nudged everything beside it.
+  /// A plain globe when it's off, the same globe on a soft wash of the page's own ink when it's
+  /// on — not the solid fill it used to take, which is the one treatment Send has, and which made
+  /// a switch that is merely set look like the button that acts. The glyph also thickens a little,
+  /// so the state carries at a glance without anything on the row getting louder.
+  ///
+  /// The label it used to grow when switched on changed the width of the row, which nudged
+  /// everything beside it.
   private var webSearchButton: some View {
     Button {
       guard chat.hasSearchKey else {
@@ -222,11 +227,14 @@ struct Composer: View {
       chat.setWebSearch(!chat.webSearchOn)
     } label: {
       Image(systemName: "globe")
-        .font(.system(size: ChatStyle.inlineControlGlyph, weight: .medium))
+        .font(
+          .system(
+            size: ChatStyle.inlineControlGlyph, weight: chat.webSearchOn ? .semibold : .medium)
+        )
         .foregroundStyle(webSearchGlyph)
         .frame(width: ChatStyle.inlineControl, height: ChatStyle.inlineControl)
         .background(
-          chat.webSearchOn ? AnyShapeStyle(ChatStyle.sendFill) : AnyShapeStyle(.clear),
+          Color.primary.opacity(chat.webSearchOn ? 0.12 : 0),
           in: Circle()
         )
         .contentShape(Circle())
@@ -239,11 +247,10 @@ struct Composer: View {
     .disabled(chat.isGenerating || chat.isOffline)
   }
 
-  /// Reversed out of the filled circle when on, plain when off, and faded when the build carries
-  /// no key — so a globe that can't be switched on doesn't look like one that can.
+  /// Full strength either way — the wash behind it is what says it's on — and faded when the
+  /// build carries no key, so a globe that can't be switched on doesn't look like one that can.
   private var webSearchGlyph: AnyShapeStyle {
-    if chat.webSearchOn { return AnyShapeStyle(ChatStyle.sendGlyph) }
-    return chat.hasSearchKey ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary)
+    chat.hasSearchKey ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary)
   }
 
   private var webSearchHint: String {
