@@ -22,6 +22,12 @@ struct ChatScreen: View {
 
   private let bottomID = "bottom"
 
+  /// Whether to show what only the development app has. False in the public app always, and false
+  /// in the development app while it is being looked at as the public one.
+  private var showsDevelopmentFeatures: Bool {
+    AppFlavor.showsDevelopmentFeatures(chat.settings.values)
+  }
+
   var body: some View {
     SidebarContainer(isOpen: $isSidebarOpen) {
       ChatSidebar(
@@ -131,8 +137,8 @@ struct ChatScreen: View {
       }
       Spacer(minLength: 0)
       // The one thing the development app has that the public app doesn't, sitting just left of
-      // New chat.
-      if AppFlavor.isDevelopment {
+      // New chat — and gone while the development app is being shown as the public one.
+      if showsDevelopmentFeatures {
         barButton("Developer", systemImage: "hammer") { showingDeveloper = true }
       }
       barButton(
@@ -247,6 +253,7 @@ struct ChatScreen: View {
               isReplacedByEdit: chat.isReplacedByEdit(message.id),
               canEdit: !chat.isGenerating,
               canRegenerate: chat.canRegenerate(message.id),
+              showsMetrics: showsDevelopmentFeatures,
               onEdit: {
                 chat.beginEditing(message.id)
                 inputFocused = true

@@ -7,6 +7,8 @@ import SwiftUI
 struct DeveloperScreen: View {
   let chat: ChatModel
 
+  @Environment(\.dismiss) private var dismiss
+
   var body: some View {
     List {
       Section {
@@ -73,6 +75,22 @@ struct DeveloperScreen: View {
 
       Section("Network") {
         LabeledContent("Connection", value: chat.isOffline ? "Offline" : "Online")
+      }
+
+      Section {
+        Button("Switch to the public build") {
+          chat.settings.values.previewAsPublic = true
+          chat.settings.save()
+          dismiss()
+        }
+      } header: {
+        Text("Presentation")
+      } footer: {
+        Text(
+          "Takes away everything the public app doesn't have — this screen's hammer, the timings "
+            + "under a reply, the metrics in Settings — so a change can be looked at the way it "
+            + "will ship, without swapping apps. Nothing is uninstalled and nothing moves; "
+            + "Settings has the way back.")
       }
     }
     .navigationTitle("Developer")

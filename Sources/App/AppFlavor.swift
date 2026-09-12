@@ -17,6 +17,17 @@ enum AppFlavor: String, Sendable {
 
   static var isDevelopment: Bool { current == .development }
 
+  /// Whether this build is showing what only the development app has: the hammer in the top bar,
+  /// the timings under a reply, the metrics in Settings.
+  ///
+  /// The development app can be asked to present itself as the public one, so a change can be
+  /// looked at the way it will ship without swapping apps. The switch only ever takes things away:
+  /// it is `&&`, not `||`, so the public app cannot be handed development features by editing a
+  /// settings file — `isDevelopment` is compiled in and false there whatever this says.
+  static func showsDevelopmentFeatures(_ settings: AppSettings) -> Bool {
+    isDevelopment && !settings.previewAsPublic
+  }
+
   /// The app's name as it appears on the Home Screen, read from the bundle so the name lives in one
   /// place (Config/Public.xcconfig and Config/Dev.xcconfig).
   static let appName: String = {

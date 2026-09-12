@@ -14,6 +14,9 @@ struct MessageRow: View {
   let isReplacedByEdit: Bool
   let canEdit: Bool
   let canRegenerate: Bool
+  /// Whether to offer the measurements for this reply. They are for working on Anvil, not for
+  /// using it, so the public app never shows them.
+  let showsMetrics: Bool
   let onEdit: () -> Void
   let onRegenerate: () -> Void
   let onSelectText: () -> Void
@@ -233,7 +236,7 @@ struct MessageRow: View {
         if canRegenerate {
           actionButton("Regenerate", systemImage: "arrow.clockwise", action: onRegenerate)
         }
-        if let stats = message.stats {
+        if showsMetrics, let stats = message.stats {
           Button(action: onShowStats) {
             Label(Self.shortSummary(stats), systemImage: "speedometer")
               .font(.footnote)

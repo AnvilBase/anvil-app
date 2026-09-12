@@ -12,6 +12,10 @@ struct SettingsScreen: View {
   @Environment(\.dismiss) private var dismiss
   @State private var confirmingDeleteAll = false
 
+  private var showsDevelopmentFeatures: Bool {
+    AppFlavor.showsDevelopmentFeatures(settings.values)
+  }
+
   var body: some View {
     NavigationStack {
       Form {
@@ -19,11 +23,12 @@ struct SettingsScreen: View {
         memorySection
         voiceSection
         webSearchSection
-        metricsSection
+        if showsDevelopmentFeatures { metricsSection }
         generationSection
         modelSection
         historySection
         appearanceSection
+        if AppFlavor.isDevelopment, !showsDevelopmentFeatures { backToDevelopmentSection }
       }
       .navigationTitle("Settings")
       #if os(iOS)
@@ -213,6 +218,22 @@ struct SettingsScreen: View {
           + "uses more memory; if iOS closes the app, go back to 4,096. Turning off image input "
           + "saves memory too. If the model won't load, reload it here; removing it lets you "
           + "download or copy it across again.")
+    }
+  }
+
+  /// The way back out of showing the development app as the public one. It lives here because the
+  /// hammer that would otherwise lead to it is one of the things being hidden, and Settings is
+  /// always reachable. The public app never compiles a path to it: see the call site.
+  private var backToDevelopmentSection: some View {
+    Section {
+      Button("Show developer features again") {
+        settings.values.previewAsPublic = false
+        settings.save()
+      }
+    } header: {
+      Text("Developer")
+    } footer: {
+      Text("This is the development app being shown as the public one.")
     }
   }
 
