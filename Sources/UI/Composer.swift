@@ -138,7 +138,11 @@ struct Composer: View {
         messageField
         HStack(spacing: 6) {
           addButton
-          webSearchButton
+          // Gone rather than greyed out when there is no connection: a switch that cannot be moved
+          // is something to wonder about, and web search without the web isn't a setting, it is
+          // nothing. What it was set to is kept in the settings file, not in the button, so it
+          // comes back the way it was left.
+          if !chat.isOffline { webSearchButton }
           if chat.speechInput.state == .listening {
             SpeechWave(level: CGFloat(chat.speechInput.level))
               .padding(.leading, 4)
@@ -148,6 +152,7 @@ struct Composer: View {
           trailingButtons
         }
         .animation(.snappy(duration: 0.22), value: chat.speechInput.state)
+        .animation(.snappy(duration: 0.28), value: chat.isOffline)
       }
       .padding(8)
       .liquidGlass(in: containerShape)
@@ -247,10 +252,12 @@ struct Composer: View {
     }
     .buttonStyle(.plain)
     .animation(.snappy(duration: 0.2), value: chat.webSearchOn)
+    // Out with the connection and back in with it, rather than appearing and disappearing.
+    .transition(.opacity.combined(with: .scale(scale: 0.7)))
     .accessibilityLabel("Web search")
     .accessibilityValue(chat.webSearchOn ? "On" : "Off")
     .accessibilityHint(webSearchHint)
-    .disabled(chat.isGenerating || chat.isOffline)
+    .disabled(chat.isGenerating)
   }
 
   /// Full strength either way — the wash behind it is what says it's on — and faded when the
@@ -259,10 +266,9 @@ struct Composer: View {
     chat.hasSearchKey ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary)
   }
 
+  /// Nothing to say about being offline: the button isn't there to be asked about then.
   private var webSearchHint: String {
-    if chat.isOffline { return "Unavailable while the internet connection is offline" }
-    if !chat.hasSearchKey { return "This build has no Brave Search API key" }
-    return ""
+    chat.hasSearchKey ? "" : "This build has no Brave Search API key"
   }
 
   /// The filled circle on the right: Stop while a reply is coming, a stop square while it's
