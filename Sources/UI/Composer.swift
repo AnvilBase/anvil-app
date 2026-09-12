@@ -68,16 +68,23 @@ struct Composer: View {
 
   // MARK: - Above the field
 
+  /// One word and the mark that goes with it. What editing does — replacing the message and
+  /// everything after it — is what the field full of your own words already says.
   private var editingBanner: some View {
     HStack(spacing: 6) {
-      Label(
-        "Editing a message — sending replaces it and everything after it", systemImage: "pencil"
-      )
-      .font(.subheadline)
-      .foregroundStyle(.secondary)
+      Label("Editing", systemImage: "pencil")
+        .font(.subheadline)
+        .foregroundStyle(.secondary)
       Spacer(minLength: 8)
-      Button("Cancel") { chat.cancelEditing() }
-        .font(.subheadline.weight(.medium))
+      Button { chat.cancelEditing() } label: {
+        Image(systemName: "xmark")
+          .font(.system(size: 15, weight: .semibold))
+          .frame(width: ChatStyle.smallControl, height: ChatStyle.smallControl)
+          .liquidGlass(in: Circle(), interactive: true)
+      }
+      .buttonStyle(.plain)
+      .foregroundStyle(.primary)
+      .accessibilityLabel("Stop editing")
     }
     .padding(.horizontal, 14)
   }
