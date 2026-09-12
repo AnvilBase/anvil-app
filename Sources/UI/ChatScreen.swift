@@ -52,6 +52,10 @@ struct ChatScreen: View {
         content
           // The colour runs to the screen edges; the content itself stays inside the safe area.
           .background(ChatStyle.page.ignoresSafeArea())
+          // Before the bar and the composer are put on, so they sit over the fade rather than
+          // under it: what thins out is the conversation, never the things floating above it.
+          .overlay(alignment: .top) { Self.screenFade(.top) }
+          .overlay(alignment: .bottom) { Self.screenFade(.bottom) }
           .safeAreaInset(edge: .top, spacing: 0) { topBar.padding(.top, missing.top) }
           // The composer adds itself below this, so it clears the home indicator without the
           // keyboard, and sits straight on the keyboard when there is one.
@@ -296,8 +300,6 @@ struct ChatScreen: View {
         .animation(ChatStyle.sendMotion, value: chat.messagesSent)
       }
       .scrollDismissesKeyboard(.interactively)
-      .overlay(alignment: .top) { Self.scrollFade(.top) }
-      .overlay(alignment: .bottom) { Self.scrollFade(.bottom) }
       .modifier(LatestMessageTracker(isFollowing: $isFollowingLatest, isUserScrolling: $isUserScrolling))
       .onChange(of: chat.messages.count) { oldCount, newCount in
         // Sending jumps to your message and then follows the reply.
@@ -339,24 +341,30 @@ struct ChatScreen: View {
   /// then the text has stopped growing and this had stopped changing. The conversation stayed where
   /// the last word left it and the row that had just appeared sat behind the composer. So the end
   /// of the reply counts as a step of its own.
-  /// The conversation thinning out at the very edges of the screen, rather than being cut off at a
-  /// line.
+  /// The conversation thinning out at the top and bottom of the screen itself — the real edges of
+  /// the glass, not the edges of whatever view happens to be scrolling.
   ///
-  /// The page's own colour laid over the last few points, and not a mask, which is what this was.
-  /// A mask puts the whole conversation into a layer of its own, and glass has nothing to refract
-  /// once its backdrop is off in a layer somewhere — the buttons went from sitting over the words
-  /// to sitting on nothing. Painted over the top instead, the words are still really there behind
-  /// the glass, which is the only reason the glass is worth having.
+  /// Painted over the conversation rather than masking it. A mask puts the whole thing into a layer
+  /// of its own, and glass has nothing to refract once its backdrop is off in a layer somewhere:
+  /// the buttons stop sitting over the words and start sitting on nothing, which is the only reason
+  /// the glass is worth having. Over the top, the words are still really behind them.
   ///
-  /// iOS 26 would do this itself, but only where a scroll view meets a real bar with a background
-  /// to fade into, and the bar here is buttons on nothing.
-  private static func scrollFade(_ edge: VerticalEdge) -> some View {
+  /// Four stops rather than two ends. A straight ramp between full and nothing has a visible start
+  /// and a visible finish — you can see where it begins, which is the one thing a fade must not
+  /// let you see. Held near full for the first third and let go of quickly after, it arrives out
+  /// of nowhere the way the system's own edges do.
+  private static func screenFade(_ edge: VerticalEdge) -> some View {
     LinearGradient(
-      colors: [ChatStyle.page, ChatStyle.page.opacity(0)],
+      stops: [
+        .init(color: ChatStyle.page, location: 0),
+        .init(color: ChatStyle.page.opacity(0.94), location: 0.34),
+        .init(color: ChatStyle.page.opacity(0.5), location: 0.66),
+        .init(color: ChatStyle.page.opacity(0), location: 1),
+      ],
       startPoint: edge == .top ? .top : .bottom,
       endPoint: edge == .top ? .bottom : .top
     )
-    .frame(height: 26)
+    .frame(height: 72)
     .allowsHitTesting(false)
   }
 
