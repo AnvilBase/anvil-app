@@ -10,6 +10,10 @@ struct AnvilRootScene: Scene {
     WindowGroup {
       RootView(library: library, chat: chat)
     }
+    // Takes delivery of model parts that finished downloading while the app wasn't running.
+    .backgroundTask(.urlSession(ModelDownloadSession.identifier)) {
+      await ModelDownloadSession.shared.handleBackgroundEvents()
+    }
   }
 }
 
@@ -36,6 +40,8 @@ private struct RootView: View {
       }
     }
     .task {
+      // Lets iOS hand over anything a background download finished while the app was closed.
+      ModelDownloadSession.shared.activate()
       await chat.restoreHistory()
       await library.refresh()
     }

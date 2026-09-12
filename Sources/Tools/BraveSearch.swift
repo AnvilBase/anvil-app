@@ -34,7 +34,7 @@ enum WebSearchError: LocalizedError {
 
 /// Brave Search API client.
 ///
-/// One of the app's two pieces of networking, and it runs only when web search is on and the model
+/// One of the app's three pieces of networking, and it runs only when web search is on and the model
 /// asks for a search. What leaves the phone is the query the model wrote, and nothing else.
 enum BraveSearch {
   private static let endpoint = URL(string: "https://api.search.brave.com/res/v1/web/search")!

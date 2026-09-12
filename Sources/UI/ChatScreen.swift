@@ -88,7 +88,7 @@ struct ChatScreen: View {
     case .idle, .loading:
       VStack(spacing: 16) {
         ProgressView()
-        Text("Loading \(model.url.lastPathComponent)…")
+        Text("Loading \(model.displayName)…")
           .font(.headline)
         Text(
           "The first load can take a while as the engine prepares the model. Later launches are "

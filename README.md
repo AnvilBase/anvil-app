@@ -36,7 +36,7 @@ open AnvilAI.xcodeproj
 2. Choose a scheme: **AnvilAI** or **AnvilAIDev**.
 3. In **Signing & Capabilities**, pick your team. A free Apple ID works — see
    [Signing](#signing-and-bundle-identifiers).
-4. Run on your iPhone (⌘R), then [import a model](#import-a-model).
+4. Run on your iPhone (⌘R), then [install a model](#install-a-model).
 
 The app builds and runs with no configuration. Everything personal — your signing team, your bundle
 prefix, your Brave Search key — goes in `Config/Local.xcconfig`, which git ignores.
@@ -52,6 +52,7 @@ prefix, your Brave Search key — goes in `Config/Local.xcconfig`, which git ign
 | `ANVIL_BUNDLE_PREFIX` | Reverse-DNS prefix for both apps. Change it if `com.anvilbase` is taken for you. |
 | `ANVIL_BRAVE_API_KEY` | Turns on web search. Without it the feature is simply unavailable. |
 | `ANVIL_ENTITLEMENTS` | Set it empty to build without the increased-memory-limit capability. |
+| `ANVIL_MODELS_HOST` | Where the app downloads models from. Defaults to `www.anvilai.com`. |
 
 There is no `Secrets.swift` and no key anywhere in the source. The key travels from
 `Config/Local.xcconfig` into the app's `Info.plist` at build time, and `AppSecrets` reads it back
@@ -100,13 +101,41 @@ them are needed for iOS, where the framework arrives as a release zip. If resolv
 - Or resolve once from Terminal with LFS downloads skipped:
   `GIT_LFS_SKIP_SMUDGE=1 xcodebuild -resolvePackageDependencies -project AnvilAI.xcodeproj`
 
-## Import a model
+## Install a model
 
-The app ships without a model, so the first screen asks for one.
+The app ships without a model — it's gigabytes, and which one you want is your choice — so the first
+screen asks for one. There are two ways to get one.
+
+### Download it in the app
+
+The first screen lists the models published at
+[anvilai.com/api/models](https://www.anvilai.com/api/models). Tap **Download** and leave it running.
+
+| Model | Size | Based on |
+| --- | --- | --- |
+| Anvil Lite | 3.41 GB | [Gemma 4 E4B](https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm) |
+| Anvil Nano | 2.41 GB | [Gemma 4 E2B](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm) |
+
+A model is served as a list of 512 MB parts, because a file that size can't be hosted as a single
+asset. The app downloads them one at a time, checks each against its SHA-256, appends it to the file
+it's building, and deletes it — so the phone needs the model's size free, plus one part, not twice the
+model. Progress is written down after every part, so closing the app or losing Wi-Fi costs you at most
+the part in flight; reopening the screen offers to carry on. The transfer runs in a background
+`URLSession`, so it keeps going while you're in another app.
+
+Downloads are Wi-Fi only unless you turn on **Download over cellular** on that screen. The catalog and
+the model files are published from
+[AnvilBase/anvil-models](https://github.com/AnvilBase/anvil-models), which also holds the script that
+publishes them — point `ANVIL_MODELS_HOST` (see [Configuration](#configuration)) at your own
+deployment to serve your own.
+
+### Copy one across from a Mac
+
+Any LiteRT-LM `.litertlm` file works, including ones Anvil doesn't publish. Open **Copy a file across
+instead** on the model screen, then:
 
 1. On your Mac, download a `.litertlm` file — for example Gemma 4 E4B from
    [litert-community/gemma-4-E4B-it-litert-lm](https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm).
-   E2B is a smaller, lighter alternative.
 2. Launch the app on the iPhone.
 3. In Finder, select the iPhone in the sidebar, open the **Files** tab, and drag the `.litertlm` file
    onto **Anvil AI** (or **Anvil Dev**). You can also move it into **On My iPhone › Anvil AI** in the
@@ -115,9 +144,9 @@ The app ships without a model, so the first screen asks for one.
    finished, then moves the file into `Application Support/Models/`, excludes it from backups, and
    loads it. **Check again** re-scans immediately.
 
-Copying a new `.litertlm` file replaces the old one. If loading fails, the error screen offers
-**Remove model and re-import**. The first load is slow; engine caches go in
-`Library/Caches/EngineCache`, so later launches are much faster.
+Either way, a new model replaces the old one. If loading fails, the error screen offers **Remove model
+and re-import**. The first load is slow; engine caches go in `Library/Caches/EngineCache`, so later
+launches are much faster.
 
 ## What the app does
 
@@ -234,7 +263,7 @@ Config/          xcconfig build settings; Local.xcconfig (ignored) holds anythin
 Sources/         everything else, compiled into both apps
   App/           flavor identity (public vs development) and the root scene
   Chat/          chat state, the transcript model, and protected on-disk storage
-  Engine/        the model on this iPhone, model import, prompt building
+  Engine/        the model on this iPhone: downloading and importing it, prompt building
   Computer/      the model on your computer, pairing, tool-call repair
   Tools/         the tool registry and the tools themselves
   Memory/        facts remembered across chats
@@ -253,7 +282,10 @@ Support/         per-app Info.plist and entitlements
 | `Chat/ChatArchive.swift` | Saves chats, photos, and totals as protected files |
 | `Chat/PrivateFiles.swift` | Complete file protection, excluded from backups |
 | `Engine/OnDeviceEngine.swift` | LiteRT-LM engine and conversation: load with fallbacks, stream, cancel, count |
-| `Engine/ModelLibrary.swift` | Finds a copied-in model, waits for the copy, moves it into private storage |
+| `Engine/ModelLibrary.swift` | Finds the installed model, waits for a copy to finish, moves it into private storage |
+| `Engine/ModelCatalog.swift` | The models anvilai.com publishes, and where to fetch their parts |
+| `Engine/ModelDownloader.swift` | Downloads a model part by part, checks each one, appends them into the file |
+| `Engine/ModelDownloadSession.swift` | The background URLSession that keeps a download running when the app isn't |
 | `Engine/PromptBuilder.swift` | The system prompt both engines use |
 | `Engine/EngineTypes.swift` | Model details, conversation options, reply events and counters |
 | `Computer/ComputerEngine.swift` | Streams replies from your computer; runs tools on the phone |
@@ -291,12 +323,15 @@ More detail in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Privacy
 
-The app has two pieces of networking, both on an ephemeral `URLSession` with no cookies or cache:
+The app has three pieces of networking, all on a `URLSession` with no cookies or cache:
 
 - `BraveSearch` in `Sources/Tools/BraveSearch.swift` calls `api.search.brave.com`, only when web
   search is on and the model calls the tool.
 - `ComputerEngine` in `Sources/Computer/ComputerEngine.swift` calls only the address in
   **Settings › My computer**, and only when replies are set to run there.
+- `ModelCatalog` and `ModelDownloadSession` in `Sources/Engine/` call `anvilai.com` to list and
+  download models, only from the model screen, and never once a model is installed. Neither request
+  carries anything about you or your chats.
 
 `NWPathMonitor` reads whether the phone is online and sends nothing. There are no web views, no
 sockets, no analytics, and no crash reporting. Chats (including search queries and sources), photos,
@@ -305,8 +340,8 @@ unreadable while the phone is locked — and are excluded from backups. Chats ar
 after the retention period.
 
 To check: with web search off, chat in airplane mode, then look at **Settings › Privacy & Security ›
-App Privacy Report**. There should be no network activity for the app. With web search on, the only
-domain should be `api.search.brave.com`. See [PRIVACY.md](PRIVACY.md).
+App Privacy Report**. There should be no network activity for the app once a model is installed. With
+web search on, the only domain should be `api.search.brave.com`. See [PRIVACY.md](PRIVACY.md).
 
 ## Contributing
 

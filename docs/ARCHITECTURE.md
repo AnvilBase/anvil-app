@@ -109,6 +109,15 @@ Nothing secret is in source. `Config/Local.xcconfig` (git-ignored) sets build se
 travels into the app's `Info.plist` through `$(ANVIL_BRAVE_API_KEY)` and `AppSecrets` reads it from
 the bundle. A missing key isn't an error — web search disables itself and says why. New configuration
 should follow the same route: an `ANVIL_*` build setting, an `Info.plist` key, a typed accessor.
+`ANVIL_MODELS_HOST` → `ModelCatalogHost` → `ModelCatalog.endpoint` is the second example. Note that an
+xcconfig reads `//` as the start of a comment, which is why that setting is a host and not a URL.
+
+## Getting a model onto the phone
+
+`ModelCatalog` reads the list at `https://$(ANVIL_MODELS_HOST)/api/models`; `ModelDownloader` walks a
+model's parts, and `ModelDownloadSession` moves the bytes. `ModelLibrary` owns both that path and the
+copy-a-file-in path, and is the only thing the root scene knows about — a model is a model to
+everything downstream, however it arrived.
 
 ## Storage
 
@@ -120,6 +129,11 @@ chat, with photos as sibling JPEGs, so deleting a chat is removing a directory.
 The model is moved, not copied, out of Documents once its size has held steady across two checks —
 copying would need 8 GB free, and moving a file that's still being written would leave a truncated
 model.
+
+A downloaded model is built up in the same folder as `<name>.litertlm.partial` and renamed only when
+the last part is in, so a half-finished download can never be mistaken for a model worth loading.
+`ModelLibrary.refresh()` no-ops while a download is running, because importing a file from Documents
+empties that folder and would delete the download's work.
 
 ## Things that look odd but aren't
 
@@ -136,6 +150,10 @@ model.
   model's stop tokens.
 - **A search on/off note is injected into the prompt.** Models keep answering the way they did earlier
   in a chat, so toggling search mid-chat adds one line only the model sees.
+- **Downloaded models arrive in 512 MB parts.** A GitHub release asset is capped at 2 GiB and a
+  `.litertlm` is 2.4–3.4 GB, so the catalog serves a list of parts with a SHA-256 each. Appending them
+  one at a time and deleting each as it lands also means a phone needs the model's size free rather
+  than twice it, and an interruption costs one part rather than the whole download.
 
 ## What's missing
 

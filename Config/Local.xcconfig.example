@@ -16,3 +16,8 @@
 // Free Apple IDs can't sign the increased-memory-limit capability. Uncomment to build without it,
 // then lower Settings › Model › Context size if iOS closes the app while the model loads.
 // ANVIL_ENTITLEMENTS =
+
+// Where the app downloads models from, as a host (an xcconfig reads // as a comment, so it can't be
+// a full URL). It must serve the same JSON as https://www.anvilai.com/api/models — see
+// https://github.com/AnvilBase/anvil-models. Leave it alone to use Anvil's.
+// ANVIL_MODELS_HOST = models.example.com

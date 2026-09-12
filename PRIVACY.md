@@ -28,8 +28,8 @@ by default), and **Delete all chats** removes them immediately.
 
 ## What can leave the phone
 
-The app has two pieces of networking. Both use an ephemeral `URLSession` with no cookies, no cache,
-and no stored credentials, and both are visible in the UI while they're in use.
+The app has three pieces of networking. All use a `URLSession` with no cookies, no cache, and no
+stored credentials, and all are visible in the UI while they're in use.
 
 **1. Web search — `api.search.brave.com`.** Only when web search is on *and* the model decides to
 call the tool. What's sent is the query the model wrote, which can include details drawn from your
@@ -44,6 +44,16 @@ attached photo (as a JPEG data URI, at most 1024 px) are sent to the machine at 
 HTTPS through your own Tailscale network. Tools still run on the phone, so a search still goes only to
 Brave. The access token lives in the Keychain. Set **Run replies on** to *iPhone* and nothing is sent
 anywhere.
+
+**3. Downloading a model — `anvilai.com`, then GitHub.** Only from the **Add a model** screen, and
+only until a model is installed: once you have one, the app never contacts anvilai.com again. Listing
+the models is a plain `GET` of a public JSON file with no query, no identifier, and nothing about you
+attached. Tapping **Download** fetches the parts from the same domain, which redirects each one to a
+file hosted in a GitHub release — so, as with any download, anvilai.com and GitHub see your IP address
+and which model you chose. Nothing about your chats, your settings, or your phone is sent. Downloads
+use Wi-Fi unless you turn on **Download over cellular**. You never have to use this: a `.litertlm` file
+copied across from a Mac skips it entirely, and a build can be pointed at a different host with
+`ANVIL_MODELS_HOST`.
 
 `NWPathMonitor` (`Sources/System/NetworkStatus.swift`) reads whether the phone is online and
 transmits nothing. The app has no web views and opens no sockets.
@@ -68,11 +78,12 @@ The app never speaks replies aloud; there's no text-to-speech.
 
 ## Verifying it yourself
 
-- Turn web search off and set replies to run on the iPhone, then chat in airplane mode. In
-  **Settings › Privacy & Security › App Privacy Report**, the app should show no network activity at
-  all. With web search on, the only domain should be `api.search.brave.com`.
-- Read the code: the two networking files are `Sources/Tools/BraveSearch.swift` and
-  `Sources/Computer/ComputerEngine.swift`. Searching the project for `URLSession` finds them and
+- With a model installed, turn web search off and set replies to run on the iPhone, then chat in
+  airplane mode. In **Settings › Privacy & Security › App Privacy Report**, the app should show no
+  network activity at all. With web search on, the only domain should be `api.search.brave.com`.
+- Read the code: the networking files are `Sources/Tools/BraveSearch.swift`,
+  `Sources/Computer/ComputerEngine.swift`, and `Sources/Engine/ModelCatalog.swift` with
+  `Sources/Engine/ModelDownloadSession.swift`. Searching the project for `URLSession` finds them and
   nothing else.
 - The app is MIT-licensed and builds from source, so nothing here has to be taken on trust.
 

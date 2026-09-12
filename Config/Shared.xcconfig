@@ -25,6 +25,11 @@ ANVIL_BUNDLE_PREFIX = com.anvilbase
 // web search simply stays off until you add a key in Config/Local.xcconfig.
 ANVIL_BRAVE_API_KEY =
 
+// Where the app looks for downloadable models: https://$(ANVIL_MODELS_HOST)/api/models. Point it at
+// your own deployment to publish your own catalog. The host only, because an xcconfig reads // as
+// the start of a comment.
+ANVIL_MODELS_HOST = www.anvilai.com
+
 CODE_SIGN_STYLE = Automatic
 ENABLE_PREVIEWS = YES
 GENERATE_INFOPLIST_FILE = YES

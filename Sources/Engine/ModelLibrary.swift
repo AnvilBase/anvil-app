@@ -7,6 +7,9 @@ struct ModelFile: Hashable, Sendable {
   let url: URL
   let fileSize: Int64
   let modificationDate: Date
+  /// What to call the model on screen: the catalog name for a downloaded model, the file name for
+  /// one copied across by hand.
+  let displayName: String
 }
 
 /// Finds the imported model, waits for a copy in progress to finish, and protects the file.
@@ -26,9 +29,36 @@ final class ModelLibrary {
   }
 
   private(set) var state: State = .checking
+  let downloader = ModelDownloader()
+
   private var isRefreshing = false
+  private var installTask: Task<Void, Never>?
+
+  /// A download the app closing interrupted, which can be carried on.
+  var interruptedDownload: CatalogModel? {
+    downloader.isActive ? nil : ModelDownloader.interrupted
+  }
+
+  /// Downloads a model from anvilai.com and loads it once it arrives.
+  func install(_ model: CatalogModel) {
+    guard !downloader.isActive else { return }
+    installTask?.cancel()
+    installTask = Task { [self] in
+      await downloader.run(model)
+      if downloader.phase == .finished { await refresh() }
+    }
+  }
+
+  func cancelInstall() async {
+    installTask?.cancel()
+    _ = await installTask?.value
+    installTask = nil
+    downloader.discard()
+  }
 
   func refresh() async {
+    // A download owns the models folder while it runs; importing into it would delete its work.
+    guard !downloader.isActive else { return }
     guard !isRefreshing else { return }
     isRefreshing = true
     defer { isRefreshing = false }
@@ -55,6 +85,7 @@ final class ModelLibrary {
 
   func removeModel() async {
     do {
+      await cancelInstall()
       try await Task.detached { try ModelFiles.removeImportedModels() }.value
       setState(.missing)
     } catch {
@@ -134,14 +165,19 @@ enum ModelFiles {
     var url = url
     try excludeFromBackup(&url)
     let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+    let installed = ModelDownloadFiles.installed()
+    let name = installed?.fileName == url.lastPathComponent ? installed?.name : nil
     return ModelFile(
       url: url,
       fileSize: (attributes[.size] as? NSNumber)?.int64Value ?? 0,
-      modificationDate: attributes[.modificationDate] as? Date ?? .distantPast)
+      modificationDate: attributes[.modificationDate] as? Date ?? .distantPast,
+      displayName: name ?? url.deletingPathExtension().lastPathComponent)
   }
 
   /// Moves the copied-in model into Application Support/Models, replacing any previous model.
   static func importModel(from source: URL) throws -> ModelFile {
+    // Clears the installed record too, so a file copied across by hand isn't labelled with the name
+    // of the last downloaded model.
     try removeImportedModels()
     let destination = try modelsDirectory().appendingPathComponent(source.lastPathComponent)
     try FileManager.default.moveItem(at: source, to: destination)
