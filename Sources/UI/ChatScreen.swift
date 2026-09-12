@@ -277,7 +277,8 @@ struct ChatScreen: View {
         }
         .padding(.horizontal, 16)
         .padding(.top, 12)
-        .padding(.bottom, 8)
+        // Room to read the last line against, rather than having it end on the composer's glass.
+        .padding(.bottom, 16)
         // Keyed on the count of messages sent rather than on the transcript itself: opening
         // another chat and streaming a reply both change the rows, and neither is an arrival.
         .animation(ChatStyle.sendMotion, value: chat.messagesSent)
@@ -317,10 +318,18 @@ struct ChatScreen: View {
   }
 
   /// Changes whenever the last message grows, including its thinking and search activity.
+  /// How far along the reply at the bottom is. The conversation follows this while it climbs, so
+  /// anything that makes the last row taller has to be counted in it.
+  ///
+  /// Finishing is one of those things, and it is the one that was missed: the actions under a reply
+  /// — copy, regenerate, the timings — appear only once there is nothing left to stream, and by
+  /// then the text has stopped growing and this had stopped changing. The conversation stayed where
+  /// the last word left it and the row that had just appeared sat behind the composer. So the end
+  /// of the reply counts as a step of its own.
   private var replyProgress: Int {
     guard let last = chat.messages.last else { return 0 }
     return last.text.count + last.thinking.count + (last.searchQueries?.count ?? 0)
-      + (last.sources?.count ?? 0)
+      + (last.sources?.count ?? 0) + (chat.isGenerating ? 0 : 1)
   }
 
   private func jumpToLatest(_ proxy: ScrollViewProxy) {
