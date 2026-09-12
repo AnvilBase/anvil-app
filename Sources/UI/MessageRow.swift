@@ -65,18 +65,34 @@ struct MessageRow: View {
   }
 
   /// A photo sits above the bubble rather than inside it. Tapping it opens it full screen.
+  ///
+  /// The frame is the size the photo actually comes out at, worked out here, rather than a
+  /// flexible box it is fitted inside. A box told only how big it may get takes the whole width it
+  /// is offered, and a screenshot — tall and narrow — leaves most of that empty. The corner is cut
+  /// from the box, so the curve on the side the photo isn't up against lands on nothing, and the
+  /// photo reads as rounded down one edge and square down the other.
   @ViewBuilder
   private var photo: some View {
     if let image {
+      let size = Self.photoSize(for: image)
       Image(image, scale: 1, label: Text("Photo"))
         .resizable()
-        .scaledToFit()
-        .frame(maxWidth: 240, maxHeight: 240, alignment: isUser ? .trailing : .leading)
+        .frame(width: size.width, height: size.height)
         .clipShape(bubbleShape)
         .onTapGesture(perform: onShowImage)
         .accessibilityAddTraits(.isButton)
         .accessibilityHint("Shows the photo full screen")
     }
+  }
+
+  /// The photo scaled to sit inside 240pt square, keeping its shape. Whichever side is longer ends
+  /// up at 240 and the other follows from it, so the frame is exactly the photo and nothing else.
+  private static func photoSize(for image: CGImage) -> CGSize {
+    let width = CGFloat(image.width)
+    let height = CGFloat(image.height)
+    guard width > 0, height > 0 else { return CGSize(width: 240, height: 240) }
+    let scale = min(240 / width, 240 / height)
+    return CGSize(width: (width * scale).rounded(), height: (height * scale).rounded())
   }
 
   // MARK: - The reply
