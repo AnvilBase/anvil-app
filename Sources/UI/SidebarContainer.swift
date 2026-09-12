@@ -36,22 +36,6 @@ struct SidebarContainer<Sidebar: View, Content: View>: View {
     return proxy
   }
 
-  /// The corner the chat is cut to: the screen's own, so that closed it sits exactly inside the
-  /// display's rounding and open it carries that same curve into the middle of the screen.
-  ///
-  /// iOS 26 will work the radius out from the container for us, which is the only way to get it
-  /// right on every device without reading a private property off `UIScreen`. Older releases get
-  /// the radius the iPhones that run them are cut to, which is 55pt from the X on and a little
-  /// less before that — near enough that no corner shows a seam.
-  private static var pageShape: AnyShape {
-    #if compiler(>=6.2)
-      if #available(iOS 26.0, *) {
-        return AnyShape(ConcentricRectangle(corners: .concentric(minimum: .fixed(34))))
-      }
-    #endif
-    return AnyShape(RoundedRectangle(cornerRadius: 55, style: .continuous))
-  }
-
   var body: some View {
     GeometryReader { proxy in
       // Ignoring the safe area means measuring the whole screen, so the chat runs edge to edge the
@@ -62,7 +46,10 @@ struct SidebarContainer<Sidebar: View, Content: View>: View {
       let width = min(ChatStyle.sidebarWidth, proxy.size.width * 0.86)
       let offset = min(max((isOpen ? width : 0) + drag, 0), width)
       let progress = width > 0 ? offset / width : 0
-      let shape = Self.pageShape
+      let shape = RoundedRectangle(cornerRadius: ChatStyle.pageCorner, style: .continuous)
+      // The drawer is there the moment the chat starts moving rather than arriving with it, so
+      // the first few points of a drag already show what is underneath.
+      let revealed = min(1, progress * 1.5)
 
       ZStack(alignment: .leading) {
         sidebar
@@ -71,6 +58,12 @@ struct SidebarContainer<Sidebar: View, Content: View>: View {
           .padding(.bottom, max(insets.bottom, 12))
           .frame(width: width)
           .frame(maxHeight: .infinity)
+          // Closing, the drawer doesn't simply get covered over — it goes out of focus and fades,
+          // hanging back a little as the chat comes across it, and all three follow the finger
+          // rather than the clock. Opening, it runs in reverse and the drawer comes to meet you.
+          .blur(radius: (1 - revealed) * 10)
+          .opacity(revealed)
+          .offset(x: -(1 - progress) * width * 0.22)
           .accessibilityHidden(progress < 0.5)
           // The drawer keeps its full height if the keyboard is up behind the chat.
           .ignoresSafeArea(.keyboard)
@@ -88,21 +81,31 @@ struct SidebarContainer<Sidebar: View, Content: View>: View {
         content
           .frame(width: proxy.size.width, height: proxy.size.height)
           .overlay {
-            // Dims the chat and takes the taps while the drawer is open. Under the clip, not over
-            // it: a full square of black laid on top would paint its own corners straight back
-            // over the rounded ones, and the chat would slide open looking square.
-            Color.black
-              .opacity(0.2 * progress)
+            // The chat lifts off the drawer as it slides rather than being dimmed into it, a
+            // shade at a time and in step with the finger. Under the clip, not over it: a full
+            // square laid on top would paint its own corners straight back over the rounded ones,
+            // and the chat would slide open looking square.
+            ChatStyle.pageLift
+              .opacity(0.1 * progress)
               .allowsHitTesting(progress > 0.01)
               .onTapGesture { setOpen(false) }
           }
           .clipShape(shape)
+          .overlay {
+            // The page and the drawer are the same colour, so this hairline is what actually draws
+            // the edge of the chat. It arrives with the slide and is gone by the time the chat is
+            // closed and its corners are back outside the screen.
+            shape
+              .strokeBorder(ChatStyle.hairline, lineWidth: 0.75)
+              .opacity(progress)
+              .allowsHitTesting(false)
+          }
           .offset(x: offset)
           .accessibilityHidden(progress > 0.5)
       }
       // What the rounded corners cut away, and the strips above and below the drawer, open onto
       // this rather than onto the black of the window behind everything.
-      .background(ChatStyle.sidebar.ignoresSafeArea())
+      .background(ChatStyle.page.ignoresSafeArea())
       #if canImport(UIKit)
         // One recogniser does both directions. A zero-sized view is the only way to reach into the
         // view hierarchy from here; it takes no touches of its own.
@@ -152,7 +155,7 @@ struct SidebarContainer<Sidebar: View, Content: View>: View {
   private static func spring(velocity: CGFloat, remaining: CGFloat) -> Animation {
     guard abs(remaining) > 1 else { return ChatStyle.sidebarMotion }
     let initial = min(max(Double(velocity / remaining), -8), 24)
-    return .interpolatingSpring(duration: 0.34, bounce: 0.08, initialVelocity: initial)
+    return .interpolatingSpring(duration: 0.26, bounce: 0.04, initialVelocity: initial)
   }
 }
 
