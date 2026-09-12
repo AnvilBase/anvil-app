@@ -98,9 +98,7 @@ struct ChatSidebar: View {
       // everywhere else. Together, because they read as one thing and so should take one tap.
       Button(action: onOpenChat) {
         HStack(spacing: 10) {
-          // Drawn flat, not lit up a row at a time: the mark animating itself in every time the
-          // drawer is pulled open would be the loudest thing on the screen.
-          PixelAnvil(size: 24, animated: false)
+          PixelAnvil(size: 24)
           Text("Anvil")
             .font(.title2.weight(.semibold))
         }
