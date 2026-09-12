@@ -119,20 +119,6 @@ extension View {
     #endif
   }
 
-  /// Fades the conversation out under the top bar instead of cutting it off, the way iOS 26 does
-  /// with its own scroll edges.
-  @ViewBuilder
-  func softScrollEdges() -> some View {
-    #if compiler(>=6.2)
-      if #available(iOS 26.0, *) {
-        scrollEdgeEffectStyle(.soft, for: .all)
-      } else {
-        self
-      }
-    #else
-      self
-    #endif
-  }
 }
 
 /// Groups nearby glass surfaces so they bend light as one piece and flow into each other when they
