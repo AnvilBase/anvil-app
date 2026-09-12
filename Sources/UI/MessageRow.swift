@@ -218,7 +218,7 @@ struct MessageRow: View {
   @ViewBuilder
   private var actionRow: some View {
     if !isStreaming && (!message.text.isEmpty || message.stats != nil || canRegenerate) {
-      HStack(spacing: 20) {
+      HStack(spacing: 6) {
         #if canImport(UIKit)
           if !message.text.isEmpty {
             actionButton(
@@ -237,14 +237,12 @@ struct MessageRow: View {
           actionButton("Regenerate", systemImage: "arrow.clockwise", action: onRegenerate)
         }
         if showsMetrics, let stats = message.stats {
-          Button(action: onShowStats) {
-            Label(Self.shortSummary(stats), systemImage: "speedometer")
-              .font(.footnote)
-              .lineLimit(1)
-          }
-          .buttonStyle(.plain)
-          .accessibilityLabel("Reply speed, \(Self.summary(stats))")
-          .accessibilityHint("Shows the measurements for this reply")
+          // The reading itself is behind the button rather than printed on it: it is the one thing
+          // in this row that was a line of text among glyphs, which made it the loudest thing under
+          // a reply and a different size from its neighbours.
+          actionButton("Reply speed", systemImage: "speedometer", action: onShowStats)
+            .accessibilityValue(Self.summary(stats))
+            .accessibilityHint("Shows the measurements for this reply")
         }
         Spacer(minLength: 0)
       }
@@ -283,13 +281,6 @@ struct MessageRow: View {
       Button("Select Text", systemImage: "selection.pin.in.out", action: onSelectText)
         .disabled(message.text.isEmpty)
     #endif
-  }
-
-  /// What fits in the row under a reply: how fast it was written, or how long it took when the
-  /// engine didn't count tokens.
-  private static func shortSummary(_ stats: ReplyStats) -> String {
-    if let rate = stats.decodeTokensPerSecond { return String(format: "%.1f tok/s", rate) }
-    return String(format: "%.1fs", stats.totalSeconds)
   }
 
   /// The whole line, read out by VoiceOver: "212 tokens · 24.8 tok/s · 0.9s to first token · GPU".
