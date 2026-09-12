@@ -1,17 +1,19 @@
 import SwiftUI
 
 /// The first screen, shown until a model has been installed. It offers the models Anvil publishes
-/// and downloads the chosen one, and explains how to copy a file across by hand for anyone who would
-/// rather do that.
+/// and downloads the chosen one.
 struct ModelSetupScreen: View {
   let library: ModelLibrary
 
   @State private var catalog: [CatalogModel] = []
   @State private var catalogError: String?
   @State private var isLoadingCatalog = true
-  @State private var showsManualImport = false
 
-  private var appName: String { AppFlavor.appName }
+  /// The mark beside a model's name, tied to the name's own text style so the two are the same
+  /// height whatever size the type is set to — rather than a fixed number that only looks right at
+  /// one of them.
+  @ScaledMetric(relativeTo: .headline) private var markSize: CGFloat = 16
+
   private var downloader: ModelDownloader { library.downloader }
 
   var body: some View {
@@ -19,28 +21,17 @@ struct ModelSetupScreen: View {
       ScrollView {
         VStack(alignment: .leading, spacing: 24) {
           switch library.state {
-          case .waitingForCopy(let fileName):
-            copying(fileName)
           case .failed(let message):
-            importFailure(message)
+            installFailure(message)
           default:
             installing
           }
-          manualImport
         }
         .padding()
       }
-      .navigationTitle("Add a model")
+      .navigationTitle("Select a model")
     }
     .task { await loadCatalog() }
-    .task {
-      // Notice a file that arrives while this screen is open. A download owns the models folder
-      // while it runs, so this does nothing in the meantime.
-      while !Task.isCancelled {
-        try? await Task.sleep(for: .seconds(3))
-        await library.refresh()
-      }
-    }
   }
 
   // MARK: - Installing from anvilai.com
@@ -63,15 +54,10 @@ struct ModelSetupScreen: View {
 
   @ViewBuilder
   private var catalogList: some View {
-    Text("\(appName) runs a model entirely on this iPhone. Nothing you type ever leaves it.")
-      .font(.subheadline)
-      .foregroundStyle(.secondary)
-
     if isLoadingCatalog {
-      HStack(spacing: 12) {
-        ProgressView()
-        Text("Looking for models…")
-      }
+      ProgressView()
+        .frame(maxWidth: .infinity)
+        .padding(.top, 24)
     } else if let catalogError {
       VStack(alignment: .leading, spacing: 12) {
         Label("Couldn't reach anvilai.com", systemImage: "wifi.exclamationmark")
@@ -83,7 +69,7 @@ struct ModelSetupScreen: View {
           .buttonStyle(.bordered)
       }
     } else if catalog.isEmpty {
-      Text("No models are published yet. You can still copy one across from a Mac.")
+      Text("No models published yet.")
         .font(.subheadline)
         .foregroundStyle(.secondary)
     } else {
@@ -92,9 +78,6 @@ struct ModelSetupScreen: View {
       }
       Toggle("Download over cellular", isOn: cellularBinding)
         .font(.subheadline)
-      Text("A model is a few gigabytes. Wi‑Fi is usually the better idea.")
-        .font(.footnote)
-        .foregroundStyle(.secondary)
     }
   }
 
@@ -104,54 +87,71 @@ struct ModelSetupScreen: View {
 
   private func modelCard(_ model: CatalogModel) -> some View {
     VStack(alignment: .leading, spacing: 10) {
-      HStack(alignment: .firstTextBaseline) {
+      // The name gets the whole row: nothing here is ever cut short with an ellipsis, so the badge
+      // sits on its own line underneath rather than competing for the width.
+      HStack(alignment: .firstTextBaseline, spacing: 8) {
+        PixelAnvil(size: markSize, color: tint(of: model))
+          // Sat on the text's baseline rather than hung off the top of the row, so the mark and the
+          // name read as one line however large the type is.
+          .alignmentGuide(.firstTextBaseline) { $0[.bottom] }
         Text(model.name)
           .font(.headline)
-        if model.isRecommended {
-          Text("Recommended")
-            .font(.caption2.weight(.semibold))
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(Color.accentColor.opacity(0.15), in: Capsule())
-        }
-        Spacer()
+        Spacer(minLength: 8)
         Text(model.formattedSize)
           .font(.subheadline)
           .foregroundStyle(.secondary)
+          .fixedSize()
+      }
+
+      if model.isRecommended {
+        // An outline rather than a filled chip: it is a note about the model, not a second thing
+        // to press.
+        Text("Recommended")
+          .font(.caption2.weight(.semibold))
+          .foregroundStyle(.primary)
+          .fixedSize()
+          .padding(.horizontal, 8)
+          .padding(.vertical, 3)
+          .overlay(Capsule().strokeBorder(.primary.opacity(0.55), lineWidth: 1))
       }
 
       Text(model.summary)
         .font(.subheadline)
         .foregroundStyle(.secondary)
 
-      if let provenance = provenance(of: model) {
-        Text(provenance)
+      if let basedOn = model.basedOn {
+        Text("Based on \(basedOn)")
           .font(.footnote)
           .foregroundStyle(.tertiary)
       }
 
+      // The same pill the welcome screen's Continue is: on this screen there is one thing to do,
+      // and it should look like the one thing to do everywhere else in the app.
       Button {
         library.install(model)
       } label: {
         Label("Download", systemImage: "arrow.down.circle")
+          .font(.headline)
           .frame(maxWidth: .infinity)
+          .frame(height: ChatStyle.inlineControl)
+          .background(ChatStyle.sendFill, in: Capsule())
+          .foregroundStyle(ChatStyle.sendGlyph)
       }
-      .buttonStyle(.borderedProminent)
-      .controlSize(.large)
+      .buttonStyle(.plain)
     }
     .padding()
     .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
   }
 
-  /// What the model is and what it's licensed under. A model that records only its licence still
-  /// shows it: the licence has to reach whoever downloads the file, not just the person who
-  /// published it.
-  private func provenance(of model: CatalogModel) -> String? {
-    switch (model.basedOn, model.license) {
-    case let (basedOn?, license?): "Based on \(basedOn) · \(license)"
-    case let (basedOn?, nil): "Based on \(basedOn)"
-    case let (nil, license?): license
-    case (nil, nil): nil
+  /// The mark beside a model's name, tinted so the two are told apart before you have read either:
+  /// Spark warm, Forge hotter. Anvil publishes two today and the catalog says nothing about colour,
+  /// so this is the one thing about a model the app knows by name — anything else gets the plain
+  /// mark rather than a colour picked for it.
+  private func tint(of model: CatalogModel) -> Color {
+    switch model.id {
+    case "anvil-spark": .orange
+    case "anvil-forge": .red
+    default: .primary
     }
   }
 
@@ -159,9 +159,6 @@ struct ModelSetupScreen: View {
     VStack(alignment: .leading, spacing: 12) {
       Text("\(model.name) is part-downloaded")
         .font(.headline)
-      Text("Carrying on picks up where it stopped. Nothing already downloaded is fetched again.")
-        .font(.subheadline)
-        .foregroundStyle(.secondary)
       HStack {
         Button("Resume") { library.install(model) }
           .buttonStyle(.borderedProminent)
@@ -226,8 +223,7 @@ struct ModelSetupScreen: View {
     case .downloading:
       // Several parts are in flight at once, so what's worth reporting is how many are safely in
       // the file, not which one a single connection happens to be on.
-      "\(downloader.partsCompleted) of \(downloader.partCount) parts saved. You can leave "
-        + "\(appName); the download carries on."
+      "\(downloader.partsCompleted) of \(downloader.partCount) parts saved"
     case .checking:
       "Checking part \(downloader.partsCompleted + 1) of \(downloader.partCount)…"
     case .installing:
@@ -237,25 +233,9 @@ struct ModelSetupScreen: View {
     }
   }
 
-  // MARK: - Copying a file across by hand
+  // MARK: - When installing fails
 
-  private func copying(_ fileName: String) -> some View {
-    VStack(alignment: .leading, spacing: 8) {
-      HStack(spacing: 12) {
-        ProgressView()
-        Text("Waiting for \(fileName) to finish copying…")
-          .font(.headline)
-      }
-      Text(
-        "A file this size takes several minutes. Keep \(appName) open; it imports the model as soon "
-          + "as the copy is complete."
-      )
-      .font(.subheadline)
-      .foregroundStyle(.secondary)
-    }
-  }
-
-  private func importFailure(_ message: String) -> some View {
+  private func installFailure(_ message: String) -> some View {
     VStack(alignment: .leading, spacing: 12) {
       Label("Couldn't install the model", systemImage: "exclamationmark.triangle")
         .font(.headline)
@@ -266,45 +246,6 @@ struct ModelSetupScreen: View {
       Button("Check again") { Task { await library.refresh() } }
         .buttonStyle(.bordered)
     }
-  }
-
-  private var manualImport: some View {
-    DisclosureGroup("Copy a file across instead", isExpanded: $showsManualImport) {
-      VStack(alignment: .leading, spacing: 16) {
-        Text("Any LiteRT-LM **.litertlm** file works, including the ones Anvil publishes.")
-          .font(.subheadline)
-
-        VStack(alignment: .leading, spacing: 8) {
-          Text("From a Mac (fastest)")
-            .font(.headline)
-          Text("1. Download a **.litertlm** model file on your Mac.")
-          Text("2. Connect this iPhone with a cable and open **Finder**.")
-          Text("3. Select the iPhone in the sidebar and open the **Files** tab.")
-          Text("4. Drag the .litertlm file onto **\(appName)**.")
-        }
-        .font(.subheadline)
-
-        VStack(alignment: .leading, spacing: 8) {
-          Text("From the Files app")
-            .font(.headline)
-          Text("Move the .litertlm file into **On My iPhone › \(appName)**.")
-            .font(.subheadline)
-        }
-
-        Text(
-          "After the copy finishes, the model moves into the app's private storage and is excluded "
-            + "from iCloud backups."
-        )
-        .font(.footnote)
-        .foregroundStyle(.secondary)
-
-        Button("Check again") { Task { await library.refresh() } }
-          .buttonStyle(.bordered)
-      }
-      .padding(.top, 12)
-      .frame(maxWidth: .infinity, alignment: .leading)
-    }
-    .font(.headline)
   }
 
   private func loadCatalog() async {

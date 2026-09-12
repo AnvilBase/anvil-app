@@ -34,7 +34,7 @@ enum AppFlavor: String, Sendable {
     let info = Bundle.main.infoDictionary
     let name =
       info?["CFBundleDisplayName"] as? String ?? info?[kCFBundleNameKey as String] as? String
-    return name?.isEmpty == false ? name! : "Anvil AI"
+    return name?.isEmpty == false ? name! : "Anvil"
   }()
 
   /// Marks stored items that must not be shared between the two apps.

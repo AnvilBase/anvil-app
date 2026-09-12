@@ -2,11 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- Lets you drag the model file onto the app in Finder's Files tab or the Files app. -->
-	<key>UIFileSharingEnabled</key>
-	<true/>
-	<key>LSSupportsOpeningDocumentsInPlace</key>
-	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Anvil Dev uses the camera to take a photo for your message. Photos stay on this iPhone.</string>
 	<key>NSMicrophoneUsageDescription</key>

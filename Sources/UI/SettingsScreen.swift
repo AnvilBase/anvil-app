@@ -209,7 +209,7 @@ struct SettingsScreen: View {
         Task { await chat.reloadModel() }
         dismiss()
       }
-      Button("Remove model and re-import", role: .destructive) {
+      Button("Remove model", role: .destructive) {
         dismiss()
         onRemoveModel()
       }
@@ -220,7 +220,7 @@ struct SettingsScreen: View {
         "Settings for the model on this iPhone. A larger context remembers more of the chat but "
           + "uses more memory; if iOS closes the app, go back to 4,096. Turning off image input "
           + "saves memory too. If the model won't load, reload it here; removing it lets you "
-          + "download or copy it across again.")
+          + "download one again.")
     }
   }
 

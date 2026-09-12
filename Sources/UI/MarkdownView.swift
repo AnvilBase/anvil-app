@@ -275,7 +275,7 @@ private struct CodeBlockView: View {
       .padding(.vertical, 6)
       .background(Color.primary.opacity(0.08))
 
-      ScrollView(.horizontal, showsIndicators: false) {
+      ScrollView(.horizontal) {
         Text(code)
           .font(.system(.footnote, design: .monospaced))
           .fixedSize(horizontal: true, vertical: false)
@@ -293,7 +293,7 @@ private struct TableBlockView: View {
 
   var body: some View {
     let columns = max(header.count, rows.map(\.count).max() ?? 0)
-    ScrollView(.horizontal, showsIndicators: false) {
+    ScrollView(.horizontal) {
       Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 6) {
         GridRow {
           ForEach(0..<columns, id: \.self) { column in

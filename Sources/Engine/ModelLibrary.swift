@@ -1,29 +1,26 @@
 import Foundation
 import Observation
 
-/// An imported model file. Re-importing a file with the same name still produces a different value
-/// (its size or modification date differ), which is what tells the chat to reload the engine.
+/// An installed model file. Installing a file with the same name again still produces a different
+/// value (its size or modification date differ), which is what tells the chat to reload the engine.
 struct ModelFile: Hashable, Sendable {
   let url: URL
   let fileSize: Int64
   let modificationDate: Date
-  /// What to call the model on screen: the catalog name for a downloaded model, the file name for
-  /// one copied across by hand.
+  /// What to call the model on screen: the catalog name where there is one, the file name otherwise.
   let displayName: String
 }
 
-/// Finds the imported model, waits for a copy in progress to finish, and protects the file.
+/// Finds the installed model and protects the file.
 ///
-/// You copy a `.litertlm` file into the app's Documents folder over a cable (Finder's Files tab) or
-/// with the Files app. Once the copy is complete the file moves into Application Support/Models,
-/// which is hidden from the Files app and excluded from backups.
+/// A downloaded `.litertlm` file is built up in Application Support/Models, which is hidden from the
+/// Files app and excluded from backups.
 @MainActor
 @Observable
 final class ModelLibrary {
   enum State: Equatable {
     case checking
     case missing
-    case waitingForCopy(fileName: String)
     case ready(ModelFile)
     case failed(String)
   }
@@ -57,27 +54,18 @@ final class ModelLibrary {
   }
 
   func refresh() async {
-    // A download owns the models folder while it runs; importing into it would delete its work.
+    // A download owns the models folder while it runs; leave its half-built file alone.
     guard !downloader.isActive else { return }
     guard !isRefreshing else { return }
     isRefreshing = true
     defer { isRefreshing = false }
 
     do {
-      if let incoming = try ModelFiles.firstModel(in: ModelFiles.documentsDirectory()),
-        try await waitForCopyToFinish(incoming)
-      {
-        let file = try await Task.detached(priority: .userInitiated) {
-          try ModelFiles.importModel(from: incoming)
-        }.value
-        setState(.ready(file))
-      } else if let existing = try ModelFiles.firstModel(in: ModelFiles.modelsDirectory()) {
+      if let existing = try ModelFiles.firstModel(in: ModelFiles.modelsDirectory()) {
         setState(.ready(try ModelFiles.describe(existing)))
       } else {
         setState(.missing)
       }
-    } catch is CancellationError {
-      // The view that started this went away; the next refresh picks up where it left off.
     } catch {
       setState(.failed(error.localizedDescription))
     }
@@ -93,41 +81,17 @@ final class ModelLibrary {
     }
   }
 
-  /// Returns true once the file size has held steady across consecutive checks, or false if the file
-  /// disappears (a cancelled transfer). Moving a file that is still being written would leave a
-  /// truncated model behind.
-  private func waitForCopyToFinish(_ url: URL) async throws -> Bool {
-    setState(.waitingForCopy(fileName: url.lastPathComponent))
-    var lastSize = ModelFiles.fileSize(of: url)
-    var stableChecks = 0
-    while stableChecks < ModelFiles.requiredStableChecks {
-      try await Task.sleep(for: ModelFiles.copyPollInterval)
-      guard let size = ModelFiles.fileSize(of: url) else { return false }
-      stableChecks = (size > 0 && size == lastSize) ? stableChecks + 1 : 0
-      lastSize = size
-    }
-    return true
-  }
-
   private func setState(_ newState: State) {
     if state != newState { state = newState }
   }
 }
 
-/// The file-system side of importing a model. Not tied to an actor, so the slow parts can run off the
-/// main thread.
+/// The file-system side of installing a model. Not tied to an actor, so the slow parts can run off
+/// the main thread.
 enum ModelFiles {
   static let fileExtension = "litertlm"
-  static let copyPollInterval: Duration = .seconds(2)
-  static let requiredStableChecks = 2
 
-  /// Where a copied-in file lands. Visible in Finder and the Files app.
-  static func documentsDirectory() throws -> URL {
-    try FileManager.default.url(
-      for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
-  }
-
-  /// Where the imported model lives afterwards: private to the app and never backed up.
+  /// Where the model lives: private to the app and never backed up.
   static func modelsDirectory() throws -> URL {
     let support = try FileManager.default.url(
       for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
@@ -155,7 +119,8 @@ enum ModelFiles {
       .first
   }
 
-  /// Reads the size straight from disk. URL resource values are cached, which would defeat polling.
+  /// Reads the size straight from disk. URL resource values are cached, which would give a stale
+  /// answer for a file still being written.
   static func fileSize(of url: URL) -> Int64? {
     let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
     return (attributes?[.size] as? NSNumber)?.int64Value
@@ -172,16 +137,6 @@ enum ModelFiles {
       fileSize: (attributes[.size] as? NSNumber)?.int64Value ?? 0,
       modificationDate: attributes[.modificationDate] as? Date ?? .distantPast,
       displayName: name ?? url.deletingPathExtension().lastPathComponent)
-  }
-
-  /// Moves the copied-in model into Application Support/Models, replacing any previous model.
-  static func importModel(from source: URL) throws -> ModelFile {
-    // Clears the installed record too, so a file copied across by hand isn't labelled with the name
-    // of the last downloaded model.
-    try removeImportedModels()
-    let destination = try modelsDirectory().appendingPathComponent(source.lastPathComponent)
-    try FileManager.default.moveItem(at: source, to: destination)
-    return try describe(destination)
   }
 
   static func removeImportedModels() throws {

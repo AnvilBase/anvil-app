@@ -15,7 +15,7 @@ no servers, and the maintainers never receive your data — there is nowhere for
 | Memories | `Application Support/Memory/memories.json` | Same |
 | Settings, including your system prompt | `Application Support/Settings/settings.json` | Same |
 | Usage totals | `Application Support/Metrics/usage.json` | Same |
-| The imported model | `Application Support/Models/` | Excluded from backups |
+| The installed model | `Application Support/Models/` | Excluded from backups |
 | Engine caches | `Library/Caches/EngineCache` | Not backed up |
 
 "Complete file protection" means the files are encrypted with a key tied to your passcode and can't be
@@ -37,15 +37,14 @@ message, plus the build's Brave API key. Brave's
 Nothing else about the chat is sent — not your history, not your system prompt, not your photos. The
 reply lists every query it ran. Web search is unavailable entirely in builds without a key.
 
-**2. Downloading a model — `anvilai.com`, then GitHub.** Only from the **Add a model** screen, and
+**2. Downloading a model — `anvilai.com`, then GitHub.** Only from the **Select a model** screen, and
 only until a model is installed: once you have one, the app never contacts anvilai.com again. Listing
 the models is a plain `GET` of a public JSON file with no query, no identifier, and nothing about you
 attached. Tapping **Download** fetches the parts from the same domain, which redirects each one to a
 file hosted in a GitHub release — so, as with any download, anvilai.com and GitHub see your IP address
 and which model you chose. Nothing about your chats, your settings, or your phone is sent. Downloads
-use Wi-Fi unless you turn on **Download over cellular**. You never have to use this: a `.litertlm` file
-copied across from a Mac skips it entirely, and a build can be pointed at a different host with
-`ANVIL_MODELS_HOST`.
+use Wi-Fi unless you turn on **Download over cellular**. A build can be pointed at a different host
+with `ANVIL_MODELS_HOST`.
 
 `NWPathMonitor` (`Sources/System/NetworkStatus.swift`) reads whether the phone is online and
 transmits nothing. The app has no web views and opens no sockets.

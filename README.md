@@ -102,8 +102,9 @@ them are needed for iOS, where the framework arrives as a release zip. If resolv
 
 ## Install a model
 
-The app ships without a model — it's gigabytes, and which one you want is your choice — so the first
-screen asks for one. There are two ways to get one.
+A new install opens on a welcome screen — what the app is, in three lines, and **Continue**. It is
+shown once. After that the app ships without a model — it's gigabytes, and which one you want is your
+choice — so the next screen asks for one.
 
 ### Download it in the app
 
@@ -127,25 +128,9 @@ the model files are published from
 publishes them — point `ANVIL_MODELS_HOST` (see [Configuration](#configuration)) at your own
 deployment to serve your own.
 
-### Copy one across from a Mac
-
-Any LiteRT-LM `.litertlm` file works, including ones Anvil doesn't publish. Open **Copy a file across
-instead** on the model screen, then:
-
-1. On your Mac, download a `.litertlm` file. The
-   [LiteRT community](https://huggingface.co/litert-community) publishes a number of them; pick one
-   small enough to load on a phone, which in practice means 4 GB or under.
-2. Launch the app on the iPhone.
-3. In Finder, select the iPhone in the sidebar, open the **Files** tab, and drag the `.litertlm` file
-   onto **Anvil AI** (or **Anvil Dev**). You can also move it into **On My iPhone › Anvil AI** in the
-   Files app.
-4. Leave the app open. It waits until the file size stops changing, which means the copy has
-   finished, then moves the file into `Application Support/Models/`, excludes it from backups, and
-   loads it. **Check again** re-scans immediately.
-
-Either way, a new model replaces the old one. If loading fails, the error screen offers **Remove model
-and re-import**. The first load is slow; engine caches go in `Library/Caches/EngineCache`, so later
-launches are much faster.
+A new model replaces the old one. If loading fails, **Settings › Model** offers **Remove model**. The
+first load is slow; engine caches go in `Library/Caches/EngineCache`, so later launches are much
+faster.
 
 ## What the app does
 
@@ -252,13 +237,13 @@ Support/         per-app Info.plist and entitlements
 | File | Role |
 | --- | --- |
 | `App/AppFlavor.swift` | Public or development build: app name, URL scheme, storage namespace |
-| `App/AnvilRootScene.swift` | Switches between installing a model and chatting; history and foreground work |
+| `App/AnvilRootScene.swift` | Switches between welcome, installing a model and chatting; history and foreground work |
 | `Chat/ChatModel.swift` | The observable state every screen reads; decides where each reply runs |
 | `Chat/ChatTranscript.swift` | Chat, message, reply-stats, and usage-totals models |
 | `Chat/ChatArchive.swift` | Saves chats, photos, and totals as protected files |
 | `Chat/PrivateFiles.swift` | Complete file protection, excluded from backups |
 | `Engine/OnDeviceEngine.swift` | LiteRT-LM engine and conversation: load with fallbacks, stream, cancel, count |
-| `Engine/ModelLibrary.swift` | Finds the installed model, waits for a copy to finish, moves it into private storage |
+| `Engine/ModelLibrary.swift` | Finds the installed model in private storage and keeps it out of backups |
 | `Engine/ModelCatalog.swift` | The models anvilai.com publishes, and where to fetch their parts |
 | `Engine/ModelDownloader.swift` | Downloads a model part by part, checks each one, appends them into the file |
 | `Engine/ModelDownloadSession.swift` | The background URLSession that keeps a download running when the app isn't |
@@ -282,7 +267,7 @@ Support/         per-app Info.plist and entitlements
 | `UI/MessageRow.swift` | One message, with thinking, searches, sources, and metrics |
 | `UI/ChatStyle.swift` | Shared colours and the Liquid Glass helpers |
 | `UI/MarkdownView.swift` | The Markdown renderer |
-| `UI/SettingsScreen.swift`, `MetricsScreen.swift`, `ModelSetupScreen.swift`, `MemoryScreen.swift`, `DeveloperScreen.swift` | The rest of the screens |
+| `UI/WelcomeScreen.swift`, `SettingsScreen.swift`, `MetricsScreen.swift`, `ModelSetupScreen.swift`, `MemoryScreen.swift`, `DeveloperScreen.swift` | The rest of the screens |
 
 **Engine fallbacks.** With the backend set to Automatic, loading tries GPU with vision on CPU, then
 GPU text-only, then CPU with vision on CPU, then CPU text-only, and shows a banner if it had to fall

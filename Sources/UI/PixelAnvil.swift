@@ -14,7 +14,9 @@ struct PixelAnvil: View {
   var size: CGFloat = 56
   var color: Color = .primary
 
-  private static let rows = [
+  /// Shared with ``AnvilStrike``, which animates the same seven strings rather than keeping a
+  /// second copy of the mark.
+  static let rows = [
     "#######",
     "#######",
     "#######",

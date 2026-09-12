@@ -1,10 +1,10 @@
-// The public app: Anvil AI.
+// The public app: Anvil.
 
 #include "Shared.xcconfig"
 
 PRODUCT_NAME = $(TARGET_NAME)
 PRODUCT_BUNDLE_IDENTIFIER = $(ANVIL_BUNDLE_PREFIX).AnvilAI
-INFOPLIST_KEY_CFBundleDisplayName = Anvil AI
+INFOPLIST_KEY_CFBundleDisplayName = Anvil
 INFOPLIST_FILE = Support/AnvilAI/Info.plist
 
 // Clear this in Config/Local.xcconfig (ANVIL_ENTITLEMENTS =) if your Apple ID can't sign the

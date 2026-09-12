@@ -95,9 +95,8 @@ xcconfig reads `//` as the start of a comment, which is why that setting is a ho
 ## Getting a model onto the phone
 
 `ModelCatalog` reads the list at `https://$(ANVIL_MODELS_HOST)/api/models`; `ModelDownloader` walks a
-model's parts, and `ModelDownloadSession` moves the bytes. `ModelLibrary` owns both that path and the
-copy-a-file-in path, and is the only thing the root scene knows about — a model is a model to
-everything downstream, however it arrived.
+model's parts, and `ModelDownloadSession` moves the bytes. `ModelLibrary` owns that path and is the
+only thing the root scene knows about — a model is a model to everything downstream.
 
 ## Storage
 
@@ -106,14 +105,10 @@ Everything personal goes through `PrivateFiles`, which means `.completeFileProte
 failed save is retried by the next one rather than surfaced as an error. Chats live one folder per
 chat, with photos as sibling JPEGs, so deleting a chat is removing a directory.
 
-The model is moved, not copied, out of Documents once its size has held steady across two checks —
-copying would need 8 GB free, and moving a file that's still being written would leave a truncated
-model.
-
 A downloaded model is built up in the same folder as `<name>.litertlm.partial` and renamed only when
 the last part is in, so a half-finished download can never be mistaken for a model worth loading.
-`ModelLibrary.refresh()` no-ops while a download is running, because importing a file from Documents
-empties that folder and would delete the download's work.
+`ModelLibrary.refresh()` no-ops while a download is running, so a half-built file is never mistaken
+for an installed model.
 
 ## Things that look odd but aren't
 

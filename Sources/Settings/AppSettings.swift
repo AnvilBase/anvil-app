@@ -78,6 +78,8 @@ struct AppSettings: Codable, Equatable, Sendable {
   var autoSendVoice = true
   /// Light, dark, or whatever the phone is set to.
   var appearance = AppearancePreference.system
+  /// Whether the welcome screen has been shown. It is shown once, on the first launch.
+  var hasSeenWelcome = false
   /// Asks the development app to present itself as the public one. Meaningless in the public app,
   /// which has no way to be handed it — see `AppFlavor.showsDevelopmentFeatures`.
   var previewAsPublic = false
@@ -104,6 +106,7 @@ struct AppSettings: Codable, Equatable, Sendable {
     memoryEnabled = try value(.memoryEnabled, defaults.memoryEnabled)
     autoSendVoice = try value(.autoSendVoice, defaults.autoSendVoice)
     appearance = try value(.appearance, defaults.appearance)
+    hasSeenWelcome = try value(.hasSeenWelcome, defaults.hasSeenWelcome)
     previewAsPublic = try value(.previewAsPublic, defaults.previewAsPublic)
   }
 }
