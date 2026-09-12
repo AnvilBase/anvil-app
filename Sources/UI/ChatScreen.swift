@@ -40,8 +40,11 @@ struct ChatScreen: View {
         content
           // The colour runs to the screen edges; the content itself stays inside the safe area.
           .background(ChatStyle.page.ignoresSafeArea())
-          .toolbar { toolbarItems }
+          .safeAreaInset(edge: .top, spacing: 0) { topBar }
           #if os(iOS)
+            // The stack is kept for the safe area it works out and the scroll edges it softens.
+            // Its bar is not: see `topBar`.
+            .toolbar(.hidden, for: .navigationBar)
             .navigationBarTitleDisplayMode(.inline)
           #endif
       }
@@ -109,26 +112,48 @@ struct ChatScreen: View {
 
   /// Buttons only. Nothing names the model or the app up here: which model is loaded is a thing to
   /// go and look at, not a thing to read over every conversation.
-  @ToolbarContentBuilder
-  private var toolbarItems: some ToolbarContent {
-    ToolbarItem(placement: .navigation) {
-      Button("Chats", systemImage: "line.3.horizontal") {
+  ///
+  /// Not a toolbar. The system bar is a fixed 44pt tall and sizes its buttons to suit itself, so a
+  /// button in it could be neither the size of the drawer's nor the same size as the one beside
+  /// it — iOS 26 gathers adjacent items into one shared capsule, which is what ran Developer and
+  /// New chat together. These are the same circles the rest of the app is built from, spaced
+  /// apart, so every button in Anvil is one button and one size.
+  private var topBar: some View {
+    HStack(spacing: 10) {
+      barButton("Chats", systemImage: "line.3.horizontal") {
         inputFocused = false
         withAnimation(ChatStyle.sidebarMotion) { isSidebarOpen = true }
       }
-    }
-    // The one thing the development app has that the public app doesn't, sitting just left of
-    // New chat.
-    if AppFlavor.isDevelopment {
-      ToolbarItem(placement: .primaryAction) {
-        Button("Developer", systemImage: "hammer") { showingDeveloper = true }
-          .imageScale(.small)
+      Spacer(minLength: 0)
+      // The one thing the development app has that the public app doesn't, sitting just left of
+      // New chat.
+      if AppFlavor.isDevelopment {
+        barButton("Developer", systemImage: "hammer") { showingDeveloper = true }
+      }
+      barButton(
+        "New chat", systemImage: "square.and.pencil", disabled: chat.messages.isEmpty
+      ) {
+        chat.newChat()
       }
     }
-    ToolbarItem(placement: .primaryAction) {
-      Button("New chat", systemImage: "square.and.pencil") { chat.newChat() }
-        .disabled(chat.messages.isEmpty)
+    .padding(.horizontal, 14)
+    .padding(.vertical, 6)
+  }
+
+  private func barButton(
+    _ title: String, systemImage: String, disabled: Bool = false, action: @escaping () -> Void
+  ) -> some View {
+    Button(action: action) {
+      Image(systemName: systemImage)
+        .font(.system(size: ChatStyle.controlGlyph, weight: .medium))
+        .frame(width: ChatStyle.control, height: ChatStyle.control)
+        .liquidGlass(in: Circle(), interactive: true)
     }
+    .buttonStyle(.plain)
+    .foregroundStyle(.primary)
+    .opacity(disabled ? 0.4 : 1)
+    .disabled(disabled)
+    .accessibilityLabel(title)
   }
 
   // MARK: - What fills the screen
@@ -271,9 +296,9 @@ struct ChatScreen: View {
             jumpToLatest(proxy)
           } label: {
             Image(systemName: "chevron.down")
-              .font(.system(size: ChatStyle.controlGlyph, weight: .medium))
+              .font(.system(size: ChatStyle.inlineControlGlyph, weight: .medium))
               .foregroundStyle(.primary)
-              .frame(width: ChatStyle.control, height: ChatStyle.control)
+              .frame(width: ChatStyle.inlineControl, height: ChatStyle.inlineControl)
               .liquidGlass(in: Circle(), interactive: true)
           }
           .buttonStyle(.plain)

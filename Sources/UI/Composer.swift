@@ -97,7 +97,7 @@ struct Composer: View {
           .overlay(alignment: .topTrailing) {
             Button("Remove image", systemImage: "xmark.circle.fill") { chat.removePendingImage() }
               .labelStyle(.iconOnly)
-              .font(.system(size: ChatStyle.controlGlyph))
+              .font(.system(size: ChatStyle.inlineControlGlyph))
               .symbolRenderingMode(.palette)
               .foregroundStyle(.white, .black.opacity(0.5))
               .offset(x: 6, y: -6)
@@ -192,9 +192,9 @@ struct Composer: View {
 
   private func plusLabel(available: Bool) -> some View {
     Image(systemName: "plus")
-      .font(.system(size: ChatStyle.controlGlyph, weight: .medium))
+      .font(.system(size: ChatStyle.inlineControlGlyph, weight: .medium))
       .foregroundStyle(available ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary))
-      .frame(width: ChatStyle.control, height: ChatStyle.control)
+      .frame(width: ChatStyle.inlineControl, height: ChatStyle.inlineControl)
       .contentShape(Circle())
   }
 
@@ -222,9 +222,9 @@ struct Composer: View {
       chat.setWebSearch(!chat.webSearchOn)
     } label: {
       Image(systemName: "globe")
-        .font(.system(size: ChatStyle.controlGlyph, weight: .medium))
+        .font(.system(size: ChatStyle.inlineControlGlyph, weight: .medium))
         .foregroundStyle(webSearchGlyph)
-        .frame(width: ChatStyle.control, height: ChatStyle.control)
+        .frame(width: ChatStyle.inlineControl, height: ChatStyle.inlineControl)
         .background(
           chat.webSearchOn ? AnyShapeStyle(ChatStyle.sendFill) : AnyShapeStyle(.clear),
           in: Circle()
@@ -277,9 +277,9 @@ struct Composer: View {
   private var micButton: some View {
     Button { chat.toggleDictation() } label: {
       Image(systemName: chat.speechInput.isActive ? "stop.fill" : "mic.fill")
-        .font(.system(size: ChatStyle.controlGlyph, weight: .medium))
+        .font(.system(size: ChatStyle.inlineControlGlyph, weight: .medium))
         .foregroundStyle(chat.speechInput.isActive ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
-        .frame(width: ChatStyle.control, height: ChatStyle.control)
+        .frame(width: ChatStyle.inlineControl, height: ChatStyle.inlineControl)
         .contentShape(Circle())
     }
     .buttonStyle(.plain)
@@ -295,9 +295,9 @@ struct Composer: View {
   ) -> some View {
     Button(action: action) {
       Image(systemName: systemImage)
-        .font(.system(size: ChatStyle.controlGlyph, weight: .semibold))
+        .font(.system(size: ChatStyle.inlineControlGlyph, weight: .semibold))
         .foregroundStyle(tint == nil ? ChatStyle.sendGlyph : .white)
-        .frame(width: ChatStyle.control, height: ChatStyle.control)
+        .frame(width: ChatStyle.inlineControl, height: ChatStyle.inlineControl)
         .background(tint ?? ChatStyle.sendFill, in: Circle())
         .opacity(disabled ? 0.35 : 1)
     }

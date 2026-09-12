@@ -17,16 +17,17 @@ enum ChatStyle {
   // each other and to the type when any of it moves. All three are comfortably past the 44pt
   // Apple asks for, because a phone held one-handed is not a mouse.
 
-  /// The drawer's bottom row, and the search capsule beside it.
-  static let largeControl: CGFloat = 60
-  /// The composer's buttons, the chat's own bar, the photo viewer.
-  static let control: CGFloat = 50
-  /// The actions under a reply — a row of glyphs rather than a row of buttons, so it sits under
-  /// the other two.
+  /// Every round button that stands on its own: the bar across the top of the chat, the drawer's
+  /// settings button and the row along its bottom, the photo viewer. One size, because they are
+  /// the same kind of thing wherever you meet them.
+  static let control: CGFloat = 60
+  /// Buttons that sit inside a denser row rather than on their own — the composer's, and the
+  /// jump-to-latest that floats just above it.
+  static let inlineControl: CGFloat = 50
+  /// The actions under a reply, a row of glyphs rather than a row of buttons.
   static let smallControl: CGFloat = 40
-  /// The glyph inside a `control` or a `largeControl`.
-  static let controlGlyph: CGFloat = 22
-  /// The glyph inside a `smallControl`.
+  static let controlGlyph: CGFloat = 24
+  static let inlineControlGlyph: CGFloat = 22
   static let smallControlGlyph: CGFloat = 20
   /// The corner the chat is cut to once it starts sliding over the drawer. Rounder than the
   /// display's own, which is what makes it read as a card lifted off the screen rather than as the

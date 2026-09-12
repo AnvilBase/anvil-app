@@ -234,7 +234,7 @@ struct ChatSidebar: View {
         .font(.body.weight(.medium))
         .foregroundStyle(.red)
         .frame(maxWidth: .infinity)
-        .frame(height: ChatStyle.largeControl)
+        .frame(height: ChatStyle.control)
         .liquidGlass(in: Capsule(), interactive: true)
     }
     .buttonStyle(.plain)
@@ -249,7 +249,7 @@ struct ChatSidebar: View {
     } label: {
       Image(systemName: "magnifyingglass")
         .font(.system(size: ChatStyle.controlGlyph, weight: .medium))
-        .frame(width: ChatStyle.largeControl, height: ChatStyle.largeControl)
+        .frame(width: ChatStyle.control, height: ChatStyle.control)
         .liquidGlass(in: Circle(), interactive: true)
     }
     .buttonStyle(.plain)
@@ -262,7 +262,7 @@ struct ChatSidebar: View {
     Button(action: onNewChat) {
       Image(systemName: "square.and.pencil")
         .font(.system(size: ChatStyle.controlGlyph, weight: .medium))
-        .frame(width: ChatStyle.largeControl, height: ChatStyle.largeControl)
+        .frame(width: ChatStyle.control, height: ChatStyle.control)
         .liquidGlass(in: Circle(), interactive: true)
     }
     .buttonStyle(.plain)
@@ -284,7 +284,7 @@ struct ChatSidebar: View {
           .focused($searchFocused)
       }
       .padding(.horizontal, 18)
-      .frame(height: ChatStyle.largeControl)
+      .frame(height: ChatStyle.control)
       .liquidGlass(in: Capsule())
 
       Button {
@@ -294,7 +294,7 @@ struct ChatSidebar: View {
       } label: {
         Image(systemName: "xmark")
           .font(.system(size: 19, weight: .semibold))
-          .frame(width: ChatStyle.largeControl, height: ChatStyle.largeControl)
+          .frame(width: ChatStyle.control, height: ChatStyle.control)
           .liquidGlass(in: Circle(), interactive: true)
       }
       .buttonStyle(.plain)
