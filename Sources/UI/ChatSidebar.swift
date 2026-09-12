@@ -175,7 +175,7 @@ struct ChatSidebar: View {
       HStack(spacing: 8) {
         Image(systemName: "trash")
           .font(.system(size: 15, weight: .medium))
-        Text("Clear all chats")
+        Text("Clear All Chats")
           .font(.system(size: 15, weight: .medium))
         Spacer(minLength: 0)
       }
@@ -188,7 +188,7 @@ struct ChatSidebar: View {
     .disabled(chat.savedChats.isEmpty)
     .padding(.horizontal, 14)
     .padding(.bottom, 10)
-    .accessibilityLabel("Clear all chats")
+    .accessibilityLabel("Clear All Chats")
   }
 
   private var accountRow: some View {
