@@ -179,19 +179,28 @@ struct ChatScreen: View {
     case .idle, .loading, .ready:
       conversation
 
-    // The mark and the sentence, and nothing else. What to do about it lives in Settings › Model,
-    // which the bar across the top can still reach from here.
     case .failed:
-      VStack(spacing: 16) {
-        Image(systemName: "exclamationmark.triangle")
-          .font(.largeTitle)
-          .foregroundStyle(.orange)
-        Text("Couldn't load the model")
-          .font(.title3.weight(.semibold))
-      }
-      .padding()
-      .frame(maxWidth: .infinity, maxHeight: .infinity)
+      failure
     }
+  }
+
+  /// The mark and the sentence, and nothing else. What to do about it lives in Settings › Model,
+  /// which the bar across the top can still reach from here.
+  ///
+  /// The composer stays, because the screen is still the chat and taking it away would say the app
+  /// had become something else. It simply won't send: Send is behind `canSend`, which wants a model
+  /// that loaded, and the microphone wants the same.
+  private var failure: some View {
+    VStack(spacing: 16) {
+      Image(systemName: "exclamationmark.triangle")
+        .font(.largeTitle)
+        .foregroundStyle(.orange)
+      Text("Couldn't load the model")
+        .font(.title3.weight(.semibold))
+    }
+    .padding()
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .safeAreaInset(edge: .bottom, spacing: 0) { composer }
   }
 
   private var conversation: some View {
@@ -207,12 +216,14 @@ struct ChatScreen: View {
     // is what keeps that swap from being a cut.
     .animation(ChatStyle.sendMotion, value: chat.messages.isEmpty)
     .sensoryFeedback(.impact(weight: .light), trigger: chat.replyStarted)
-    .safeAreaInset(edge: .bottom, spacing: 0) {
-      Composer(
-        chat: chat,
-        isInputFocused: $inputFocused,
-        onShowPhoto: { fullScreenPhoto = FullScreenPhoto(image: $0) })
-    }
+    .safeAreaInset(edge: .bottom, spacing: 0) { composer }
+  }
+
+  private var composer: some View {
+    Composer(
+      chat: chat,
+      isInputFocused: $inputFocused,
+      onShowPhoto: { fullScreenPhoto = FullScreenPhoto(image: $0) })
   }
 
   @ViewBuilder
