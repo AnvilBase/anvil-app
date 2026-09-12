@@ -17,9 +17,6 @@ struct ChatSidebar: View {
   /// up room on a screen that is mostly a list.
   @State private var isSearching = false
   @State private var confirmingClearAll = false
-  /// Whether the confirmation has been lifted off Clear All, as opposed to merely existing. See
-  /// `raiseConfirm`.
-  @State private var confirmRaised = false
   @FocusState private var searchFocused: Bool
   /// How much of the drawer the keyboard is sitting over. The drawer keeps its full height while
   /// the keyboard is up — see `SidebarContainer` — so the search field, which lives along the
@@ -48,7 +45,7 @@ struct ChatSidebar: View {
         if confirmingClearAll {
           Color.clear
             .contentShape(Rectangle())
-            .onTapGesture { lowerConfirm() }
+            .onTapGesture { withAnimation(ChatStyle.confirmMotion) { confirmingClearAll = false } }
         }
       }
       actionBar
@@ -212,29 +209,14 @@ struct ChatSidebar: View {
 
   // MARK: - Bottom
 
-  /// How close two surfaces have to be to run together, and how far apart the two end up. The
-  /// second is the larger on purpose — see `actionBar`.
-  private static let mergeWithin: CGFloat = 16
-  private static let restingGap: CGFloat = 24
+  /// How far above Clear All the confirmation sits, and so also how far it travels to get there.
+  private static let restingGap: CGFloat = 20
 
   /// Clear the list, search it, or start a new chat — or, once search is open, the field itself in
   /// their place. Three ordinary buttons with air between them: they are three separate things and
   /// must look like three separate things.
   ///
-  /// The button that confirms Clear All comes up out of it rather than replacing it. Those two are
-  /// held in a glass group so that they are one surface while they are touching and pull apart into
-  /// two as it rises — Search and New chat are outside that group, and stay their own buttons.
-  ///
-  /// The merging is the journey, not the destination. Glass in a group runs together only while it
-  /// is closer than the group's spacing, so the gap they come to rest at is wider than that: they
-  /// flow apart on the way up and are two separate buttons by the time they stop.
-  ///
-  /// What moves it is the stack's own spacing, and that is the whole trick. `offset` and
-  /// `scaleEffect` are drawn on afterwards — they move the picture of a thing, not the thing — and
-  /// the group decides what to merge from where things actually are. Animated that way the two
-  /// capsules stayed a fixed distance apart as far as the glass was concerned, and nothing ever
-  /// ran together. So the confirmation is laid out on top of Clear All, at a spacing of minus its
-  /// own height, and the spacing is what springs open.
+  /// The button that confirms Clear All slides up out of it and fades in. Nothing more than that.
   @ViewBuilder
   private var actionBar: some View {
     Group {
@@ -242,56 +224,29 @@ struct ChatSidebar: View {
         searchField
       } else {
         HStack(alignment: .bottom, spacing: 10) {
-          LiquidGlassGroup(spacing: Self.mergeWithin) {
-            VStack(spacing: confirmRaised ? Self.restingGap : -ChatStyle.control) {
-              if confirmingClearAll { confirmButton }
-              clearAllButton
-            }
+          VStack(spacing: Self.restingGap) {
+            if confirmingClearAll { confirmButton }
+            clearAllButton
           }
           searchButton
           newChatButton
         }
       }
     }
+    .animation(ChatStyle.confirmMotion, value: confirmingClearAll)
     .padding(.horizontal, 14)
     .padding(.top, 8)
     .padding(.bottom, 12 + (isSearching ? keyboardOverlap : 0))
   }
 
-  /// Puts the confirmation on top of Clear All and then lifts it off.
-  ///
-  /// Two steps, and they cannot be one: the first lays it out overlapping, and only once it is
-  /// there is there anything for the second to pull away. Asking for both at once gives SwiftUI a
-  /// view that has never had a position to animate from.
-  private func raiseConfirm() {
-    confirmingClearAll = true
-    DispatchQueue.main.async {
-      withAnimation(ChatStyle.confirmMotion) { confirmRaised = true }
-    }
-  }
-
-  /// Sinks it back into the button and takes it away once it has arrived.
-  private func lowerConfirm() {
-    guard confirmingClearAll else { return }
-    withAnimation(ChatStyle.confirmMotion) { confirmRaised = false }
-    Task { @MainActor in
-      try? await Task.sleep(for: .seconds(0.5))
-      guard !confirmRaised else { return }
-      confirmingClearAll = false
-    }
-  }
-
   /// The one thing pressing Clear All puts on the screen: the button that means it, over the button
   /// that asked. There is nothing to press to get out of it — anywhere else in the drawer does, and
   /// so does Clear All again.
-  ///
-  /// It arrives already covering Clear All rather than fading in, because the two have to be one
-  /// surface before they can be seen becoming two.
   private var confirmButton: some View {
     Button {
       chat.deleteAllChats()
       onOpenChat()
-      lowerConfirm()
+      withAnimation(ChatStyle.confirmMotion) { confirmingClearAll = false }
     } label: {
       Text("Confirm?")
         .font(.body.weight(.semibold))
@@ -302,14 +257,15 @@ struct ChatSidebar: View {
     }
     .buttonStyle(.plain)
     .accessibilityHint("Every chat saved on this iPhone is deleted. This can't be undone.")
-    .transition(.identity)
+    // Out of the button below it, and back into it on the way out.
+    .transition(.offset(y: ChatStyle.control + Self.restingGap).combined(with: .opacity))
   }
 
   /// The one named button of the three, because it's the one there is no undo for. It asks before
   /// it does anything.
   private var clearAllButton: some View {
     Button {
-      if confirmingClearAll { lowerConfirm() } else { raiseConfirm() }
+      withAnimation(ChatStyle.confirmMotion) { confirmingClearAll.toggle() }
     } label: {
       Label("Clear All", systemImage: "trash")
         .font(.body.weight(.medium))

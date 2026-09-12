@@ -143,6 +143,14 @@ struct ReplyStatsRows: View {
   let stats: ReplyStats
 
   var body: some View {
+    // Speed first, and the rate the reply was written at first within it: it is the number anyone
+    // opening this came to see, and it used to be three rows down the second section.
+    Section("Speed") {
+      LabeledContent("Decode speed", value: MetricFormat.rate(stats.decodeTokensPerSecond))
+      LabeledContent("Time to first token", value: MetricFormat.seconds(stats.timeToFirstToken))
+      LabeledContent("Prefill speed", value: MetricFormat.rate(stats.prefillTokensPerSecond))
+      LabeledContent("Total time", value: MetricFormat.seconds(stats.totalSeconds))
+    }
     Section("Tokens") {
       LabeledContent("Prompt (prefill)", value: MetricFormat.count(stats.promptTokens))
       LabeledContent("Reply (decode)", value: MetricFormat.count(stats.replyTokens))
@@ -150,12 +158,6 @@ struct ReplyStatsRows: View {
         "Context after reply",
         value: stats.contextTokens.map { "\($0.formatted()) / \(stats.contextLimit.formatted())" }
           ?? "—")
-    }
-    Section("Speed") {
-      LabeledContent("Time to first token", value: MetricFormat.seconds(stats.timeToFirstToken))
-      LabeledContent("Prefill speed", value: MetricFormat.rate(stats.prefillTokensPerSecond))
-      LabeledContent("Decode speed", value: MetricFormat.rate(stats.decodeTokensPerSecond))
-      LabeledContent("Total time", value: MetricFormat.seconds(stats.totalSeconds))
     }
     Section {
       LabeledContent("Produced by", value: stats.producedBy)
