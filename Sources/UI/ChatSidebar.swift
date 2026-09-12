@@ -213,16 +213,22 @@ struct ChatSidebar: View {
   /// their place. Three ordinary buttons with air between them: they are three separate things and
   /// must look like three separate things.
   ///
-  /// The button that confirms Clear All rises above them rather than replacing them.
+  /// The button that confirms Clear All comes up out of it rather than replacing it. Those two are
+  /// held in a glass group so that they are one surface while they are touching and pull apart into
+  /// two as it rises — Search and New chat are outside that group, and stay their own buttons.
   @ViewBuilder
   private var actionBar: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      if confirmingClearAll, !isSearching { confirmButton }
+    Group {
       if isSearching {
         searchField
       } else {
-        HStack(spacing: 10) {
-          clearAllButton
+        HStack(alignment: .bottom, spacing: 10) {
+          LiquidGlassGroup(spacing: 44) {
+            VStack(spacing: 10) {
+              if confirmingClearAll { confirmButton }
+              clearAllButton
+            }
+          }
           searchButton
           newChatButton
         }
@@ -243,16 +249,21 @@ struct ChatSidebar: View {
       onOpenChat()
       withAnimation(ChatStyle.confirmMotion) { confirmingClearAll = false }
     } label: {
-      Text("Confirm")
+      Text("Confirm?")
         .font(.body.weight(.semibold))
         .foregroundStyle(.white)
-        .padding(.horizontal, 26)
+        .frame(maxWidth: .infinity)
         .frame(height: ChatStyle.control)
         .liquidGlass(in: Capsule(), tint: .red)
     }
     .buttonStyle(.plain)
     .accessibilityHint("Every chat saved on this iPhone is deleted. This can't be undone.")
-    .transition(.opacity.combined(with: .scale(scale: 0.94, anchor: .bottomLeading)))
+    // Starts exactly on top of the button it came from, the same width and the same shape, so
+    // there is one surface there and not two. Rising, it drags away from it and pinches off.
+    .transition(
+      .offset(y: ChatStyle.control + 10)
+        .combined(with: .scale(scale: 0.82, anchor: .bottom))
+        .combined(with: .opacity))
   }
 
   /// The one named button of the three, because it's the one there is no undo for. It asks before

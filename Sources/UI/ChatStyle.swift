@@ -40,8 +40,10 @@ enum ChatStyle {
   /// Sending: the message lifting out of the capsule, the capsule collapsing back to one line, and
   /// the conversation scrolling up to meet it all ride the same spring, so they read as one motion.
   static let sendMotion: Animation = .spring(duration: 0.32, bounce: 0.12)
-  /// A confirmation arriving over the button that asked for it, and leaving again.
-  static let confirmMotion: Animation = .snappy(duration: 0.24)
+  /// A confirmation coming up out of the button that asked for it, and sinking back into it. Long
+  /// enough to watch and springy enough to have weight: it is one surface separating into two, and
+  /// that only reads if it takes its time.
+  static let confirmMotion: Animation = .spring(duration: 0.45, bounce: 0.22)
 
   static let page = adaptive(light: .white, dark: Color(white: 0.078))
   static let userBubble = adaptive(light: Color(white: 0.945), dark: Color(white: 0.188))
