@@ -296,7 +296,8 @@ struct ChatScreen: View {
         .animation(ChatStyle.sendMotion, value: chat.messagesSent)
       }
       .scrollDismissesKeyboard(.interactively)
-      .mask { Self.scrollFade }
+      .overlay(alignment: .top) { Self.scrollFade(.top) }
+      .overlay(alignment: .bottom) { Self.scrollFade(.bottom) }
       .modifier(LatestMessageTracker(isFollowing: $isFollowingLatest, isUserScrolling: $isUserScrolling))
       .onChange(of: chat.messages.count) { oldCount, newCount in
         // Sending jumps to your message and then follows the reply.
@@ -338,20 +339,25 @@ struct ChatScreen: View {
   /// then the text has stopped growing and this had stopped changing. The conversation stayed where
   /// the last word left it and the row that had just appeared sat behind the composer. So the end
   /// of the reply counts as a step of its own.
-  /// The conversation thinning out where it runs under the bar at the top and behind the composer
-  /// at the bottom, rather than being cut off at a line.
+  /// The conversation thinning out at the very edges of the screen, rather than being cut off at a
+  /// line.
   ///
-  /// iOS 26 will do this itself, but only where a scroll view meets a real bar with a background of
-  /// its own to fade into. The bar here is buttons on nothing, so there was nothing for it to key
-  /// off and it drew no edge at all. Drawn by hand it is the same everywhere, on every version.
-  private static var scrollFade: some View {
-    VStack(spacing: 0) {
-      LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
-        .frame(height: 26)
-      Rectangle().fill(.black)
-      LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
-        .frame(height: 26)
-    }
+  /// The page's own colour laid over the last few points, and not a mask, which is what this was.
+  /// A mask puts the whole conversation into a layer of its own, and glass has nothing to refract
+  /// once its backdrop is off in a layer somewhere — the buttons went from sitting over the words
+  /// to sitting on nothing. Painted over the top instead, the words are still really there behind
+  /// the glass, which is the only reason the glass is worth having.
+  ///
+  /// iOS 26 would do this itself, but only where a scroll view meets a real bar with a background
+  /// to fade into, and the bar here is buttons on nothing.
+  private static func scrollFade(_ edge: VerticalEdge) -> some View {
+    LinearGradient(
+      colors: [ChatStyle.page, ChatStyle.page.opacity(0)],
+      startPoint: edge == .top ? .top : .bottom,
+      endPoint: edge == .top ? .bottom : .top
+    )
+    .frame(height: 26)
+    .allowsHitTesting(false)
   }
 
   private var replyProgress: Int {
