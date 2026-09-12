@@ -37,6 +37,10 @@ final class ChatModel {
   /// Bumped the instant a reply's first words arrive. A counter, not a flag, so two replies in a
   /// row register as two events rather than one unchanged value.
   private(set) var replyStarted = 0
+  /// Bumped whenever a message of yours joins the chat. The screen watches it so it animates that
+  /// one arrival and nothing else: opening a chat and streaming a reply change the transcript too,
+  /// and neither should look like a message being sent.
+  private(set) var messagesSent = 0
   private(set) var contextTokens: Int?
   private(set) var totals = UsageTotals()
   /// The past message being edited. Sending replaces it and everything after it.
@@ -403,6 +407,7 @@ final class ChatModel {
     if let image { images[user.id] = image.preview }
     openChat.messages.append(contentsOf: [user, reply])
     openChat.updatedAt = Date()
+    messagesSent += 1
     isGenerating = true
     chatNotice = nil
 

@@ -9,7 +9,7 @@ struct ChatScreen: View {
 
   @State private var isSidebarOpen = false
   @State private var showingSettings = false
-  @State private var showingMetrics = false
+  @State private var showingDeveloper = false
   @State private var statsMessage: ChatMessage?
   /// The message open in the Select Text sheet.
   @State private var textToSelect: ChatMessage?
@@ -46,16 +46,31 @@ struct ChatScreen: View {
           #endif
       }
     }
+    .onChange(of: chat.messagesSent) {
+      // Whatever sent it — the button, or dictation finishing on its own — the keyboard goes down
+      // with the message. It rides its own curve, which starts on this same frame as the bubble
+      // lifts and the conversation scrolls, so the three read as one thing happening.
+      inputFocused = false
+    }
+    .onChange(of: isSidebarOpen) { _, isOpen in
+      // However the drawer was opened — the button, or a swipe from the edge — the keyboard goes
+      // away with it.
+      if isOpen { inputFocused = false }
+    }
     .task(id: model) { await chat.load(model) }
     .sheet(isPresented: $showingSettings, onDismiss: { Task { await chat.settingsDidClose() } }) {
       SettingsScreen(chat: chat, settings: chat.settings)
     }
-    .sheet(isPresented: $showingMetrics) {
+    .sheet(isPresented: $showingDeveloper) {
       NavigationStack {
-        MetricsScreen(chat: chat)
+        DeveloperScreen(chat: chat)
+          .navigationTitle("Developer")
+          #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+          #endif
           .toolbar {
             ToolbarItem(placement: .confirmationAction) {
-              Button("Done") { showingMetrics = false }
+              Button("Done") { showingDeveloper = false }
             }
           }
       }
@@ -81,7 +96,7 @@ struct ChatScreen: View {
   }
 
   private func closeSidebar() {
-    withAnimation(.interpolatingSpring(duration: 0.34, bounce: 0.08)) { isSidebarOpen = false }
+    withAnimation(ChatStyle.sidebarMotion) { isSidebarOpen = false }
   }
 
   private var alertBinding: Binding<Bool> {
@@ -92,52 +107,28 @@ struct ChatScreen: View {
 
   // MARK: - The bar across the top
 
+  /// Buttons only. Nothing names the model or the app up here: which model is loaded is a thing to
+  /// go and look at, not a thing to read over every conversation.
   @ToolbarContentBuilder
   private var toolbarItems: some ToolbarContent {
     ToolbarItem(placement: .navigation) {
-      Button("Chats", systemImage: "sidebar.left") {
+      Button("Chats", systemImage: "line.3.horizontal") {
         inputFocused = false
-        withAnimation(.interpolatingSpring(duration: 0.34, bounce: 0.08)) { isSidebarOpen = true }
+        withAnimation(ChatStyle.sidebarMotion) { isSidebarOpen = true }
       }
     }
-    ToolbarItem(placement: .principal) {
-      modelMenu
+    // The one thing the development app has that the public app doesn't, sitting just left of
+    // New chat.
+    if AppFlavor.isDevelopment {
+      ToolbarItem(placement: .primaryAction) {
+        Button("Developer", systemImage: "hammer") { showingDeveloper = true }
+          .imageScale(.small)
+      }
     }
     ToolbarItem(placement: .primaryAction) {
       Button("New chat", systemImage: "square.and.pencil") { chat.newChat() }
         .disabled(chat.messages.isEmpty)
     }
-  }
-
-  /// The name in the middle of the bar. Tapping it opens everything about how the app is behaving
-  /// right now.
-  private var modelMenu: some View {
-    Menu {
-      Section {
-        Button("Performance", systemImage: "speedometer") { showingMetrics = true }
-        Button("Settings", systemImage: "gearshape") { showingSettings = true }
-      }
-    } label: {
-      HStack(spacing: 5) {
-        Text(model.displayName)
-          .font(.system(size: 17, weight: .semibold))
-          .lineLimit(1)
-        if AppFlavor.isDevelopment {
-          Text("DEV")
-            .font(.system(size: 10, weight: .heavy))
-            .padding(.horizontal, 4)
-            .padding(.vertical, 1)
-            .background(.tint.opacity(0.2), in: RoundedRectangle(cornerRadius: 4))
-        }
-        Image(systemName: "chevron.down")
-          .font(.system(size: 11, weight: .semibold))
-          .foregroundStyle(.secondary)
-      }
-      .foregroundStyle(.primary)
-      .contentShape(Rectangle())
-    }
-    .accessibilityLabel(model.displayName)
-    .accessibilityHint("Opens performance and settings")
   }
 
   // MARK: - What fills the screen
@@ -149,7 +140,7 @@ struct ChatScreen: View {
       VStack(spacing: 16) {
         ProgressView()
         Text("Loading \(model.displayName)…")
-          .font(.headline)
+          .font(.title3.weight(.semibold))
         Text(
           "The first load can take a while as the engine prepares the model. Later launches are "
             + "much faster."
@@ -167,7 +158,7 @@ struct ChatScreen: View {
           .font(.largeTitle)
           .foregroundStyle(.orange)
         Text("Couldn't load the model")
-          .font(.headline)
+          .font(.title3.weight(.semibold))
         Text(message)
           .font(.subheadline)
           .foregroundStyle(.secondary)
@@ -196,6 +187,9 @@ struct ChatScreen: View {
         messageList
       }
     }
+    // The first message of a chat doesn't slide into a list, it replaces the empty screen; this
+    // is what keeps that swap from being a cut.
+    .animation(ChatStyle.sendMotion, value: chat.messages.isEmpty)
     .sensoryFeedback(.impact(weight: .light), trigger: chat.replyStarted)
     .safeAreaInset(edge: .bottom, spacing: 0) {
       Composer(
@@ -209,7 +203,7 @@ struct ChatScreen: View {
   private var notices: some View {
     ForEach([chat.notice, chat.chatNotice].compactMap { $0 }, id: \.self) { notice in
       Label(notice, systemImage: "exclamationmark.circle")
-        .font(.footnote)
+        .font(.subheadline)
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
         .background(Color.yellow.opacity(0.18), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -218,30 +212,17 @@ struct ChatScreen: View {
     }
   }
 
-  /// What you see before you've said anything.
+  /// What you see before you've said anything: nothing at all. It is still a scroll view, though
+  /// there is nothing to scroll, so that dragging down here puts the keyboard away exactly as it
+  /// does over a conversation.
   private var emptyState: some View {
-    VStack(spacing: 12) {
-      Spacer()
-      PixelAnvil(size: 30, color: ChatStyle.sendGlyph)
-        .frame(width: 56, height: 56)
-        .background(ChatStyle.sendFill, in: Circle())
-      Text(AppFlavor.appName)
-        .font(.title2.weight(.semibold))
-      Text(
-        chat.webSearchOn
-          ? "Answers are written on this iPhone. When the model searches, only its queries go to "
-            + "Brave Search."
-          : "Answers are written on this iPhone. Nothing you type leaves it."
-      )
-      .font(.footnote)
-      .foregroundStyle(.secondary)
-      .multilineTextAlignment(.center)
-      .padding(.horizontal, 44)
-      Spacer()
-      // Sits a little above the middle, so it doesn't crowd the composer.
-      Spacer().frame(height: 60)
+    GeometryReader { proxy in
+      ScrollView {
+        Color.clear.frame(height: proxy.size.height)
+      }
+      .scrollBounceBehavior(.always)
+      .scrollDismissesKeyboard(.interactively)
     }
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
   }
 
   private var messageList: some View {
@@ -270,6 +251,8 @@ struct ChatScreen: View {
               }
             )
             .id(message.id)
+            // Yours rises out of the capsule; the reply it is waiting on just appears.
+            .transition(message.role == .user ? .sendLift : .opacity)
           }
           Color.clear
             .frame(height: 1)
@@ -278,6 +261,9 @@ struct ChatScreen: View {
         .padding(.horizontal, 16)
         .padding(.top, 12)
         .padding(.bottom, 8)
+        // Keyed on the count of messages sent rather than on the transcript itself: opening
+        // another chat and streaming a reply both change the rows, and neither is an arrival.
+        .animation(ChatStyle.sendMotion, value: chat.messagesSent)
       }
       .scrollDismissesKeyboard(.interactively)
       .softScrollEdges()
@@ -298,9 +284,9 @@ struct ChatScreen: View {
             jumpToLatest(proxy)
           } label: {
             Image(systemName: "chevron.down")
-              .font(.system(size: 15, weight: .semibold))
+              .font(.system(size: 20, weight: .medium))
               .foregroundStyle(.primary)
-              .frame(width: 34, height: 34)
+              .frame(width: 42, height: 42)
               .liquidGlass(in: Circle(), interactive: true)
           }
           .buttonStyle(.plain)
@@ -322,7 +308,34 @@ struct ChatScreen: View {
 
   private func jumpToLatest(_ proxy: ScrollViewProxy) {
     isFollowingLatest = true
-    withAnimation { proxy.scrollTo(bottomID, anchor: .bottom) }
+    // The same spring the message itself is riding, so the conversation comes up to meet it.
+    withAnimation(ChatStyle.sendMotion) { proxy.scrollTo(bottomID, anchor: .bottom) }
+  }
+}
+
+/// The message you just sent, arriving from the capsule you typed it in: a little lower, a little
+/// smaller, and on its way up to where it belongs. Anchored bottom-trailing, the corner nearest the
+/// composer it came out of.
+///
+/// Not a matched-geometry morph out of the field itself: the transcript is a lazy stack inside a
+/// scroll view that is scrolling at the same moment, and a hero animation across that boundary is
+/// a well-known way to get a bubble that lands in the wrong place.
+private struct SendLift: ViewModifier {
+  let lifting: Bool
+
+  func body(content: Content) -> some View {
+    content
+      .opacity(lifting ? 0 : 1)
+      .scaleEffect(lifting ? 0.94 : 1, anchor: .bottomTrailing)
+      .offset(y: lifting ? 44 : 0)
+  }
+}
+
+extension AnyTransition {
+  fileprivate static var sendLift: AnyTransition {
+    .asymmetric(
+      insertion: .modifier(active: SendLift(lifting: true), identity: SendLift(lifting: false)),
+      removal: .opacity)
   }
 }
 

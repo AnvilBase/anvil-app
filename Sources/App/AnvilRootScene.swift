@@ -45,6 +45,11 @@ private struct RootView: View {
       await chat.restoreHistory()
       await library.refresh()
     }
+    // Two steps up from the system default, everywhere, and the only place any text size is set:
+    // everything else in the app asks for .body, .subheadline and the rest, so one number here
+    // moves all of it together. A floor rather than a fixed size, so anyone who has already asked
+    // iOS for larger text keeps the size they chose.
+    .dynamicTypeSize(.xxLarge...)
     .onChange(of: scenePhase) {
       guard scenePhase == .active else { return }
       Task {

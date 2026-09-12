@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// The drawer behind the chat: search at the top, a new chat, then every saved chat newest first
-/// under the day it was last used, and your account at the bottom.
+/// The drawer behind the chat: the name and settings across the top, every saved chat newest first
+/// under the day it was last used, and the three things you can do to that list along the bottom.
 struct ChatSidebar: View {
   let chat: ChatModel
   let onOpenChat: () -> Void
@@ -9,6 +9,11 @@ struct ChatSidebar: View {
   let onOpenSettings: () -> Void
 
   @State private var query = ""
+  /// Search replaces the row of buttons it was opened from, rather than sitting above them taking
+  /// up room on a screen that is mostly a list.
+  @State private var isSearching = false
+  @State private var confirmingClearAll = false
+  @FocusState private var searchFocused: Bool
 
   private var trimmedQuery: String { query.trimmingCharacters(in: .whitespaces) }
 
@@ -22,56 +27,47 @@ struct ChatSidebar: View {
 
   var body: some View {
     VStack(spacing: 0) {
-      searchField
-      newChatRow
+      header
       chatList
-      clearAllRow
-      Divider()
-        .overlay(ChatStyle.hairline)
-      accountRow
+      actionBar
     }
     .background(ChatStyle.sidebar)
+    .confirmationDialog(
+      "Are you sure?", isPresented: $confirmingClearAll, titleVisibility: .visible
+    ) {
+      Button("Clear All", role: .destructive) {
+        chat.deleteAllChats()
+        onOpenChat()
+      }
+      Button("Cancel", role: .cancel) {}
+    } message: {
+      Text("Every chat saved on this iPhone is deleted. This can't be undone.")
+    }
   }
 
   // MARK: - Top
 
-  private var searchField: some View {
-    HStack(spacing: 8) {
-      Image(systemName: "magnifyingglass")
-        .font(.system(size: 15, weight: .semibold))
-        .foregroundStyle(.secondary)
-      TextField("Search", text: $query)
-        .textFieldStyle(.plain)
-        .submitLabel(.search)
-        .autocorrectionDisabled()
-      if !query.isEmpty {
-        Button("Clear search", systemImage: "xmark.circle.fill") { query = "" }
-          .labelStyle(.iconOnly)
-          .foregroundStyle(.secondary)
-          .buttonStyle(.plain)
+  private var header: some View {
+    HStack(spacing: 10) {
+      // Drawn flat, not lit up a row at a time: the mark animating itself in every time the drawer
+      // is pulled open would be the loudest thing on the screen.
+      PixelAnvil(size: 24, animated: false)
+      Text("Anvil")
+        .font(.title2.weight(.semibold))
+      Spacer(minLength: 0)
+      Button(action: onOpenSettings) {
+        Image(systemName: "gearshape")
+          .font(.system(size: 20, weight: .medium))
+          .frame(width: 44, height: 44)
+          .liquidGlass(in: Circle(), interactive: true)
       }
+      .buttonStyle(.plain)
+      .foregroundStyle(.primary)
+      .accessibilityLabel("Settings")
     }
-    .padding(.horizontal, 12)
-    .padding(.vertical, 10)
-    .liquidGlass(in: Capsule())
-    .padding(.horizontal, 14)
-    .padding(.top, 8)
+    .padding(.horizontal, 16)
+    .padding(.top, 10)
     .padding(.bottom, 12)
-  }
-
-  private var newChatRow: some View {
-    Button(action: onNewChat) {
-      Label("New chat", systemImage: "square.and.pencil")
-        .font(.system(size: 16, weight: .medium))
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .contentShape(Rectangle())
-    }
-    .buttonStyle(.plain)
-    .foregroundStyle(.primary)
-    .padding(.horizontal, 14)
-    .padding(.bottom, 4)
   }
 
   // MARK: - Chats
@@ -93,7 +89,7 @@ struct ChatSidebar: View {
             }
           } header: {
             Text(group.title)
-              .font(.footnote.weight(.semibold))
+              .font(.subheadline.weight(.semibold))
               .foregroundStyle(.secondary)
               .textCase(nil)
           }
@@ -102,7 +98,7 @@ struct ChatSidebar: View {
       .listStyle(.plain)
       .listSectionSpacing(.compact)
       .scrollContentBackground(.hidden)
-      .environment(\.defaultMinListRowHeight, 36)
+      .environment(\.defaultMinListRowHeight, 42)
     }
   }
 
@@ -114,18 +110,18 @@ struct ChatSidebar: View {
     } label: {
       VStack(alignment: .leading, spacing: 2) {
         Text(saved.displayTitle)
-          .font(.system(size: 16))
+          .font(.body)
           .lineLimit(1)
         if let match = searchPreview(for: saved) {
           Text(match)
-            .font(.footnote)
+            .font(.subheadline)
             .foregroundStyle(.secondary)
             .lineLimit(1)
         }
       }
       .frame(maxWidth: .infinity, alignment: .leading)
       .padding(.horizontal, 12)
-      .padding(.vertical, 8)
+      .padding(.vertical, 10)
       .background(
         isOpen ? ChatStyle.sidebarRowHighlight : .clear,
         in: RoundedRectangle(cornerRadius: 10)
@@ -153,9 +149,9 @@ struct ChatSidebar: View {
   private func emptyState(_ title: String, detail: String) -> some View {
     VStack(spacing: 6) {
       Text(title)
-        .font(.subheadline.weight(.semibold))
+        .font(.headline)
       Text(detail)
-        .font(.footnote)
+        .font(.subheadline)
         .foregroundStyle(.secondary)
         .multilineTextAlignment(.center)
     }
@@ -165,58 +161,96 @@ struct ChatSidebar: View {
 
   // MARK: - Bottom
 
-  /// Clears every saved chat on one tap, with nothing to confirm — which is what was asked for, and
-  /// worth knowing there is no undo behind it.
-  private var clearAllRow: some View {
-    Button {
-      chat.deleteAllChats()
-      onOpenChat()
-    } label: {
-      HStack(spacing: 8) {
-        Image(systemName: "trash")
-          .font(.system(size: 15, weight: .medium))
-        Text("Clear All Chats")
-          .font(.system(size: 15, weight: .medium))
-        Spacer(minLength: 0)
+  /// Clear the list, search it, or start a new chat — or, once search is open, the field itself in
+  /// their place.
+  @ViewBuilder
+  private var actionBar: some View {
+    Group {
+      if isSearching {
+        searchField
+      } else {
+        HStack(spacing: 10) {
+          clearAllButton
+          searchButton
+          newChatButton
+        }
       }
-      .foregroundStyle(.red)
-      .padding(.horizontal, 14)
-      .frame(height: 44)
-      .liquidGlass(in: Capsule(), interactive: true)
+    }
+    .padding(.horizontal, 14)
+    .padding(.top, 8)
+    .padding(.bottom, 12)
+  }
+
+  /// The one named button of the three, because it's the one there is no undo for. It asks before
+  /// it does anything.
+  private var clearAllButton: some View {
+    Button { confirmingClearAll = true } label: {
+      Label("Clear All", systemImage: "trash")
+        .font(.body.weight(.medium))
+        .foregroundStyle(.red)
+        .frame(maxWidth: .infinity)
+        .frame(height: 52)
+        .liquidGlass(in: Capsule(), interactive: true)
     }
     .buttonStyle(.plain)
     .disabled(chat.savedChats.isEmpty)
-    .padding(.horizontal, 14)
-    .padding(.bottom, 10)
-    .accessibilityLabel("Clear All Chats")
+    .accessibilityLabel("Clear all chats")
   }
 
-  private var accountRow: some View {
-    Button(action: onOpenSettings) {
-      HStack(spacing: 10) {
-        Text(String(AppFlavor.appName.prefix(1)))
-          .font(.system(size: 15, weight: .semibold))
-          .foregroundStyle(ChatStyle.sendGlyph)
-          .frame(width: 30, height: 30)
-          .background(ChatStyle.sendFill, in: Circle())
-        VStack(alignment: .leading, spacing: 1) {
-          Text(AppFlavor.appName)
-            .font(.system(size: 15, weight: .medium))
-          Text(AppFlavor.isDevelopment ? "Development build" : "On this iPhone")
-            .font(.caption)
-            .foregroundStyle(.secondary)
-        }
-        Spacer()
-        Image(systemName: "ellipsis")
-          .foregroundStyle(.secondary)
-      }
-      .padding(.horizontal, 18)
-      .padding(.vertical, 12)
-      .contentShape(Rectangle())
+  private var searchButton: some View {
+    Button {
+      withAnimation(.snappy(duration: 0.22)) { isSearching = true }
+      searchFocused = true
+    } label: {
+      Image(systemName: "magnifyingglass")
+        .font(.system(size: 20, weight: .medium))
+        .frame(width: 52, height: 52)
+        .liquidGlass(in: Circle(), interactive: true)
     }
     .buttonStyle(.plain)
     .foregroundStyle(.primary)
-    .accessibilityLabel("Settings")
+    .disabled(chat.savedChats.isEmpty)
+    .accessibilityLabel("Search chats")
+  }
+
+  private var newChatButton: some View {
+    Button(action: onNewChat) {
+      Image(systemName: "square.and.pencil")
+        .font(.system(size: 20, weight: .medium))
+        .frame(width: 52, height: 52)
+        .liquidGlass(in: Circle(), interactive: true)
+    }
+    .buttonStyle(.plain)
+    .foregroundStyle(.primary)
+    .accessibilityLabel("New chat")
+  }
+
+  private var searchField: some View {
+    HStack(spacing: 8) {
+      HStack(spacing: 8) {
+        Image(systemName: "magnifyingglass")
+          .font(.body.weight(.semibold))
+          .foregroundStyle(.secondary)
+        TextField("Search", text: $query)
+          .textFieldStyle(.plain)
+          .font(.body)
+          .submitLabel(.search)
+          .autocorrectionDisabled()
+          .focused($searchFocused)
+      }
+      .padding(.horizontal, 16)
+      .frame(height: 52)
+      .liquidGlass(in: Capsule())
+
+      Button("Cancel") {
+        query = ""
+        searchFocused = false
+        withAnimation(.snappy(duration: 0.22)) { isSearching = false }
+      }
+      .font(.body)
+      .buttonStyle(.plain)
+      .foregroundStyle(.primary)
+    }
   }
 
   // MARK: - Text

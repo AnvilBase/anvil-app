@@ -5,26 +5,26 @@ import SwiftUI
   import UIKit
 #endif
 
-/// The capsule at the bottom of the chat. Everything you can do to a message lives on its one row:
-/// what you can attach, whether the web is in play, what you're typing, and the single round button
-/// that talks, sends, or stops. What you're editing and the photo waiting to be sent sit above it,
-/// so the capsule itself is always one line tall and keeps its shape.
+/// The capsule at the bottom of the chat: what you're typing across the top, and everything you can
+/// do to it on the row underneath — what you can attach, whether the web is in play, and the round
+/// button that talks, sends, or stops. What you're editing and the photo waiting to be sent sit
+/// above the capsule, so its own shape never changes except to grow with the message.
+///
+/// One arrangement, always. The field used to share a row with the buttons until the message
+/// outgrew it and then move to a row of its own, which meant SwiftUI building a second field and
+/// throwing the first away — and the keyboard went down with it, on the very keystroke that needed
+/// it, every time a message reached a second line.
 struct Composer: View {
   @Bindable var chat: ChatModel
   @FocusState.Binding var isInputFocused: Bool
   let onShowPhoto: (CGImage) -> Void
 
-  /// Heights of the message and of a single line, both measured at the width the message gets on
-  /// its own row. See `measurements`.
-  @State private var messageHeight: CGFloat = 0
-  @State private var oneLineHeight: CGFloat = 0
-
   @State private var photoSelection: PhotosPickerItem?
   @State private var showingCamera = false
   @State private var showingPhotoLibrary = false
 
-  /// A 24-point radius on a 48-point row is a capsule; it stays 24 as the field grows, which a
-  /// true Capsule would not — its ends would swell into half-circles over a long message.
+  /// A fixed radius rather than a true Capsule, whose ends would swell into half-circles as the
+  /// field grows.
   private var containerShape: RoundedRectangle {
     RoundedRectangle(cornerRadius: ChatStyle.composerCorner, style: .continuous)
   }
@@ -73,11 +73,11 @@ struct Composer: View {
       Label(
         "Editing a message — sending replaces it and everything after it", systemImage: "pencil"
       )
-      .font(.caption)
+      .font(.subheadline)
       .foregroundStyle(.secondary)
       Spacer(minLength: 8)
       Button("Cancel") { chat.cancelEditing() }
-        .font(.caption.weight(.medium))
+        .font(.subheadline.weight(.medium))
     }
     .padding(.horizontal, 14)
   }
@@ -97,7 +97,7 @@ struct Composer: View {
           .overlay(alignment: .topTrailing) {
             Button("Remove image", systemImage: "xmark.circle.fill") { chat.removePendingImage() }
               .labelStyle(.iconOnly)
-              .font(.system(size: 17))
+              .font(.system(size: 20))
               .symbolRenderingMode(.palette)
               .foregroundStyle(.white, .black.opacity(0.5))
               .offset(x: 6, y: -6)
@@ -121,82 +121,36 @@ struct Composer: View {
   private var messageField: some View {
     TextField("Ask Anvil", text: $chat.draft, axis: .vertical)
       .textFieldStyle(.plain)
-      .lineLimit(1...5)
-      .font(.system(size: 19))
+      .lineLimit(1...8)
+      // What you type is the size it will be once it has been sent.
+      .font(.body)
       .focused($isInputFocused)
-      .padding(.horizontal, 4)
-      .padding(.vertical, 7)
+      .padding(.horizontal, 8)
+      .padding(.top, 8)
+      .padding(.bottom, 2)
   }
 
   // MARK: - The controls under it
 
   private var inputCapsule: some View {
     LiquidGlassGroup {
-      Group {
-        if isExpanded {
-          // Past one line the message takes the whole width and the buttons drop beneath it, so
-          // the caret starts at the top left rather than squeezed between the controls.
-          VStack(alignment: .leading, spacing: 6) {
-            messageField
-            HStack(spacing: 4) {
-              addButton
-              webSearchButton
-              Spacer(minLength: 0)
-              trailingButtons
-            }
-          }
-        } else {
-          // Bottom-aligned, so the buttons sit on the baseline of a one-line message.
-          HStack(alignment: .bottom, spacing: 4) {
-            addButton
-            webSearchButton
-            messageField
-            trailingButtons
-          }
+      VStack(alignment: .leading, spacing: 10) {
+        messageField
+        HStack(spacing: 6) {
+          addButton
+          webSearchButton
+          Spacer(minLength: 0)
+          trailingButtons
         }
       }
-      .background(alignment: .topLeading) { measurements }
-      .padding(7)
-      .frame(minHeight: 48)
+      .padding(8)
       .liquidGlass(in: containerShape)
       .overlay(containerShape.strokeBorder(ChatStyle.hairline, lineWidth: 0.5))
-      .animation(.snappy(duration: 0.22), value: isExpanded)
       .animation(.snappy(duration: 0.18), value: hasSomethingToSend)
+      // Only on the empty-to-typing boundary, which is sending and starting again — not on every
+      // keystroke that grows the field a line.
+      .animation(ChatStyle.sendMotion, value: chat.draft.isEmpty)
     }
-    .onChange(of: isExpanded) { _, _ in
-      // Moving the field between rows rebuilds it, which drops the keyboard mid-sentence. The
-      // change only ever happens while typing, so putting focus back is invisible.
-      if !chat.draft.isEmpty { isInputFocused = true }
-    }
-  }
-
-  private var isExpanded: Bool {
-    // A newline the user typed counts even when it measures as nothing: Text drops a trailing one,
-    // so "Hello\n" comes back a single line tall and the capsule would stay shut on the very
-    // keystroke that should open it.
-    if chat.draft.contains("\n") { return true }
-    return oneLineHeight > 0 && messageHeight > oneLineHeight * 1.4
-  }
-
-  /// Decides when the message needs its own row, by laying it out at the width it *would* get there.
-  ///
-  /// Measuring the live field instead oscillates: the field is narrower while the buttons share its
-  /// row, so a message that wraps to two lines there fits on one once it expands — which collapses
-  /// it, which wraps it again. Measured at the wider width, anything needing two lines needs at
-  /// least two at the narrower one, so the decision only ever goes one way.
-  private var measurements: some View {
-    VStack(alignment: .leading, spacing: 0) {
-      Text(" ")
-        .font(.system(size: 19))
-        .measuringHeight { oneLineHeight = $0 }
-      Text(chat.draft.isEmpty ? " " : chat.draft)
-        .font(.system(size: 19))
-        .lineLimit(5)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .measuringHeight { messageHeight = $0 }
-    }
-    .hidden()
-    .allowsHitTesting(false)
   }
 
   /// Down, and meaningfully down rather than a wobble on the way to something else.
@@ -238,9 +192,9 @@ struct Composer: View {
 
   private func plusLabel(available: Bool) -> some View {
     Image(systemName: "plus")
-      .font(.system(size: 18, weight: .medium))
+      .font(.system(size: 20, weight: .medium))
       .foregroundStyle(available ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary))
-      .frame(width: 34, height: 34)
+      .frame(width: 42, height: 42)
       .contentShape(Circle())
   }
 
@@ -268,9 +222,9 @@ struct Composer: View {
       chat.setWebSearch(!chat.webSearchOn)
     } label: {
       Image(systemName: "globe")
-        .font(.system(size: 16, weight: .medium))
+        .font(.system(size: 20, weight: .medium))
         .foregroundStyle(webSearchGlyph)
-        .frame(width: 34, height: 34)
+        .frame(width: 42, height: 42)
         .background(
           chat.webSearchOn ? AnyShapeStyle(ChatStyle.sendFill) : AnyShapeStyle(.clear),
           in: Circle()
@@ -323,9 +277,9 @@ struct Composer: View {
   private var micButton: some View {
     Button { chat.toggleDictation() } label: {
       Image(systemName: chat.speechInput.isActive ? "stop.fill" : "mic.fill")
-        .font(.system(size: 18, weight: .medium))
+        .font(.system(size: 20, weight: .medium))
         .foregroundStyle(chat.speechInput.isActive ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
-        .frame(width: 34, height: 34)
+        .frame(width: 42, height: 42)
         .contentShape(Circle())
     }
     .buttonStyle(.plain)
@@ -341,9 +295,9 @@ struct Composer: View {
   ) -> some View {
     Button(action: action) {
       Image(systemName: systemImage)
-        .font(.system(size: 16, weight: .bold))
+        .font(.system(size: 20, weight: .semibold))
         .foregroundStyle(tint == nil ? ChatStyle.sendGlyph : .white)
-        .frame(width: 34, height: 34)
+        .frame(width: 42, height: 42)
         .background(tint ?? ChatStyle.sendFill, in: Circle())
         .opacity(disabled ? 0.35 : 1)
     }

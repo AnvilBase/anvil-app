@@ -20,9 +20,6 @@ struct SettingsScreen: View {
         generationSection
         modelSection
         historySection
-        if AppFlavor.isDevelopment {
-          developerSection
-        }
       }
       .navigationTitle("Settings")
       #if os(iOS)
@@ -225,17 +222,6 @@ struct SettingsScreen: View {
       Text(
         "Chats stay on this iPhone, can't be read while it's locked, and aren't included in "
           + "backups. A chat is deleted this long after its last message.")
-    }
-  }
-
-  /// Only in the development app.
-  private var developerSection: some View {
-    Section {
-      NavigationLink("Developer") {
-        DeveloperScreen(chat: chat)
-      }
-    } footer: {
-      Text("Shown in the development build only.")
     }
   }
 

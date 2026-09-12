@@ -47,8 +47,8 @@ struct MessageRow: View {
         if image != nil { photo }
         if !message.text.isEmpty {
           Text(message.text)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 11)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 13)
             .background(ChatStyle.userBubble, in: bubbleShape)
             .contentShape(bubbleShape)
             .contentShape(.contextMenuPreview, bubbleShape)
@@ -122,38 +122,46 @@ struct MessageRow: View {
 
   private func activityLabel(_ text: String, systemImage: String) -> some View {
     Label(text, systemImage: systemImage)
-      .font(.footnote)
+      .font(.subheadline)
       .foregroundStyle(.secondary)
   }
 
   private var thinking: some View {
     DisclosureGroup("Thinking") {
       Text(message.thinking)
-        .font(.footnote)
+        .font(.subheadline)
         .foregroundStyle(.secondary)
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.top, 4)
     }
-    .font(.footnote)
-    .padding(.horizontal, 12)
-    .padding(.vertical, 8)
+    .font(.subheadline)
+    .padding(.horizontal, 14)
+    .padding(.vertical, 10)
     .background(ChatStyle.fieldFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
   }
 
-  /// What the model is busy with before any words arrive.
+  /// What the model is busy with before any words arrive. Thinking is the pixels alone — there is
+  /// nothing to say about it that the animation doesn't already say. Searching says what it's
+  /// looking for.
   private var workingIndicator: some View {
     HStack(spacing: 8) {
-      ProgressView()
+      PixelThinking()
       if message.sources != nil {
         Text("Reading results…")
       } else if message.searchQueries != nil {
         Text("Searching the web…")
-      } else {
-        Text("Thinking…")
       }
     }
-    .font(.footnote)
+    .font(.subheadline)
     .foregroundStyle(.secondary)
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(workingDescription)
+  }
+
+  private var workingDescription: String {
+    if message.sources != nil { return "Reading results" }
+    if message.searchQueries != nil { return "Searching the web" }
+    return "Thinking"
   }
 
   /// Numbered to match the model's [1], [2] citations.
@@ -169,7 +177,7 @@ struct MessageRow: View {
                 [source.kind, source.url.host() ?? source.url.absoluteString, source.age]
                   .compactMap { $0 }.joined(separator: " · ")
               )
-              .font(.caption2)
+              .font(.footnote)
               .foregroundStyle(.secondary)
             }
             .multilineTextAlignment(.leading)
@@ -178,9 +186,9 @@ struct MessageRow: View {
       }
       .padding(.top, 4)
     }
-    .font(.footnote)
-    .padding(.horizontal, 12)
-    .padding(.vertical, 8)
+    .font(.subheadline)
+    .padding(.horizontal, 14)
+    .padding(.vertical, 10)
     .background(ChatStyle.fieldFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
   }
 
@@ -212,7 +220,7 @@ struct MessageRow: View {
         if let stats = message.stats {
           Button(action: onShowStats) {
             Label(Self.shortSummary(stats), systemImage: "speedometer")
-              .font(.caption)
+              .font(.footnote)
               .lineLimit(1)
           }
           .buttonStyle(.plain)
@@ -231,8 +239,8 @@ struct MessageRow: View {
   ) -> some View {
     Button(action: action) {
       Image(systemName: systemImage)
-        .font(.system(size: 15))
-        .frame(width: 22, height: 22)
+        .font(.system(size: 20, weight: .medium))
+        .frame(width: 28, height: 28)
         .contentShape(Rectangle())
     }
     .buttonStyle(.plain)

@@ -7,9 +7,15 @@ import SwiftUI
 /// The look the chat screens share: a plain page, a soft grey bubble for what you send, no bubble
 /// at all for the reply, and Liquid Glass on the surfaces that float above the conversation.
 enum ChatStyle {
-  static let messageCorner: CGFloat = 20
-  static let composerCorner: CGFloat = 24
+  static let messageCorner: CGFloat = 22
+  static let composerCorner: CGFloat = 30
   static let sidebarWidth: CGFloat = 320
+  /// The spring the drawer opens and closes with. Shared, so the button, the edge swipe and the
+  /// swipe back all land the same way.
+  static let sidebarMotion: Animation = .interpolatingSpring(duration: 0.34, bounce: 0.08)
+  /// Sending: the message lifting out of the capsule, the capsule collapsing back to one line, and
+  /// the conversation scrolling up to meet it all ride the same spring, so they read as one motion.
+  static let sendMotion: Animation = .spring(duration: 0.32, bounce: 0.12)
 
   static let page = adaptive(light: .white, dark: Color(white: 0.078))
   static let userBubble = adaptive(light: Color(white: 0.945), dark: Color(white: 0.188))

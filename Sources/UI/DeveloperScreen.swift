@@ -2,7 +2,7 @@ import SwiftUI
 
 /// What this build actually is and what the model can call, for when the two apps start to differ.
 ///
-/// Reachable from Settings in the development app only. It reads from `AppFlavor` and `ToolRegistry`
+/// Reachable from the hammer in the top bar of the development app only. It reads from `AppFlavor` and `ToolRegistry`
 /// rather than from a hard-coded list, so a tool added to the registry shows up here on its own.
 struct DeveloperScreen: View {
   let chat: ChatModel
@@ -57,6 +57,18 @@ struct DeveloperScreen: View {
         Text(
           "Declared in Sources/Tools/ToolRegistry.swift. Entries inside its ANVIL_DEV block exist "
             + "only in this app; the public build never sees them.")
+      }
+
+      Section {
+        NavigationLink("Performance and usage") { MetricsScreen(chat: chat) }
+        NavigationLink("Reply history") { PerformanceHistory(chat: chat) }
+      } header: {
+        Text("Performance")
+      } footer: {
+        Text(
+          "Live device readings and the running totals, and every measured reply plotted over "
+            + "time. Both live here rather than in the app itself: they are for working on Anvil, "
+            + "not for using it.")
       }
 
       Section("Network") {
