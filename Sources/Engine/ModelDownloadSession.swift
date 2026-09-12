@@ -33,7 +33,13 @@ final class ModelDownloadSession: NSObject {
   private let lock = NSLock()
   private var pending: [Int: Pending] = [:]
   private var names: [Int: String] = [:]
+  private var lastProgress: [Int: Date] = [:]
   private var backgroundEventsFinished: (() -> Void)?
+
+  /// iOS reports written bytes far more often than a progress bar can use. Reporting every one of
+  /// them buries the main actor in work and the number stops moving, which reads as a stuck
+  /// download while the bytes are in fact still landing.
+  private static let progressInterval: TimeInterval = 0.1
 
   private lazy var session: URLSession = {
     let configuration = URLSessionConfiguration.background(withIdentifier: Self.identifier)
@@ -113,6 +119,7 @@ final class ModelDownloadSession: NSObject {
     lock.lock()
     let handler = pending.removeValue(forKey: taskIdentifier)
     names.removeValue(forKey: taskIdentifier)
+    lastProgress.removeValue(forKey: taskIdentifier)
     lock.unlock()
     handler?.finish(result)
   }
@@ -148,9 +155,17 @@ extension ModelDownloadSession: URLSessionDownloadDelegate {
     _ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64,
     totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64
   ) {
+    let now = Date()
     lock.lock()
     let progress = pending[downloadTask.taskIdentifier]?.progress
+    let last = lastProgress[downloadTask.taskIdentifier]
+    // Always report the final byte, so a part never appears to stop short of its size.
+    let isDue =
+      last.map { now.timeIntervalSince($0) >= Self.progressInterval } ?? true
+      || (totalBytesExpectedToWrite > 0 && totalBytesWritten >= totalBytesExpectedToWrite)
+    if isDue { lastProgress[downloadTask.taskIdentifier] = now }
     lock.unlock()
+    guard isDue else { return }
     progress?(totalBytesWritten, totalBytesExpectedToWrite)
   }
 

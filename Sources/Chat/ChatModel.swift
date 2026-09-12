@@ -120,17 +120,44 @@ final class ChatModel {
     loadState = .loading
     notice = nil
     activeConversation = nil
-    let options = settings.values.engine
+
+    // If the last load never finished, it took the whole process with it — almost always by running
+    // out of memory. Trying the same thing again would do the same thing again, and the app would
+    // never stay up long enough to change a setting, so back something off first.
+    var options = settings.values.engine
+    var memoryNotice: String?
+    if let abandoned = LoadAttempt.abandoned(), abandoned == options {
+      if let reduced = options.afterRunningOutOfMemory() {
+        let changes = reduced.differences(from: options)
+        options = reduced
+        settings.values.engine = reduced
+        settings.save()
+        memoryNotice =
+          "The model ran this iPhone out of memory, so "
+          + changes.formatted(.list(type: .and)) + ". Change it back in Settings › Model."
+      } else {
+        LoadAttempt.succeeded()
+        modelDetails = nil
+        loadedEngineOptions = nil
+        loadState = .failed(
+          "This model needs more memory than iOS will give the app, even with image input off and "
+            + "the smallest context. A smaller model is the way forward.")
+        return
+      }
+    }
+    LoadAttempt.begin(options)
 
     do {
       let result = try await device.load(model: model, options: options)
+      LoadAttempt.succeeded()
       guard loadedModel == model else { return }  // A newer import superseded this load.
       modelDetails = result.details
       loadedEngineOptions = options
-      notice = result.notice
+      notice = memoryNotice ?? result.notice
       if !result.details.supportsImages { pendingImage = nil }
       loadState = .ready
     } catch {
+      LoadAttempt.succeeded()
       guard loadedModel == model else { return }
       modelDetails = nil
       loadedEngineOptions = nil

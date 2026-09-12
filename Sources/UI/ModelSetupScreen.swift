@@ -224,10 +224,12 @@ struct ModelSetupScreen: View {
   private var phaseDescription: String {
     switch downloader.phase {
     case .downloading:
-      "Part \(downloader.partNumber) of \(downloader.partCount). You can leave \(appName); the "
-        + "download carries on."
+      // Several parts are in flight at once, so what's worth reporting is how many are safely in
+      // the file, not which one a single connection happens to be on.
+      "\(downloader.partsCompleted) of \(downloader.partCount) parts saved. You can leave "
+        + "\(appName); the download carries on."
     case .checking:
-      "Checking part \(downloader.partNumber) of \(downloader.partCount)…"
+      "Checking part \(downloader.partsCompleted + 1) of \(downloader.partCount)…"
     case .installing:
       "Finishing up…"
     default:

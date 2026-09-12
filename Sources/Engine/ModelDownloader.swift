@@ -22,10 +22,19 @@ final class ModelDownloader {
 
   private(set) var phase: Phase = .idle
   private(set) var model: CatalogModel?
-  private(set) var partNumber = 0
+  /// Parts checked and written into the file. Several more may be in flight behind them.
+  private(set) var partsCompleted = 0
   private(set) var partCount = 0
   private(set) var receivedBytes: Int64 = 0
   private(set) var totalBytes: Int64 = 0
+
+  /// Parts fetched at once. One connection rarely saturates a phone's link, and a part that stalls
+  /// no longer holds up the ones behind it — the others keep arriving while it retries.
+  private static let concurrentParts = 3
+
+  private var inFlight: [Int: Task<URL, Error>] = [:]
+  private var partProgress: [Int: Int64] = [:]
+  private var appendedBytes: Int64 = 0
 
   /// Downloading several gigabytes over a cellular plan is rarely what someone wants, so it's off
   /// until they say otherwise.
@@ -72,12 +81,44 @@ final class ModelDownloader {
   /// Throws away a half-finished download. Only for someone cancelling on purpose: a failure leaves
   /// the parts in place, so trying again picks up where it stopped.
   func discard() {
+    cancelInFlight()
     ModelDownloadSession.shared.cancelAll()
     ModelDownloadFiles.discard()
     phase = .idle
     model = nil
     receivedBytes = 0
-    partNumber = 0
+    appendedBytes = 0
+    partsCompleted = 0
+  }
+
+  private func cancelInFlight() {
+    for task in inFlight.values { task.cancel() }
+    inFlight.removeAll()
+    partProgress.removeAll()
+  }
+
+  /// Keeps the window of concurrent downloads topped up, starting from the part waiting to be
+  /// appended.
+  private func startDownloads(from index: Int, in model: CatalogModel) {
+    let upper = min(index + Self.concurrentParts, model.parts.count)
+    for position in index..<upper where inFlight[position] == nil {
+      let part = model.parts[position]
+      partProgress[position] = 0
+      inFlight[position] = Task { [self] in
+        try await fetch(part) { written in
+          Task { @MainActor in
+            self.noteProgress(of: position, bytes: min(written, part.sizeBytes))
+          }
+        }
+      }
+    }
+  }
+
+  private func noteProgress(of position: Int, bytes: Int64) {
+    // A part that has already been appended is no longer counted separately.
+    guard partProgress[position] != nil else { return }
+    partProgress[position] = bytes
+    receivedBytes = appendedBytes + partProgress.values.reduce(0, +)
   }
 
   private func download(_ model: CatalogModel) async throws {
@@ -93,21 +134,30 @@ final class ModelDownloader {
 
     let destination = try ModelDownloadFiles.partialURL(for: model)
     var badChecksums = 0
+    appendedBytes = model.parts.prefix(nextPart).reduce(Int64(0)) { $0 + $1.sizeBytes }
+    partsCompleted = nextPart
+    receivedBytes = appendedBytes
+    defer { cancelInFlight() }
 
+    // Parts arrive in whatever order the network gives them, but they are only ever appended in
+    // order: the file being built is always a correct prefix of the finished model, which is what
+    // lets an interrupted download resume from a count rather than a byte offset.
     while nextPart < model.parts.count {
       try Task.checkCancellation()
-
-      let part = model.parts[nextPart]
-      partNumber = nextPart + 1
+      startDownloads(from: nextPart, in: model)
       phase = .downloading
-      let alreadyHave = model.parts.prefix(nextPart).reduce(Int64(0)) { $0 + $1.sizeBytes }
-      receivedBytes = alreadyHave
 
-      let staged = try await fetch(part) { [weak self] written in
-        Task { @MainActor in
-          self?.receivedBytes = alreadyHave + min(written, part.sizeBytes)
-        }
+      guard let download = inFlight[nextPart] else { continue }
+      let part = model.parts[nextPart]
+      let staged: URL
+      do {
+        staged = try await download.value
+      } catch {
+        inFlight[nextPart] = nil
+        partProgress[nextPart] = nil
+        throw error
       }
+      inFlight[nextPart] = nil
 
       try Task.checkCancellation()
       phase = .checking
@@ -120,17 +170,22 @@ final class ModelDownloader {
       } catch ModelDownloadFiles.Failure.checksum {
         // A part that arrived damaged is worth fetching once more before giving up.
         try? FileManager.default.removeItem(at: staged)
+        partProgress[nextPart] = nil
         badChecksums += 1
         guard badChecksums < 2 else { throw ModelDownloadFiles.Failure.checksum }
         continue
       }
 
+      partProgress[nextPart] = nil
       nextPart += 1
-      receivedBytes = alreadyHave + part.sizeBytes
+      partsCompleted = nextPart
+      appendedBytes += part.sizeBytes
+      receivedBytes = appendedBytes + partProgress.values.reduce(0, +)
       ModelDownloadFiles.saveState(ModelDownloadState(model: model, nextPart: nextPart))
     }
 
     try Task.checkCancellation()
+    cancelInFlight()
     phase = .installing
     try await Task.detached(priority: .userInitiated) {
       try ModelDownloadFiles.finish(model)
