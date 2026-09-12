@@ -196,6 +196,7 @@ struct ChatScreen: View {
         messageList
       }
     }
+    .sensoryFeedback(.impact(weight: .light), trigger: chat.replyStarted)
     .safeAreaInset(edge: .bottom, spacing: 0) {
       Composer(
         chat: chat,

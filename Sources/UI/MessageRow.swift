@@ -94,18 +94,27 @@ struct MessageRow: View {
       if image != nil { photo }
 
       if !message.text.isEmpty {
-        if message.isError {
-          Text(message.text)
-            .foregroundStyle(.red)
-        } else {
-          MarkdownView(text: message.text)
+        Group {
+          if message.isError {
+            Text(message.text)
+              .foregroundStyle(.red)
+          } else {
+            MarkdownView(text: message.text)
+              // Eases the growth while words arrive, so the reply flows rather than jumping a line
+              // at a time. Only while streaming: a finished reply has nothing left to animate.
+              .animation(isStreaming ? .easeOut(duration: 0.15) : nil, value: message.text)
+          }
         }
+        .transition(.opacity)
       } else if isStreaming && message.thinking.isEmpty {
         workingIndicator
+          .transition(.opacity)
       }
 
       if let sources = message.sources, !sources.isEmpty { sourceList(sources) }
     }
+    // The first words cross-fade with the indicator they replace.
+    .animation(.easeOut(duration: 0.25), value: message.text.isEmpty)
     .frame(maxWidth: .infinity, alignment: .leading)
     .contentShape(.contextMenuPreview, bubbleShape)
     .contextMenu { menuItems }

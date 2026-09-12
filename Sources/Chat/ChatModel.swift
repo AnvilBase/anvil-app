@@ -34,6 +34,9 @@ final class ChatModel {
   /// The engine options the model on this iPhone is currently loaded with.
   private(set) var loadedEngineOptions: EngineOptions?
   /// Tokens held by the engine's conversation after the latest reply.
+  /// Bumped the instant a reply's first words arrive. A counter, not a flag, so two replies in a
+  /// row register as two events rather than one unchanged value.
+  private(set) var replyStarted = 0
   private(set) var contextTokens: Int?
   private(set) var totals = UsageTotals()
   /// The past message being edited. Sending replaces it and everything after it.
@@ -523,10 +526,16 @@ final class ChatModel {
   ) {
     switch event {
     case .text(let piece):
-      if firstPiece == nil { firstPiece = started.duration(to: .now) }
+      if firstPiece == nil {
+        firstPiece = started.duration(to: .now)
+        replyStarted += 1
+      }
       updateMessage(replyID) { $0.text += piece }
     case .thinking(let piece):
-      if firstPiece == nil { firstPiece = started.duration(to: .now) }
+      if firstPiece == nil {
+        firstPiece = started.duration(to: .now)
+        replyStarted += 1
+      }
       updateMessage(replyID) { $0.thinking += piece }
     case .searching(let query):
       updateMessage(replyID) { $0.searchQueries = ($0.searchQueries ?? []) + [query] }
