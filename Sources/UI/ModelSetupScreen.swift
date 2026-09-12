@@ -124,8 +124,8 @@ struct ModelSetupScreen: View {
         .font(.subheadline)
         .foregroundStyle(.secondary)
 
-      if let basedOn = model.basedOn {
-        Text(model.license.map { "Based on \(basedOn) · \($0)" } ?? "Based on \(basedOn)")
+      if let provenance = provenance(of: model) {
+        Text(provenance)
           .font(.footnote)
           .foregroundStyle(.tertiary)
       }
@@ -141,6 +141,18 @@ struct ModelSetupScreen: View {
     }
     .padding()
     .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+  }
+
+  /// What the model is and what it's licensed under. A model that records only its licence still
+  /// shows it: the licence has to reach whoever downloads the file, not just the person who
+  /// published it.
+  private func provenance(of model: CatalogModel) -> String? {
+    switch (model.basedOn, model.license) {
+    case let (basedOn?, license?): "Based on \(basedOn) · \(license)"
+    case let (basedOn?, nil): "Based on \(basedOn)"
+    case let (nil, license?): license
+    case (nil, nil): nil
+    }
   }
 
   private func resumeCard(_ model: CatalogModel) -> some View {
