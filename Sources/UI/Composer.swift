@@ -134,32 +134,54 @@ struct Composer: View {
 
   private var controlRow: some View {
     HStack(spacing: 8) {
-      if chat.supportsImages { addButton }
+      addButton
       webSearchButton
       Spacer(minLength: 0)
       primaryButton
     }
   }
 
-  /// ChatGPT's plus: everything you can put into a message.
+  /// Everything you can put into a message. It's always here, the way ChatGPT's plus is: a control
+  /// that disappears depending on which model is loaded reads as a bug, and leaves nothing to say
+  /// why photos can't be sent.
+  @ViewBuilder
   private var addButton: some View {
-    Menu {
-      #if canImport(UIKit)
-        if CameraPicker.isAvailable {
-          Button("Take Photo", systemImage: "camera") { showingCamera = true }
-        }
-      #endif
-      Button("Choose from Library", systemImage: "photo.on.rectangle") { showingPhotoLibrary = true }
-    } label: {
-      Image(systemName: "plus")
-        .font(.system(size: 18, weight: .medium))
-        .foregroundStyle(.primary)
-        .frame(width: 34, height: 34)
-        .contentShape(Circle())
+    if chat.supportsImages {
+      Menu {
+        #if canImport(UIKit)
+          if CameraPicker.isAvailable {
+            Button("Camera", systemImage: "camera") { showingCamera = true }
+          }
+        #endif
+        Button("Photos", systemImage: "photo.on.rectangle") { showingPhotoLibrary = true }
+      } label: {
+        plusLabel(available: true)
+      }
+      .tint(.primary)
+      .accessibilityLabel("Add photo")
+      .disabled(chat.isGenerating || chat.isPreparingImage)
+    } else {
+      Button { chat.alertMessage = noImagesReason } label: { plusLabel(available: false) }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Add photo")
+        .accessibilityHint("Unavailable with the model that's loaded")
     }
-    .tint(.primary)
-    .accessibilityLabel("Add photo")
-    .disabled(chat.isGenerating || chat.isPreparingImage)
+  }
+
+  private func plusLabel(available: Bool) -> some View {
+    Image(systemName: "plus")
+      .font(.system(size: 18, weight: .medium))
+      .foregroundStyle(available ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary))
+      .frame(width: 34, height: 34)
+      .contentShape(Circle())
+  }
+
+  /// Two different reasons photos are unavailable, and the difference decides what to do about it.
+  private var noImagesReason: String {
+    chat.settings.values.engine.imageInput
+      ? "The model that's loaded can't read images. A model that can will show the photo options "
+        + "here."
+      : "Image input is switched off. Turn it on in Settings › Model, then Reload model."
   }
 
   /// A plain globe when it's off, a tinted pill that says what it does when it's on.
