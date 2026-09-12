@@ -3,7 +3,7 @@ import Foundation
 /// Measurements for one reply. Token counts and speeds come from whichever engine produced it, and
 /// are nil when it didn't report them.
 struct ReplyStats: Codable, Hashable, Sendable {
-  /// "GPU", "CPU", or "My computer".
+  /// "GPU" or "CPU".
   var producedBy: String
   var promptTokens: Int?
   var replyTokens: Int?

@@ -59,9 +59,6 @@ struct AppSettings: Codable, Equatable, Sendable {
   var memoryEnabled = true
   /// Send a dictated message automatically when you pause.
   var autoSendVoice = true
-  var replyLocation = ReplyLocation.iPhone
-  /// The HTTPS address of the companion server on your computer, from `tailscale serve`.
-  var computerAddress = ""
 
   init() {}
 
@@ -84,13 +81,11 @@ struct AppSettings: Codable, Equatable, Sendable {
     webSearchResultCount = try value(.webSearchResultCount, defaults.webSearchResultCount)
     memoryEnabled = try value(.memoryEnabled, defaults.memoryEnabled)
     autoSendVoice = try value(.autoSendVoice, defaults.autoSendVoice)
-    replyLocation = try value(.replyLocation, defaults.replyLocation)
-    computerAddress = try value(.computerAddress, defaults.computerAddress)
   }
 }
 
 /// Holds the settings and writes them to a protected JSON file, the same way chats are stored: the
-/// system prompt can be personal. The access token for your computer goes to the Keychain instead.
+/// system prompt can be personal.
 @MainActor
 @Observable
 final class SettingsStore {

@@ -26,15 +26,6 @@ enum AppFlavor: String, Sendable {
     return name?.isEmpty == false ? name! : "Anvil AI"
   }()
 
-  /// The URL scheme this build answers to, taken from the bundle's declared schemes: `anvil` for the
-  /// public app, `anvil-dev` for the development app.
-  static let urlScheme: String = {
-    let types = Bundle.main.infoDictionary?["CFBundleURLTypes"] as? [[String: Any]] ?? []
-    let schemes = types.compactMap { ($0["CFBundleURLSchemes"] as? [String])?.first }
-    return schemes.first(where: { !$0.isEmpty }) ?? "anvil"
-  }()
-
-  /// Marks stored items that must not be shared between the two apps, such as the Keychain entry
-  /// holding your computer's access token.
+  /// Marks stored items that must not be shared between the two apps.
   static let storageNamespace: String = Bundle.main.bundleIdentifier ?? "com.anvilbase.AnvilAI"
 }

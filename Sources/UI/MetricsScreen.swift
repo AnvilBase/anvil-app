@@ -30,16 +30,6 @@ struct MetricsScreen: View {
         LabeledContent("Thermal state", value: snapshot.thermalState.label)
       }
 
-      if chat.settings.values.replyLocation != .iPhone {
-        Section("My computer") {
-          Text(chat.computerState.label)
-            .foregroundStyle(.secondary)
-          Button("Check connection") {
-            Task { await chat.refreshComputerStatus() }
-          }
-        }
-      }
-
       if let details = chat.modelDetails {
         modelSection(details)
       }
@@ -180,43 +170,6 @@ struct ReplyStatsRows: View {
         Text("This reply was stopped early.")
       } else if stats.replyTokens == nil {
         Text("The engine didn't report token counts for this reply.")
-      }
-    }
-  }
-}
-
-/// The live CPU reading in the chat toolbar. Tapping it opens Performance and usage.
-struct LiveCPUBadge: View {
-  let chat: ChatModel
-
-  @State private var cpuPercent: Double?
-  @State private var showingMetrics = false
-
-  var body: some View {
-    Button {
-      showingMetrics = true
-    } label: {
-      Text("CPU \(MetricFormat.percent(cpuPercent))")
-        .font(.caption.monospacedDigit())
-    }
-    .accessibilityLabel("CPU usage \(MetricFormat.percent(cpuPercent))")
-    .accessibilityHint("Opens performance and usage")
-    .task(id: chat.isGenerating) {
-      // Sample faster while a reply is being written.
-      let interval: Duration = chat.isGenerating ? .milliseconds(500) : .seconds(2)
-      while !Task.isCancelled {
-        cpuPercent = DeviceMetrics.cpuPercent()
-        try? await Task.sleep(for: interval)
-      }
-    }
-    .sheet(isPresented: $showingMetrics) {
-      NavigationStack {
-        MetricsScreen(chat: chat)
-          .toolbar {
-            ToolbarItem(placement: .confirmationAction) {
-              Button("Done") { showingMetrics = false }
-            }
-          }
       }
     }
   }

@@ -28,7 +28,7 @@ The layout is in the [README](README.md#how-its-built), with more on the design 
 Two rules keep the two apps from drifting apart:
 
 - **Tools are declared once**, in `Sources/Tools/ToolRegistry.swift`. Both engines ask it for their
-  tools, so anything the model can call on the phone it can also call on your computer. Adding a tool
+  tools in one place, so what the model can call is described exactly once. Adding a tool
   means adding one entry, not editing three files.
 - **The system prompt is built once**, in `Sources/Engine/PromptBuilder.swift`, for the same reason.
 
@@ -87,7 +87,7 @@ it isn't obvious.
 ## Reporting bugs and asking for features
 
 Use the issue templates. For a bug, the iPhone model, iOS version, which app (public or development),
-the model file, and whether replies were running on the phone or on a computer are usually what's
+the model file, and which model is installed are usually what's
 needed to reproduce it. **Performance and usage** has most of the numbers worth pasting in.
 
 Please don't file security issues publicly — see [SECURITY.md](SECURITY.md).

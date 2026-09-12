@@ -5,8 +5,9 @@ import SwiftUI
   import UIKit
 #endif
 
-/// The bar under the chat: the editing banner, the photo waiting to be sent, the web search and
-/// camera buttons, the message field, Send / Stop / microphone, and the status line.
+/// The card at the bottom of the chat: what you're editing, the photo waiting to be sent, the
+/// message field, and a row of controls under it — add a photo, search the web, and the one round
+/// button on the right that talks, sends, or stops.
 struct Composer: View {
   @Bindable var chat: ChatModel
   @FocusState.Binding var isInputFocused: Bool
@@ -17,27 +18,31 @@ struct Composer: View {
   @State private var showingCamera = false
   @State private var showingPhotoLibrary = false
 
+  private var containerShape: RoundedRectangle {
+    RoundedRectangle(cornerRadius: ChatStyle.composerCorner, style: .continuous)
+  }
+
   var body: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      if chat.editingMessageID != nil {
-        HStack {
-          Label(
-            "Editing message: sending replaces it and the replies after it",
-            systemImage: "pencil"
-          )
-          .font(.footnote)
-          .foregroundStyle(.secondary)
-          Spacer()
-          Button("Cancel") { chat.cancelEditing() }
-            .font(.footnote)
+    VStack(alignment: .leading, spacing: 6) {
+      if chat.editingMessageID != nil { editingBanner }
+
+      LiquidGlassGroup {
+        VStack(alignment: .leading, spacing: 10) {
+          pendingPhoto
+          messageField
+          controlRow
         }
+        .padding(.horizontal, 12)
+        .padding(.top, 12)
+        .padding(.bottom, 10)
+        .liquidGlass(in: containerShape)
+        .overlay(containerShape.strokeBorder(ChatStyle.hairline, lineWidth: 0.5))
       }
 
-      pendingPhoto
-      controls
       statusLine
     }
-    .padding()
+    .padding(.horizontal, 12)
+    .padding(.bottom, 8)
     .photosPicker(isPresented: $showingPhotoLibrary, selection: $photoSelection, matching: .images)
     #if canImport(UIKit)
       .fullScreenCover(isPresented: $showingCamera) {
@@ -64,70 +69,81 @@ struct Composer: View {
     }
   }
 
+  // MARK: - Above the field
+
+  private var editingBanner: some View {
+    HStack(spacing: 6) {
+      Label(
+        "Editing a message — sending replaces it and everything after it", systemImage: "pencil"
+      )
+      .font(.caption)
+      .foregroundStyle(.secondary)
+      Spacer(minLength: 8)
+      Button("Cancel") { chat.cancelEditing() }
+        .font(.caption.weight(.medium))
+    }
+    .padding(.horizontal, 14)
+  }
+
   @ViewBuilder
   private var pendingPhoto: some View {
     if let image = chat.pendingImage {
-      HStack(alignment: .top) {
+      HStack(spacing: 8) {
         Image(image.preview, scale: 1, label: Text("Photo to send"))
           .resizable()
           .scaledToFill()
-          .frame(width: 64, height: 64)
-          .clipShape(RoundedRectangle(cornerRadius: 8))
+          .frame(width: 56, height: 56)
+          .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
           .onTapGesture { onShowPhoto(image.preview) }
           .accessibilityAddTraits(.isButton)
           .accessibilityHint("Shows the photo full screen")
-        Button("Remove image", systemImage: "xmark.circle.fill") { chat.removePendingImage() }
-          .labelStyle(.iconOnly)
-          .foregroundStyle(.secondary)
+          .overlay(alignment: .topTrailing) {
+            Button("Remove image", systemImage: "xmark.circle.fill") { chat.removePendingImage() }
+              .labelStyle(.iconOnly)
+              .font(.system(size: 17))
+              .symbolRenderingMode(.palette)
+              .foregroundStyle(.white, .black.opacity(0.5))
+              .offset(x: 6, y: -6)
+          }
+        Spacer(minLength: 0)
       }
+      .padding(.horizontal, 4)
+      .padding(.top, 2)
     } else if chat.isPreparingImage {
-      ProgressView()
-        .frame(height: 64)
-    }
-  }
-
-  private var controls: some View {
-    HStack(alignment: .bottom, spacing: 8) {
-      webSearchButton
-      if chat.supportsImages { photoButton }
-
-      TextField("Message", text: $chat.draft, axis: .vertical)
-        .lineLimit(1...5)
-        .textFieldStyle(.roundedBorder)
-        .focused($isInputFocused)
-
-      sendButton
-    }
-  }
-
-  private var webSearchButton: some View {
-    Button {
-      if chat.hasSearchKey {
-        chat.setWebSearch(!chat.webSearchOn)
-      } else {
-        onOpenSettings()
+      HStack {
+        ProgressView()
+          .frame(width: 56, height: 56)
+        Spacer(minLength: 0)
       }
-    } label: {
-      // Drawn on the same title-size circle as Send, so every button in the row matches in height.
-      Image(systemName: "circle.fill")
-        .font(.title)
-        .foregroundStyle(
-          chat.webSearchOn ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.secondary.opacity(0.2))
-        )
-        .overlay {
-          Image(systemName: "globe")
-            .font(.system(size: 16, weight: .semibold))
-            .foregroundStyle(
-              chat.webSearchOn ? AnyShapeStyle(Color.white) : AnyShapeStyle(.secondary))
-        }
+      .padding(.horizontal, 4)
     }
-    .accessibilityLabel("Web search")
-    .accessibilityValue(chat.webSearchOn ? "On" : "Off")
-    .accessibilityHint(chat.isOffline ? "Unavailable while the internet connection is offline" : "")
-    .disabled(chat.isGenerating || chat.isOffline)
   }
 
-  private var photoButton: some View {
+  // MARK: - The field
+
+  private var messageField: some View {
+    TextField("Ask anything", text: $chat.draft, axis: .vertical)
+      .textFieldStyle(.plain)
+      .lineLimit(1...6)
+      .font(.system(size: 17))
+      .focused($isInputFocused)
+      .padding(.horizontal, 6)
+      .padding(.top, 2)
+  }
+
+  // MARK: - The controls under it
+
+  private var controlRow: some View {
+    HStack(spacing: 8) {
+      if chat.supportsImages { addButton }
+      webSearchButton
+      Spacer(minLength: 0)
+      primaryButton
+    }
+  }
+
+  /// ChatGPT's plus: everything you can put into a message.
+  private var addButton: some View {
     Menu {
       #if canImport(UIKit)
         if CameraPicker.isAvailable {
@@ -136,63 +152,100 @@ struct Composer: View {
       #endif
       Button("Choose from Library", systemImage: "photo.on.rectangle") { showingPhotoLibrary = true }
     } label: {
-      Image(systemName: "circle.fill")
-        .font(.title)
-        .foregroundStyle(Color.secondary.opacity(0.2))
-        .overlay {
-          Image(systemName: "camera")
-            .font(.system(size: 14, weight: .semibold))
-            .foregroundStyle(.secondary)
-        }
+      Image(systemName: "plus")
+        .font(.system(size: 18, weight: .medium))
+        .foregroundStyle(.primary)
+        .frame(width: 34, height: 34)
+        .contentShape(Circle())
     }
+    .tint(.primary)
     .accessibilityLabel("Add photo")
     .disabled(chat.isGenerating || chat.isPreparingImage)
   }
 
-  /// Stop while a reply is coming, a red stop button while listening, the microphone when there's
-  /// nothing to send, and Send otherwise.
-  @ViewBuilder
-  private var sendButton: some View {
-    if chat.isGenerating {
-      Button("Stop", systemImage: "stop.circle.fill") { chat.stop() }
-        .labelStyle(.iconOnly)
-        .font(.title)
-        .disabled(chat.isStopping)
-    } else if chat.speechInput.isActive {
-      Button {
-        chat.toggleDictation()
-      } label: {
-        Image(systemName: "stop.circle.fill")
-          .font(.title)
-          .foregroundStyle(.red)
-          .symbolEffect(.pulse, isActive: chat.speechInput.state == .listening)
+  /// A plain globe when it's off, a tinted pill that says what it does when it's on.
+  private var webSearchButton: some View {
+    Button {
+      if chat.hasSearchKey {
+        chat.setWebSearch(!chat.webSearchOn)
+      } else {
+        onOpenSettings()
       }
-      .accessibilityLabel("Stop listening")
+    } label: {
+      HStack(spacing: 5) {
+        Image(systemName: "globe")
+          .font(.system(size: 16, weight: .medium))
+        if chat.webSearchOn {
+          Text("Search")
+            .font(.system(size: 15, weight: .medium))
+        }
+      }
+      .foregroundStyle(chat.webSearchOn ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
+      .padding(.horizontal, chat.webSearchOn ? 12 : 0)
+      .frame(minWidth: 34, minHeight: 34)
+      .background(
+        chat.webSearchOn ? AnyShapeStyle(.tint.opacity(0.14)) : AnyShapeStyle(.clear),
+        in: Capsule()
+      )
+      .contentShape(Capsule())
+    }
+    .buttonStyle(.plain)
+    .animation(.snappy(duration: 0.2), value: chat.webSearchOn)
+    .accessibilityLabel("Web search")
+    .accessibilityValue(chat.webSearchOn ? "On" : "Off")
+    .accessibilityHint(chat.isOffline ? "Unavailable while the internet connection is offline" : "")
+    .disabled(chat.isGenerating || chat.isOffline)
+  }
+
+  /// The filled circle on the right: Stop while a reply is coming, a stop square while it's
+  /// listening, the microphone when there's nothing to send, and Send otherwise.
+  @ViewBuilder
+  private var primaryButton: some View {
+    if chat.isGenerating {
+      circleButton("Stop", systemImage: "stop.fill", disabled: chat.isStopping) { chat.stop() }
+    } else if chat.speechInput.isActive {
+      circleButton("Stop listening", systemImage: "stop.fill", tint: .red) {
+        chat.toggleDictation()
+      }
+      .symbolEffect(.pulse, isActive: chat.speechInput.state == .listening)
     } else if chat.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
       && chat.pendingImage == nil
     {
-      Button {
+      circleButton(
+        "Talk", systemImage: "mic.fill",
+        disabled: chat.loadState != .ready || chat.isPreparingImage
+      ) {
         chat.toggleDictation()
-      } label: {
-        Image(systemName: "mic.circle.fill")
-          .font(.title)
       }
-      .accessibilityLabel("Talk")
       .accessibilityHint("Speech is typed into the message field on this iPhone")
-      .disabled(chat.loadState != .ready || chat.isPreparingImage)
     } else {
-      Button("Send", systemImage: "arrow.up.circle.fill") { chat.send() }
-        .labelStyle(.iconOnly)
-        .font(.title)
-        .disabled(!chat.canSend)
+      circleButton("Send", systemImage: "arrow.up", disabled: !chat.canSend) { chat.send() }
     }
   }
+
+  private func circleButton(
+    _ title: String, systemImage: String, tint: Color? = nil, disabled: Bool = false,
+    action: @escaping () -> Void
+  ) -> some View {
+    Button(action: action) {
+      Image(systemName: systemImage)
+        .font(.system(size: 16, weight: .bold))
+        .foregroundStyle(tint == nil ? ChatStyle.sendGlyph : .white)
+        .frame(width: 34, height: 34)
+        .background(tint ?? ChatStyle.sendFill, in: Circle())
+        .opacity(disabled ? 0.35 : 1)
+    }
+    .buttonStyle(.plain)
+    .disabled(disabled)
+    .accessibilityLabel(title)
+  }
+
+  // MARK: - Under the card
 
   @ViewBuilder
   private var statusLine: some View {
     let parts = [
       chat.speechInput.state == .listening ? "Listening… your voice stays on this iPhone" : nil,
-      chat.replyLocationLabel,
       chat.isOffline
         ? "Internet connection is offline · web search unavailable"
         : (chat.webSearchOn ? "Web search on" : nil),
@@ -205,6 +258,9 @@ struct Composer: View {
       Text(parts.joined(separator: " · "))
         .font(.caption2)
         .foregroundStyle(.secondary)
+        .frame(maxWidth: .infinity)
+        .multilineTextAlignment(.center)
+        .padding(.horizontal, 16)
     }
   }
 }

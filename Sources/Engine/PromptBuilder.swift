@@ -2,8 +2,8 @@ import Foundation
 
 /// Builds the system prompt from the conversation's options.
 ///
-/// Both engines use this, so the model on your computer is told exactly what the model on the iPhone
-/// is told. Tools are assembled next door, in `ToolRegistry`.
+/// One place decides what the model is told before a conversation starts. Tools are assembled next
+/// door, in `ToolRegistry`.
 enum PromptBuilder {
   static func systemPrompt(for options: ConversationOptions) -> String {
     var prompt = options.systemPrompt.trimmingCharacters(in: .whitespacesAndNewlines)

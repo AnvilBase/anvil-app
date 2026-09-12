@@ -2,11 +2,11 @@ import CoreGraphics
 import Foundation
 import Observation
 
-/// Everything the chat screens read and act on: the open chat, saved history, where replies run,
-/// dictation, and per-reply measurements.
+/// Everything the chat screens read and act on: the open chat, saved history, dictation, and
+/// per-reply measurements.
 ///
-/// It owns both engines — the model on this iPhone (`OnDeviceEngine`) and the one on your computer
-/// (`ComputerEngine`) — and decides which of them writes each reply.
+/// It owns the engine running the model on this iPhone and is the only place that decides what
+/// happens to a message.
 @MainActor
 @Observable
 final class ChatModel {
@@ -38,12 +38,6 @@ final class ChatModel {
   private(set) var totals = UsageTotals()
   /// The past message being edited. Sending replaces it and everything after it.
   private(set) var editingMessageID: ChatMessage.ID?
-  private(set) var hasComputerToken = ComputerTokenStore.read() != nil
-  private(set) var isTestingComputer = false
-  private(set) var computerTestResult: String?
-  private(set) var computerState: ComputerState = .notUsed
-  /// A pairing link waiting for you to confirm it.
-  private(set) var pendingPairing: PairingLink?
   var draft = ""
   var alertMessage: String?
 
@@ -55,22 +49,9 @@ final class ChatModel {
   private let archive = ChatArchive()
   private var loadedModel: ModelFile?
   private var generationTask: Task<Void, Never>?
-  /// True while the current reply is coming from your computer, so Stop cancels the request at once.
-  private var generatingOnComputer = false
-  /// When `computerState` was last checked.
-  private var computerCheckedAt: ContinuousClock.Instant?
   /// How the engine's current conversation was created. nil means it no longer matches the open
   /// chat, so the next send rebuilds one from history.
   private var activeConversation: ConversationOptions?
-
-  /// Automatic won't wait on a computer that was unreachable more recently than this.
-  private static let unreachableRetryDelay: Duration = .seconds(30)
-
-  private struct ComputerConnection {
-    let url: URL
-    let token: String?
-    let status: ComputerStatus
-  }
 
   init(settings: SettingsStore) {
     self.settings = settings
@@ -100,15 +81,6 @@ final class ChatModel {
   /// True when engine settings have changed since the model was loaded.
   var needsReload: Bool {
     loadedEngineOptions.map { $0 != settings.values.engine } ?? false
-  }
-
-  /// Where replies run, for the status line. nil when they run on this iPhone.
-  var replyLocationLabel: String? {
-    switch settings.values.replyLocation {
-    case .iPhone: nil
-    case .computer: "Replies on your computer"
-    case .automatic: "Replies on your computer when it's reachable"
-    }
   }
 
   // MARK: - The model on this iPhone
@@ -186,95 +158,6 @@ final class ChatModel {
   func setWebSearch(_ enabled: Bool) {
     settings.values.webSearchEnabled = enabled
     settings.save()
-  }
-
-  // MARK: - Your computer
-
-  /// Saves the access token to the Keychain, or removes it when empty.
-  func saveComputerToken(_ token: String) {
-    let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
-    if trimmed.isEmpty {
-      ComputerTokenStore.delete()
-    } else if !ComputerTokenStore.save(trimmed) {
-      alertMessage = "Couldn't save the token to the Keychain."
-    }
-    hasComputerToken = ComputerTokenStore.read() != nil
-    computerTestResult = nil
-  }
-
-  func testComputerConnection() async {
-    settings.save()
-    guard let url = ComputerAddress.url(from: settings.values.computerAddress) else {
-      computerTestResult = "Enter your computer's HTTPS address, like https://your-pc.tailnet.ts.net."
-      return
-    }
-    isTestingComputer = true
-    defer { isTestingComputer = false }
-    do {
-      let status = try await ComputerEngine.status(
-        baseURL: url, token: ComputerTokenStore.read(), timeout: 5)
-      computerTestResult = "Connected: \(status.summary)"
-      if settings.values.replyLocation != .iPhone { computerState = .online(status) }
-    } catch {
-      computerTestResult = "Couldn't connect. \(error.localizedDescription)"
-      if settings.values.replyLocation != .iPhone {
-        computerState = .unreachable(error.localizedDescription)
-      }
-    }
-    computerCheckedAt = .now
-  }
-
-  /// Checks whether your computer is reachable, for the toolbar dot and Automatic routing.
-  func refreshComputerStatus() async {
-    guard settings.values.replyLocation != .iPhone else {
-      computerState = .notUsed
-      return
-    }
-    guard let url = ComputerAddress.url(from: settings.values.computerAddress) else {
-      computerState = .notConfigured
-      return
-    }
-    guard network.isOnline else {
-      computerState = .unreachable(ComputerError.offline.localizedDescription)
-      computerCheckedAt = .now
-      return
-    }
-    if case .online = computerState {} else { computerState = .checking }
-    do {
-      let status = try await ComputerEngine.status(
-        baseURL: url, token: ComputerTokenStore.read(), timeout: 3)
-      computerState =
-        status.isReady
-        ? .online(status)
-        : .unreachable(ComputerError.notReady(status.modelServer ?? "starting").localizedDescription)
-    } catch {
-      computerState = .unreachable(error.localizedDescription)
-    }
-    computerCheckedAt = .now
-  }
-
-  /// Handles a pairing link. Nothing is saved until you confirm it.
-  func handleOpenURL(_ url: URL) {
-    guard let pairing = PairingLink(url: url) else {
-      alertMessage = "That link isn't a valid \(AppFlavor.appName) pairing code."
-      return
-    }
-    pendingPairing = pairing
-  }
-
-  /// Saves the address and token from a confirmed pairing link, then checks the connection.
-  func acceptPairing(_ pairing: PairingLink) {
-    pendingPairing = nil
-    settings.values.computerAddress = pairing.url.absoluteString
-    if settings.values.replyLocation == .iPhone { settings.values.replyLocation = .computer }
-    settings.save()
-    saveComputerToken(pairing.token)
-    computerCheckedAt = nil
-    Task { await refreshComputerStatus() }
-  }
-
-  func cancelPairing() {
-    pendingPairing = nil
   }
 
   // MARK: - Sending
@@ -355,11 +238,6 @@ final class ChatModel {
   func stop() {
     guard let task = generationTask, !isStopping else { return }
     isStopping = true
-    if generatingOnComputer {
-      // Cancelling the request closes the connection, which stops generation on the computer.
-      task.cancel()
-      return
-    }
     Task {
       await device.cancel()
       // If the engine doesn't close the stream promptly, stop listening to it.
@@ -479,7 +357,6 @@ final class ChatModel {
     settings.save()
     if openChat.messages.isEmpty { openChat.systemPrompt = settings.values.systemPrompt }
     await purgeExpiredChats()
-    await refreshComputerStatus()
   }
 
   func resetTotals() {
@@ -509,7 +386,7 @@ final class ChatModel {
 
   // MARK: - Writing a reply
 
-  /// Adds your message and streams the reply to it, from your computer or from this iPhone.
+  /// Adds your message and streams the reply to it.
   private func submit(_ typed: String, image: PreparedImage?, removedImageIDs: [ChatMessage.ID]) {
     if openChat.messages.isEmpty {
       // An empty chat picks up the latest system prompt from Settings.
@@ -560,61 +437,12 @@ final class ChatModel {
       let monitor = DeviceMetrics.monitorPeaks()
       let started = ContinuousClock.now
       var firstPiece: Duration?
-      var computer: ComputerConnection?
-      var computerTimings: ReplyTimings?
 
       do {
-        computer = try await computerRoute()
-        if let connection = computer {
-          generatingOnComputer = true
-          // This turn isn't in the iPhone engine's conversation, so rebuild it if that engine is
-          // used next.
-          activeConversation = nil
-          let sendPhoto = connection.status.vision != false
-          if image != nil, !sendPhoto {
-            chatNotice = "The model on your computer can't read photos, so only your text was sent."
-          }
-          let request = ComputerRequest(
-            options: options,
-            history: Self.historyTurns(history, contextSize: connection.status.context ?? 8192),
-            prompt: prompt,
-            imageJPEG: sendPhoto ? image?.jpegData : nil,
-            sampler: sampler,
-            maxTokens: maxReplyTokens > 0 ? maxReplyTokens : nil,
-            thinking: thinkingRequested,
-            webSearch: webSearch)
-          do {
-            for try await event in ComputerEngine.stream(
-              request, baseURL: connection.url, token: connection.token)
-            {
-              switch event {
-              case .reply(let replyEvent):
-                apply(replyEvent, to: reply.id, started: started, firstPiece: &firstPiece)
-              case .timings(let timings):
-                computerTimings = timings
-              }
-            }
-          } catch {
-            // With Automatic, a computer that drops before replying hands the reply to the iPhone.
-            guard settings.values.replyLocation == .automatic, firstPiece == nil, !isStopping,
-              !(error is CancellationError)
-            else { throw error }
-            computerState = .unreachable(error.localizedDescription)
-            computerCheckedAt = .now
-            chatNotice = "Lost the connection to your computer, so this reply ran on the iPhone."
-            computer = nil
-            generatingOnComputer = false
-            try await streamOnDevice(
-              options: options, history: history, contextLimit: contextLimit, prompt: prompt,
-              image: image, maxReplyTokens: maxReplyTokens, webSearch: webSearch, replyID: reply.id,
-              started: started, firstPiece: &firstPiece)
-          }
-        } else {
-          try await streamOnDevice(
-            options: options, history: history, contextLimit: contextLimit, prompt: prompt,
-            image: image, maxReplyTokens: maxReplyTokens, webSearch: webSearch, replyID: reply.id,
-            started: started, firstPiece: &firstPiece)
-        }
+        try await streamOnDevice(
+          options: options, history: history, contextLimit: contextLimit, prompt: prompt,
+          image: image, maxReplyTokens: maxReplyTokens, webSearch: webSearch, replyID: reply.id,
+          started: started, firstPiece: &firstPiece)
       } catch {
         if !isStopping {
           // The engine's conversation may no longer match the chat, so rebuild it next time.
@@ -631,22 +459,12 @@ final class ChatModel {
 
       monitor.cancel()
       let peaks = await monitor.value
-      let counters: ReplyCounters
-      if computer != nil {
-        counters = ReplyCounters(
-          contextTokens: nil,
-          promptTokens: computerTimings?.promptTokens,
-          replyTokens: computerTimings?.replyTokens,
-          prefillTokensPerSecond: computerTimings?.prefillTokensPerSecond,
-          decodeTokensPerSecond: computerTimings?.decodeTokensPerSecond)
-      } else {
-        counters = await device.replyCounters()
-      }
+      let counters = await device.replyCounters()
       contextTokens = counters.contextTokens
 
       if messages.first(where: { $0.id == reply.id })?.isError == false {
         let stats = ReplyStats(
-          producedBy: computer == nil ? deviceBackend : "My computer",
+          producedBy: deviceBackend,
           promptTokens: counters.promptTokens,
           replyTokens: counters.replyTokens,
           prefillTokensPerSecond: counters.prefillTokensPerSecond,
@@ -654,7 +472,7 @@ final class ChatModel {
           timeToFirstToken: firstPiece?.inSeconds,
           totalSeconds: started.duration(to: .now).inSeconds,
           contextTokens: counters.contextTokens,
-          contextLimit: computer?.status.context ?? contextLimit,
+          contextLimit: contextLimit,
           peakMemoryBytes: peaks.memory,
           peakCPUPercent: peaks.cpuPercent,
           gpuMemoryBytes: DeviceMetrics.gpuMemory(),
@@ -669,7 +487,6 @@ final class ChatModel {
       await save()
       isGenerating = false
       isStopping = false
-      generatingOnComputer = false
       generationTask = nil
     }
   }
@@ -697,40 +514,6 @@ final class ChatModel {
       webSearch: webSearch)
     for try await event in stream {
       apply(event, to: replyID, started: started, firstPiece: &firstPiece)
-    }
-  }
-
-  /// Where this reply runs: your computer, or nil for this iPhone. With "My computer" a computer
-  /// that can't be reached is an error; with "Automatic" the reply quietly falls back to the phone.
-  private func computerRoute() async throws -> ComputerConnection? {
-    let location = settings.values.replyLocation
-    guard location != .iPhone else { return nil }
-    guard let url = ComputerAddress.url(from: settings.values.computerAddress) else {
-      computerState = .notConfigured
-      if location == .computer { throw ComputerError.notConfigured }
-      return nil
-    }
-    // Automatic doesn't sit through another timeout for a computer that just failed to answer.
-    if location == .automatic, case .unreachable = computerState, let checked = computerCheckedAt,
-      checked.duration(to: .now) < Self.unreachableRetryDelay
-    {
-      chatNotice = "Your computer isn't reachable, so this reply ran on the iPhone."
-      return nil
-    }
-    do {
-      guard network.isOnline else { throw ComputerError.offline }
-      let token = ComputerTokenStore.read()
-      let status = try await ComputerEngine.status(baseURL: url, token: token, timeout: 2)
-      guard status.isReady else { throw ComputerError.notReady(status.modelServer ?? "starting") }
-      computerState = .online(status)
-      computerCheckedAt = .now
-      return ComputerConnection(url: url, token: token, status: status)
-    } catch {
-      computerState = .unreachable(error.localizedDescription)
-      computerCheckedAt = .now
-      guard location == .automatic else { throw error }
-      chatNotice = "Your computer didn't answer, so this reply ran on the iPhone."
-      return nil
     }
   }
 

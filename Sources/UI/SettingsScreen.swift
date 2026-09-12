@@ -8,7 +8,6 @@ struct SettingsScreen: View {
 
   @Environment(\.dismiss) private var dismiss
   @State private var confirmingDeleteAll = false
-  @State private var computerTokenDraft = ""
 
   var body: some View {
     NavigationStack {
@@ -17,7 +16,6 @@ struct SettingsScreen: View {
         memorySection
         voiceSection
         webSearchSection
-        computerSection
         metricsSection
         generationSection
         modelSection
@@ -125,71 +123,6 @@ struct SettingsScreen: View {
     }
   }
 
-  private var computerSection: some View {
-    Section {
-      Picker("Run replies on", selection: $settings.values.replyLocation) {
-        ForEach(ReplyLocation.allCases) { location in
-          Text(location.label).tag(location)
-        }
-      }
-
-      TextField(
-        "Computer address", text: $settings.values.computerAddress,
-        prompt: Text("https://your-pc.tailnet.ts.net")
-      )
-      .autocorrectionDisabled()
-      #if os(iOS)
-        .keyboardType(.URL)
-        .textInputAutocapitalization(.never)
-      #endif
-
-      if chat.hasComputerToken {
-        LabeledContent("Access token", value: "Saved in Keychain")
-        Button("Remove token", role: .destructive) { chat.saveComputerToken("") }
-      } else {
-        SecureField("Access token", text: $computerTokenDraft)
-          .autocorrectionDisabled()
-          #if os(iOS)
-            .textInputAutocapitalization(.never)
-          #endif
-        Button("Save token") {
-          chat.saveComputerToken(computerTokenDraft)
-          computerTokenDraft = ""
-        }
-        .disabled(computerTokenDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-      }
-
-      Button {
-        Task { await chat.testComputerConnection() }
-      } label: {
-        HStack {
-          Text("Test connection")
-          if chat.isTestingComputer {
-            Spacer()
-            ProgressView()
-          }
-        }
-      }
-      .disabled(chat.isTestingComputer || settings.values.computerAddress.isEmpty)
-
-      if let result = chat.computerTestResult {
-        Text(result)
-          .font(.footnote)
-          .foregroundStyle(.secondary)
-      }
-    } header: {
-      Text("My computer")
-    } footer: {
-      Text(
-        "Runs replies on a larger model on your own computer, over your private Tailscale network. "
-          + "Install Tailscale on this iPhone and sign in with the same account as the computer. "
-          + "Your messages and photos go to that computer and nowhere else; web search, the clock, "
-          + "and memory still run on this iPhone. Automatic uses your computer when it answers "
-          + "within two seconds, and this iPhone otherwise. Pointing it straight at llama-server "
-          + "works too: leave the token empty.")
-    }
-  }
-
   private var metricsSection: some View {
     Section("Metrics") {
       NavigationLink("Performance and usage") {
@@ -229,8 +162,7 @@ struct SettingsScreen: View {
       }
 
       Toggle("Thinking", isOn: $settings.values.thinkingEnabled)
-        .disabled(
-          chat.modelDetails?.supportsThinking != true && settings.values.replyLocation == .iPhone)
+        .disabled(chat.modelDetails?.supportsThinking != true)
     } header: {
       Text("Generation")
     } footer: {
@@ -240,7 +172,7 @@ struct SettingsScreen: View {
 
   private var generationFooter: String {
     var text = "Lower temperature gives focused, predictable answers; higher gives more varied ones. "
-    if chat.modelDetails?.supportsThinking == true || settings.values.replyLocation != .iPhone {
+    if chat.modelDetails?.supportsThinking == true {
       text += "Thinking lets the model reason before answering (slower, uses more context). "
     } else if chat.modelDetails != nil {
       text += "This model doesn't support thinking. "

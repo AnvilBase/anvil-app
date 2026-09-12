@@ -7,9 +7,6 @@ PRODUCT_BUNDLE_IDENTIFIER = $(ANVIL_BUNDLE_PREFIX).AnvilAI
 INFOPLIST_KEY_CFBundleDisplayName = Anvil AI
 INFOPLIST_FILE = Support/AnvilAI/Info.plist
 
-// Pairing links open in this app: anvil://pair?url=…&token=…
-ANVIL_URL_SCHEME = anvil
-
 // Clear this in Config/Local.xcconfig (ANVIL_ENTITLEMENTS =) if your Apple ID can't sign the
 // increased-memory-limit capability.
 ANVIL_ENTITLEMENTS = Support/AnvilAI/AnvilAI.entitlements

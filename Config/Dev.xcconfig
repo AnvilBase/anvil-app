@@ -7,9 +7,6 @@ PRODUCT_BUNDLE_IDENTIFIER = $(ANVIL_BUNDLE_PREFIX).AnvilAI.dev
 INFOPLIST_KEY_CFBundleDisplayName = Anvil Dev
 INFOPLIST_FILE = Support/AnvilAIDev/Info.plist
 
-// Its own scheme, so a pairing QR code can target the development app specifically.
-ANVIL_URL_SCHEME = anvil-dev
-
 ANVIL_ENTITLEMENTS = Support/AnvilAIDev/AnvilAIDev.entitlements
 CODE_SIGN_ENTITLEMENTS = $(ANVIL_ENTITLEMENTS)
 

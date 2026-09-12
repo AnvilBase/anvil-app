@@ -19,8 +19,8 @@ struct ModelDetails: Equatable, Sendable {
 /// Everything baked into a conversation when it is created: the instructions the model follows and
 /// the tools it can call. A change to any of it means starting a new conversation.
 ///
-/// The same value configures the model on this iPhone and the one on your computer, so both get the
-/// same guidance and the same tools.
+/// Configures the model on this iPhone: every conversation is built from the same guidance and the
+/// same tools.
 struct ConversationOptions: Equatable, Sendable {
   var systemPrompt: String
   var sampler: SamplerValues?

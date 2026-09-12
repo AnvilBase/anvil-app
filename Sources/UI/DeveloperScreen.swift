@@ -13,7 +13,6 @@ struct DeveloperScreen: View {
         LabeledContent("Flavor", value: AppFlavor.current.rawValue)
         LabeledContent("App name", value: AppFlavor.appName)
         LabeledContent("Bundle identifier", value: AppFlavor.storageNamespace)
-        LabeledContent("URL scheme", value: "\(AppFlavor.urlScheme)://")
         LabeledContent("Version", value: Self.version)
         LabeledContent("Brave Search key", value: AppSecrets.hasBraveSearchKey ? "Present" : "None")
       } header: {
@@ -60,10 +59,8 @@ struct DeveloperScreen: View {
             + "only in this app; the public build never sees them.")
       }
 
-      Section("Reply routing") {
-        LabeledContent("Setting", value: chat.settings.values.replyLocation.label)
-        LabeledContent("Your computer", value: chat.computerState.label)
-        LabeledContent("Network", value: chat.isOffline ? "Offline" : "Online")
+      Section("Network") {
+        LabeledContent("Connection", value: chat.isOffline ? "Offline" : "Online")
       }
     }
     .navigationTitle("Developer")

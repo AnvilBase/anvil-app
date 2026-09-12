@@ -47,8 +47,8 @@ struct ToolEntry: Identifiable, Sendable {
 
 /// The one place tools are declared.
 ///
-/// Both engines ask for their tools here, so the model on your computer can call exactly what the
-/// model on the iPhone can call, and a tool is added in one place rather than three.
+/// The engine asks for its tools here, so what the model can call is described in exactly one
+/// place, and a tool is added by writing it and naming it — nothing else changes.
 ///
 /// **Adding a tool to the development app only.** Write it next to the others in `Sources/Tools`,
 /// then add an entry inside the `#if ANVIL_DEV` block below with `isDevelopmentOnly: true`. The

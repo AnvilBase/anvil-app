@@ -17,7 +17,6 @@ no servers, and the maintainers never receive your data — there is nowhere for
 | Usage totals | `Application Support/Metrics/usage.json` | Same |
 | The imported model | `Application Support/Models/` | Excluded from backups |
 | Engine caches | `Library/Caches/EngineCache` | Not backed up |
-| Your computer's access token | Keychain | Readable only while unlocked, never synced |
 
 "Complete file protection" means the files are encrypted with a key tied to your passcode and can't be
 read while the phone is locked — not even by the app itself. Nothing personal is included in iCloud or
@@ -28,8 +27,8 @@ by default), and **Delete all chats** removes them immediately.
 
 ## What can leave the phone
 
-The app has three pieces of networking. All use a `URLSession` with no cookies, no cache, and no
-stored credentials, and all are visible in the UI while they're in use.
+The app has two pieces of networking. Both use a `URLSession` with no cookies, no cache, and no
+stored credentials, and both are visible in the UI while they're in use.
 
 **1. Web search — `api.search.brave.com`.** Only when web search is on *and* the model decides to
 call the tool. What's sent is the query the model wrote, which can include details drawn from your
@@ -38,14 +37,7 @@ message, plus the build's Brave API key. Brave's
 Nothing else about the chat is sent — not your history, not your system prompt, not your photos. The
 reply lists every query it ran. Web search is unavailable entirely in builds without a key.
 
-**2. Replies on your computer — only the address you set.** Only when **Settings › My computer** is
-set to *My computer* or *Automatic*. Then your message, the recent history of that chat, and any
-attached photo (as a JPEG data URI, at most 1024 px) are sent to the machine at that address, over
-HTTPS through your own Tailscale network. Tools still run on the phone, so a search still goes only to
-Brave. The access token lives in the Keychain. Set **Run replies on** to *iPhone* and nothing is sent
-anywhere.
-
-**3. Downloading a model — `anvilai.com`, then GitHub.** Only from the **Add a model** screen, and
+**2. Downloading a model — `anvilai.com`, then GitHub.** Only from the **Add a model** screen, and
 only until a model is installed: once you have one, the app never contacts anvilai.com again. Listing
 the models is a plain `GET` of a public JSON file with no query, no identifier, and nothing about you
 attached. Tapping **Download** fetches the parts from the same domain, which redirects each one to a
@@ -78,13 +70,11 @@ The app never speaks replies aloud; there's no text-to-speech.
 
 ## Verifying it yourself
 
-- With a model installed, turn web search off and set replies to run on the iPhone, then chat in
-  airplane mode. In **Settings › Privacy & Security › App Privacy Report**, the app should show no
+- With a model installed, turn web search off and chat in airplane mode. In **Settings › Privacy & Security › App Privacy Report**, the app should show no
   network activity at all. With web search on, the only domain should be `api.search.brave.com`.
-- Read the code: the networking files are `Sources/Tools/BraveSearch.swift`,
-  `Sources/Computer/ComputerEngine.swift`, and `Sources/Engine/ModelCatalog.swift` with
-  `Sources/Engine/ModelDownloadSession.swift`. Searching the project for `URLSession` finds them and
-  nothing else.
+- Read the code: the networking files are `Sources/Tools/BraveSearch.swift` and
+  `Sources/Engine/ModelCatalog.swift` with `Sources/Engine/ModelDownloadSession.swift`. Searching the
+  project for `URLSession` finds them and nothing else.
 - The app is MIT-licensed and builds from source, so nothing here has to be taken on trust.
 
 ## A note on API keys

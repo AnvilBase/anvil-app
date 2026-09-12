@@ -4,9 +4,8 @@ A private AI assistant for iPhone. The model runs on the phone, the chats stay o
 nothing is uploaded — no accounts, no analytics, no telemetry.
 
 Anvil AI is a SwiftUI app built on [LiteRT-LM](https://github.com/google-ai-edge/LiteRT-LM). The
-model file isn't bundled in the app; you copy one onto the phone yourself. Two things can reach the
-network, both of them optional and both visible in the UI: web search, and running replies on a
-larger model on your own computer.
+model file isn't bundled in the app; you install one from the model screen. Two things reach the
+network, both visible in the UI: downloading a model, and web search.
 
 **Two apps, one codebase.** `AnvilAI` is the public app. `AnvilAIDev` is the development app: same
 code, its own bundle identifier, so it installs alongside the public one with separate chats,
@@ -186,34 +185,12 @@ a snippet and how recent it is. Only the queries the model writes leave the phon
 details from your message. While the phone is offline the button is disabled and the status line says
 so; your preference is kept and search resumes when the connection returns.
 
-**Replies on your computer.** Point the app at a bigger model running on your own machine, reachable
-over [Tailscale](https://tailscale.com). In **Settings › My computer**, set **Run replies on**
-(iPhone, My computer, or Automatic), the HTTPS address from `tailscale serve`, and the access token
-(kept in the Keychain), then **Test connection**.
-
-- The app streams OpenAI-format chat completions. Tools still run on the phone — the model asks for
-  a search, the phone performs it, and the result goes back in a follow-up request.
-- Photos travel as JPEG data URIs at most 1024 px; thinking comes from `reasoning_content`; token
-  counts and speeds come from llama.cpp's `timings`.
-- **Automatic** checks `/status` with a two-second timeout before each reply and falls back to the
-  phone with a notice when the computer doesn't answer. A computer found unreachable in the last 30
-  seconds is skipped without waiting. If the connection drops before any text arrives, that reply
-  runs on the phone.
-- **Stop** cancels the request, which stops generation on the computer.
-- A dot in the toolbar shows green (reachable), grey (checking), or red (not reachable or not set
-  up). Tap it to check again.
-- **Pairing links.** The app opens `anvil://pair?url=<https address>&token=<token>` links, so
-  scanning a QR code with the Camera app sets both at once. It asks first and shows the host, so a
-  stray code can't quietly redirect your replies. The development app uses `anvil-dev://`.
-- Pointing it straight at `llama-server` behind `tailscale serve` works for testing: leave the token
-  empty, and the app reads `/props` when `/status` returns 404.
-
 **Formatting.** Replies render Markdown with a small built-in renderer (no third-party
 dependencies): headings, fenced code blocks with a language label and Copy button, lists, quotes,
 tables, dividers, and inline bold, italics, code, and links. LaTeX like `$O(n)$` is shown as code. An
 unfinished code block renders as code while the reply streams.
 
-**Settings**, in order: system prompt · memory · voice input · web search · my computer · metrics ·
+**Settings**, in order: system prompt · memory · voice input · web search · metrics ·
 generation (temperature, top-K, top-P, max reply length, thinking) · model (backend, context size,
 image input — these need **Reload model**) · chat history (delete chats after 1, 3, 7, or 30 days, or
 never) · developer (development app only).
@@ -239,7 +216,7 @@ Both targets compile everything in `Sources/`. The only difference is that `Anvi
 DEV chip in the toolbar.
 
 Tools are declared in one place, [`Sources/Tools/ToolRegistry.swift`](Sources/Tools/ToolRegistry.swift),
-and both engines ask it for their tools — so the model on your computer can call exactly what the
+and the engine asks it for their tools — so what the model can call is described where the
 model on the phone can call. To add a tool to the development app only, write it in `Sources/Tools`
 and add an entry inside the registry's `#if ANVIL_DEV` block:
 
@@ -264,7 +241,6 @@ Sources/         everything else, compiled into both apps
   App/           flavor identity (public vs development) and the root scene
   Chat/          chat state, the transcript model, and protected on-disk storage
   Engine/        the model on this iPhone: downloading and importing it, prompt building
-  Computer/      the model on your computer, pairing, tool-call repair
   Tools/         the tool registry and the tools themselves
   Memory/        facts remembered across chats
   Settings/      settings model and build-time secrets
@@ -276,7 +252,7 @@ Support/         per-app Info.plist and entitlements
 | File | Role |
 | --- | --- |
 | `App/AppFlavor.swift` | Public or development build: app name, URL scheme, storage namespace |
-| `App/AnvilRootScene.swift` | Switches between model import and chat; history, pairing, foreground work |
+| `App/AnvilRootScene.swift` | Switches between installing a model and chatting; history and foreground work |
 | `Chat/ChatModel.swift` | The observable state every screen reads; decides where each reply runs |
 | `Chat/ChatTranscript.swift` | Chat, message, reply-stats, and usage-totals models |
 | `Chat/ChatArchive.swift` | Saves chats, photos, and totals as protected files |
@@ -288,10 +264,6 @@ Support/         per-app Info.plist and entitlements
 | `Engine/ModelDownloadSession.swift` | The background URLSession that keeps a download running when the app isn't |
 | `Engine/PromptBuilder.swift` | The system prompt both engines use |
 | `Engine/EngineTypes.swift` | Model details, conversation options, reply events and counters |
-| `Computer/ComputerEngine.swift` | Streams replies from your computer; runs tools on the phone |
-| `Computer/ComputerTypes.swift` | Reply location, address, Keychain token, status, errors |
-| `Computer/RawToolCalls.swift` | Recovers tool calls llama.cpp streams as plain text |
-| `Computer/PairingLink.swift` | `anvil://pair` links |
 | `Tools/ToolRegistry.swift` | Where tools are declared, and where the two apps diverge |
 | `Tools/ToolSession.swift` | Connects a running tool to the streaming reply |
 | `Tools/BraveSearch.swift` | Brave Search client |
@@ -303,11 +275,14 @@ Support/         per-app Info.plist and entitlements
 | `System/ImageProcessing.swift` | Downscales photos to 1024 px JPEG; decodes saved photos |
 | `System/NetworkStatus.swift` | Watches connectivity so web search is disabled while offline |
 | `System/SpeechInput.swift` | On-device dictation |
-| `UI/ChatScreen.swift` | Message list, scroll following, notices, toolbar |
-| `UI/Composer.swift` | Input bar: search and camera buttons, field, Send/Stop/microphone |
-| `UI/MessageBubble.swift` | One message, with thinking, searches, sources, and metrics |
+| `UI/ChatScreen.swift` | Message list, scroll following, notices, the bar across the top |
+| `UI/SidebarContainer.swift` | The drawer the chat slides over: button, edge swipe, scrim |
+| `UI/ChatSidebar.swift` | What's in the drawer: search, new chat, chats by day, settings |
+| `UI/Composer.swift` | Input card: photos, web search, field, Send/Stop/microphone |
+| `UI/MessageRow.swift` | One message, with thinking, searches, sources, and metrics |
+| `UI/ChatStyle.swift` | Shared colours and the Liquid Glass helpers |
 | `UI/MarkdownView.swift` | The Markdown renderer |
-| `UI/SettingsScreen.swift`, `MetricsScreen.swift`, `ChatListScreen.swift`, `ModelSetupScreen.swift`, `MemoryScreen.swift`, `DeveloperScreen.swift` | The rest of the screens |
+| `UI/SettingsScreen.swift`, `MetricsScreen.swift`, `ModelSetupScreen.swift`, `MemoryScreen.swift`, `DeveloperScreen.swift` | The rest of the screens |
 
 **Engine fallbacks.** With the backend set to Automatic, loading tries GPU with vision on CPU, then
 GPU text-only, then CPU with vision on CPU, then CPU text-only, and shows a banner if it had to fall
@@ -323,12 +298,10 @@ More detail in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Privacy
 
-The app has three pieces of networking, all on a `URLSession` with no cookies or cache:
+The app has two pieces of networking, both on a `URLSession` with no cookies or cache:
 
 - `BraveSearch` in `Sources/Tools/BraveSearch.swift` calls `api.search.brave.com`, only when web
   search is on and the model calls the tool.
-- `ComputerEngine` in `Sources/Computer/ComputerEngine.swift` calls only the address in
-  **Settings › My computer**, and only when replies are set to run there.
 - `ModelCatalog` and `ModelDownloadSession` in `Sources/Engine/` call `anvilai.com` to list and
   download models, only from the model screen, and never once a model is installed. Neither request
   carries anything about you or your chats.
