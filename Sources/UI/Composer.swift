@@ -14,6 +14,11 @@ struct Composer: View {
   @FocusState.Binding var isInputFocused: Bool
   let onShowPhoto: (CGImage) -> Void
 
+  /// Heights of the message and of a single line, both measured at the width the message gets on
+  /// its own row. See `measurements`.
+  @State private var messageHeight: CGFloat = 0
+  @State private var oneLineHeight: CGFloat = 0
+
   @State private var photoSelection: PhotosPickerItem?
   @State private var showingCamera = false
   @State private var showingPhotoLibrary = false
@@ -127,18 +132,66 @@ struct Composer: View {
 
   private var inputCapsule: some View {
     LiquidGlassGroup {
-      // Bottom-aligned so the buttons stay put while the field grows upward under a long message.
-      HStack(alignment: .bottom, spacing: 4) {
-        addButton
-        webSearchButton
-        messageField
-        primaryButton
+      Group {
+        if isExpanded {
+          // Past one line the message takes the whole width and the buttons drop beneath it, so
+          // the caret starts at the top left rather than squeezed between the controls.
+          VStack(alignment: .leading, spacing: 6) {
+            messageField
+            HStack(spacing: 4) {
+              addButton
+              webSearchButton
+              Spacer(minLength: 0)
+              primaryButton
+            }
+          }
+        } else {
+          // Bottom-aligned, so the buttons sit on the baseline of a one-line message.
+          HStack(alignment: .bottom, spacing: 4) {
+            addButton
+            webSearchButton
+            messageField
+            primaryButton
+          }
+        }
       }
+      .background(alignment: .topLeading) { measurements }
       .padding(7)
       .frame(minHeight: 48)
       .liquidGlass(in: containerShape)
       .overlay(containerShape.strokeBorder(ChatStyle.hairline, lineWidth: 0.5))
+      .animation(.snappy(duration: 0.22), value: isExpanded)
     }
+    .onChange(of: isExpanded) { _, _ in
+      // Moving the field between rows rebuilds it, which drops the keyboard mid-sentence. The
+      // change only ever happens while typing, so putting focus back is invisible.
+      if !chat.draft.isEmpty { isInputFocused = true }
+    }
+  }
+
+  private var isExpanded: Bool {
+    oneLineHeight > 0 && messageHeight > oneLineHeight * 1.4
+  }
+
+  /// Decides when the message needs its own row, by laying it out at the width it *would* get there.
+  ///
+  /// Measuring the live field instead oscillates: the field is narrower while the buttons share its
+  /// row, so a message that wraps to two lines there fits on one once it expands — which collapses
+  /// it, which wraps it again. Measured at the wider width, anything needing two lines needs at
+  /// least two at the narrower one, so the decision only ever goes one way.
+  private var measurements: some View {
+    VStack(alignment: .leading, spacing: 0) {
+      Text(" ")
+        .font(.system(size: 17))
+        .measuringHeight { oneLineHeight = $0 }
+      Text(chat.draft.isEmpty ? " " : chat.draft)
+        .font(.system(size: 17))
+        .lineLimit(5)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .measuringHeight { messageHeight = $0 }
+    }
+    .hidden()
+    .allowsHitTesting(false)
   }
 
   /// Down, and meaningfully down rather than a wobble on the way to something else.
