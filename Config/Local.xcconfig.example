@@ -1,0 +1,18 @@
+// Copy to Config/Local.xcconfig (git ignores it) and fill in what you need. Run
+// Scripts/bootstrap.sh to do the copying for you. Nothing here is required to build.
+
+// Your Apple Developer team, from Xcode › Settings › Accounts. Without it, pick your team once in
+// Signing & Capabilities and Xcode stores it in your own workspace instead.
+// DEVELOPMENT_TEAM = ABCDE12345
+
+// Bundle identifiers must be unique to you when signing with a free Apple ID.
+// ANVIL_BUNDLE_PREFIX = com.yourname
+
+// Brave Search API key for web search (https://api-dashboard.search.brave.com). The app builds and
+// runs without one; web search stays off. Anyone with a copy of a build can extract a key compiled
+// into it, so don't share builds that carry yours, and set a monthly limit in Brave's dashboard.
+// ANVIL_BRAVE_API_KEY = your-key-here
+
+// Free Apple IDs can't sign the increased-memory-limit capability. Uncomment to build without it,
+// then lower Settings › Model › Context size if iOS closes the app while the model loads.
+// ANVIL_ENTITLEMENTS =

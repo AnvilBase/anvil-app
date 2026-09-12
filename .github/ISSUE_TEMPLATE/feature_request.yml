@@ -1,0 +1,43 @@
+name: Feature request
+description: Suggest something the app should do
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do
+      description: The problem you're running into, rather than the solution you have in mind.
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you'd like to see
+    validations:
+      required: true
+
+  - type: dropdown
+    id: privacy
+    attributes:
+      label: Would it need the network, new stored data, or a new permission?
+      description: Not disqualifying — it just needs to be a deliberate choice, and switchable off.
+      options:
+        - "No"
+        - "Yes — the network"
+        - "Yes — new stored data"
+        - "Yes — a new permission prompt"
+        - "Not sure"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: which-app
+    attributes:
+      label: Which app should have it
+      options:
+        - Both
+        - Development app first
+        - Not sure
+    validations:
+      required: true

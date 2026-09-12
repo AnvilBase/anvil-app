@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "indentation": { "spaces": 2 },
+  "lineLength": 110,
+  "maximumBlankLines": 1,
+  "respectsExistingLineBreaks": true,
+  "lineBreakBeforeEachArgument": false,
+  "indentConditionalCompilationBlocks": true,
+  "prioritizeKeepingFunctionOutputTogether": true,
+  "rules": {
+    "AlwaysUseLowerCamelCase": true,
+    "NoBlockComments": true,
+    "OrderedImports": true,
+    "UseShorthandTypeNames": true,
+    "UseLetInEveryBoundCaseVariable": false
+  }
+}

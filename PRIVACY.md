@@ -1,0 +1,83 @@
+# Privacy
+
+Anvil AI is built so that your conversations stay on your iPhone. This document describes exactly
+what the app stores, what it can send, and how to verify it yourself.
+
+There are no accounts, no analytics, no crash reporting, and no telemetry of any kind. The project has
+no servers, and the maintainers never receive your data — there is nowhere for it to go.
+
+## What the app stores, and where
+
+| What | Where | Protection |
+| --- | --- | --- |
+| Chats, including search queries and sources | `Application Support/Chats/<id>/chat.json` | Complete file protection, excluded from backups |
+| Photos attached to chats | `Application Support/Chats/<id>/<message>.jpg` | Same |
+| Memories | `Application Support/Memory/memories.json` | Same |
+| Settings, including your system prompt | `Application Support/Settings/settings.json` | Same |
+| Usage totals | `Application Support/Metrics/usage.json` | Same |
+| The imported model | `Application Support/Models/` | Excluded from backups |
+| Engine caches | `Library/Caches/EngineCache` | Not backed up |
+| Your computer's access token | Keychain | Readable only while unlocked, never synced |
+
+"Complete file protection" means the files are encrypted with a key tied to your passcode and can't be
+read while the phone is locked — not even by the app itself. Nothing personal is included in iCloud or
+Finder backups.
+
+Chats are deleted automatically after the retention period in **Settings › Chat history** (three days
+by default), and **Delete all chats** removes them immediately.
+
+## What can leave the phone
+
+The app has two pieces of networking. Both use an ephemeral `URLSession` with no cookies, no cache,
+and no stored credentials, and both are visible in the UI while they're in use.
+
+**1. Web search — `api.search.brave.com`.** Only when web search is on *and* the model decides to
+call the tool. What's sent is the query the model wrote, which can include details drawn from your
+message, plus the build's Brave API key. Brave's
+[privacy policy](https://brave.com/privacy/browser/#brave-search) governs what they do with it.
+Nothing else about the chat is sent — not your history, not your system prompt, not your photos. The
+reply lists every query it ran. Web search is unavailable entirely in builds without a key.
+
+**2. Replies on your computer — only the address you set.** Only when **Settings › My computer** is
+set to *My computer* or *Automatic*. Then your message, the recent history of that chat, and any
+attached photo (as a JPEG data URI, at most 1024 px) are sent to the machine at that address, over
+HTTPS through your own Tailscale network. Tools still run on the phone, so a search still goes only to
+Brave. The access token lives in the Keychain. Set **Run replies on** to *iPhone* and nothing is sent
+anywhere.
+
+`NWPathMonitor` (`Sources/System/NetworkStatus.swift`) reads whether the phone is online and
+transmits nothing. The app has no web views and opens no sockets.
+
+Two things are worth knowing because they aren't the app:
+
+- The photo picker runs in a separate system process. If a photo lives only in iCloud, iOS itself may
+  download it; the app doesn't.
+- Tapping a source opens it in Safari, outside the app.
+
+## Microphone, speech, and camera
+
+Dictation uses Apple's speech recognizer with `requiresOnDeviceRecognition` set, so audio is
+transcribed on the phone and never sent to Apple's servers. If your language has no on-device model,
+the app refuses to dictate rather than falling back to the network. Audio isn't recorded or saved
+anywhere; only the text you see in the message field exists afterwards.
+
+Camera photos go straight into the message and are not written to your photo library. Every photo is
+downscaled to at most 1024 px before any model sees it.
+
+The app never speaks replies aloud; there's no text-to-speech.
+
+## Verifying it yourself
+
+- Turn web search off and set replies to run on the iPhone, then chat in airplane mode. In
+  **Settings › Privacy & Security › App Privacy Report**, the app should show no network activity at
+  all. With web search on, the only domain should be `api.search.brave.com`.
+- Read the code: the two networking files are `Sources/Tools/BraveSearch.swift` and
+  `Sources/Computer/ComputerEngine.swift`. Searching the project for `URLSession` finds them and
+  nothing else.
+- The app is MIT-licensed and builds from source, so nothing here has to be taken on trust.
+
+## A note on API keys
+
+A Brave Search key compiled into a build can be extracted from that build by anyone who has it. Keep
+your key in `Config/Local.xcconfig`, don't distribute builds that carry it, and set a monthly usage
+limit in Brave's dashboard.

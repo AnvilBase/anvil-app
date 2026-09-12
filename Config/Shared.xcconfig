@@ -1,0 +1,44 @@
+// Settings shared by both apps. Anything personal (your signing team, your API key) belongs in
+// Config/Local.xcconfig, which is never committed. See Config/Local.xcconfig.example.
+
+IPHONEOS_DEPLOYMENT_TARGET = 17.0
+SWIFT_VERSION = 5.0
+SDKROOT = iphoneos
+SUPPORTED_PLATFORMS = iphoneos iphonesimulator
+TARGETED_DEVICE_FAMILY = 1
+
+// LiteRT-LM's prebuilt iOS framework has no x86_64 simulator slice, so an Intel Mac (or a
+// build-for-all-architectures build on Apple silicon) fails at link time. Apple silicon simulators
+// are arm64 anyway. The simulator can build the app but can't usefully run a model.
+EXCLUDED_ARCHS[sdk=iphonesimulator*] = x86_64
+SUPPORTS_MACCATALYST = NO
+SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO
+
+CURRENT_PROJECT_VERSION = 1
+MARKETING_VERSION = 0.1.0
+
+// Reverse-DNS prefix for both apps. Override it in Config/Local.xcconfig if you sign with a free
+// Apple ID, which needs a bundle identifier nobody else has claimed.
+ANVIL_BUNDLE_PREFIX = com.anvilbase
+
+// Brave Search key, read at runtime from the bundle (see AppSecrets.swift). Empty here on purpose:
+// web search simply stays off until you add a key in Config/Local.xcconfig.
+ANVIL_BRAVE_API_KEY =
+
+CODE_SIGN_STYLE = Automatic
+ENABLE_PREVIEWS = YES
+GENERATE_INFOPLIST_FILE = YES
+INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES
+INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES
+INFOPLIST_KEY_UILaunchScreen_Generation = YES
+INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+LD_RUNPATH_SEARCH_PATHS = $(inherited) @executable_path/Frameworks
+SWIFT_EMIT_LOC_STRINGS = YES
+
+CLANG_ENABLE_MODULES = YES
+CLANG_ENABLE_OBJC_ARC = YES
+CLANG_ANALYZER_NONNULL = YES
+ENABLE_STRICT_OBJC_MSGSEND = YES
+ENABLE_USER_SCRIPT_SANDBOXING = YES
+GCC_NO_COMMON_BLOCKS = YES
+MTL_FAST_MATH = YES

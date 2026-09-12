@@ -1,0 +1,375 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10000000000000000000053 /* LiteRTLM in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000051 /* LiteRTLM */; };
+		A10000000000000000000054 /* LiteRTLM in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000052 /* LiteRTLM */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A10000000000000000000001 /* AnvilAI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AnvilAI.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10000000000000000000002 /* AnvilAIDev.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AnvilAIDev.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10000000000000000000003 /* Shared.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Shared.xcconfig; sourceTree = "<group>"; };
+		A10000000000000000000004 /* Public.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Public.xcconfig; sourceTree = "<group>"; };
+		A10000000000000000000005 /* Dev.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Dev.xcconfig; sourceTree = "<group>"; };
+		A10000000000000000000006 /* Local.xcconfig.example */ = {isa = PBXFileReference; lastKnownFileType = text; path = Local.xcconfig.example; sourceTree = "<group>"; };
+		A10000000000000000000007 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A10000000000000000000008 /* AnvilAI.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AnvilAI.entitlements; sourceTree = "<group>"; };
+		A10000000000000000000009 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A1000000000000000000000A /* AnvilAIDev.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AnvilAIDev.entitlements; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		A10000000000000000000010 /* Sources */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000011 /* AnvilAI */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			name = AnvilAI;
+			path = Apps/AnvilAI;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000012 /* AnvilAIDev */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			name = AnvilAIDev;
+			path = Apps/AnvilAIDev;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A10000000000000000000033 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000053 /* LiteRTLM in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A10000000000000000000036 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000054 /* LiteRTLM in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A10000000000000000000020 = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000010 /* Sources */,
+				A10000000000000000000011 /* AnvilAI */,
+				A10000000000000000000012 /* AnvilAIDev */,
+				A10000000000000000000022 /* Config */,
+				A10000000000000000000023 /* Support */,
+				A10000000000000000000021 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A10000000000000000000021 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000001 /* AnvilAI.app */,
+				A10000000000000000000002 /* AnvilAIDev.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000022 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000003 /* Shared.xcconfig */,
+				A10000000000000000000004 /* Public.xcconfig */,
+				A10000000000000000000005 /* Dev.xcconfig */,
+				A10000000000000000000006 /* Local.xcconfig.example */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000023 /* Support */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000024 /* AnvilAI */,
+				A10000000000000000000025 /* AnvilAIDev */,
+			);
+			path = Support;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000024 /* AnvilAI */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000007 /* Info.plist */,
+				A10000000000000000000008 /* AnvilAI.entitlements */,
+			);
+			path = AnvilAI;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000025 /* AnvilAIDev */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000009 /* Info.plist */,
+				A1000000000000000000000A /* AnvilAIDev.entitlements */,
+			);
+			path = AnvilAIDev;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A10000000000000000000030 /* AnvilAI */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A10000000000000000000044 /* Build configuration list for PBXNativeTarget "AnvilAI" */;
+			buildPhases = (
+				A10000000000000000000032 /* Sources */,
+				A10000000000000000000033 /* Frameworks */,
+				A10000000000000000000034 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				A10000000000000000000010 /* Sources */,
+				A10000000000000000000011 /* AnvilAI */,
+			);
+			name = AnvilAI;
+			packageProductDependencies = (
+				A10000000000000000000051 /* LiteRTLM */,
+			);
+			productName = AnvilAI;
+			productReference = A10000000000000000000001 /* AnvilAI.app */;
+			productType = "com.apple.product-type.application";
+		};
+		A10000000000000000000031 /* AnvilAIDev */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A10000000000000000000047 /* Build configuration list for PBXNativeTarget "AnvilAIDev" */;
+			buildPhases = (
+				A10000000000000000000035 /* Sources */,
+				A10000000000000000000036 /* Frameworks */,
+				A10000000000000000000037 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				A10000000000000000000010 /* Sources */,
+				A10000000000000000000012 /* AnvilAIDev */,
+			);
+			name = AnvilAIDev;
+			packageProductDependencies = (
+				A10000000000000000000052 /* LiteRTLM */,
+			);
+			productName = AnvilAIDev;
+			productReference = A10000000000000000000002 /* AnvilAIDev.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A10000000000000000000040 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2600;
+				LastUpgradeCheck = 2600;
+				TargetAttributes = {
+					A10000000000000000000030 = {
+						CreatedOnToolsVersion = 26.0;
+					};
+					A10000000000000000000031 = {
+						CreatedOnToolsVersion = 26.0;
+					};
+				};
+			};
+			buildConfigurationList = A10000000000000000000041 /* Build configuration list for PBXProject "AnvilAI" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A10000000000000000000020;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				A10000000000000000000050 /* XCRemoteSwiftPackageReference "LiteRT-LM" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = A10000000000000000000021 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A10000000000000000000030 /* AnvilAI */,
+				A10000000000000000000031 /* AnvilAIDev */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A10000000000000000000034 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A10000000000000000000037 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A10000000000000000000032 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A10000000000000000000035 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A10000000000000000000042 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		A10000000000000000000043 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		A10000000000000000000045 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A10000000000000000000004 /* Public.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		A10000000000000000000046 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A10000000000000000000004 /* Public.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		A10000000000000000000048 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A10000000000000000000005 /* Dev.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		A10000000000000000000049 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A10000000000000000000005 /* Dev.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A10000000000000000000041 /* Build configuration list for PBXProject "AnvilAI" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A10000000000000000000042 /* Debug */,
+				A10000000000000000000043 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A10000000000000000000044 /* Build configuration list for PBXNativeTarget "AnvilAI" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A10000000000000000000045 /* Debug */,
+				A10000000000000000000046 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A10000000000000000000047 /* Build configuration list for PBXNativeTarget "AnvilAIDev" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A10000000000000000000048 /* Debug */,
+				A10000000000000000000049 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A10000000000000000000050 /* XCRemoteSwiftPackageReference "LiteRT-LM" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google-ai-edge/LiteRT-LM";
+			requirement = {
+				kind = upToNextMinorVersion;
+				minimumVersion = 0.17.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A10000000000000000000051 /* LiteRTLM */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000050 /* XCRemoteSwiftPackageReference "LiteRT-LM" */;
+			productName = LiteRTLM;
+		};
+		A10000000000000000000052 /* LiteRTLM */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000050 /* XCRemoteSwiftPackageReference "LiteRT-LM" */;
+			productName = LiteRTLM;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = A10000000000000000000040 /* Project object */;
+}

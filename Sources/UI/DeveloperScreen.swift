@@ -1,0 +1,89 @@
+import SwiftUI
+
+/// What this build actually is and what the model can call, for when the two apps start to differ.
+///
+/// Reachable from Settings in the development app only. It reads from `AppFlavor` and `ToolRegistry`
+/// rather than from a hard-coded list, so a tool added to the registry shows up here on its own.
+struct DeveloperScreen: View {
+  let chat: ChatModel
+
+  var body: some View {
+    List {
+      Section {
+        LabeledContent("Flavor", value: AppFlavor.current.rawValue)
+        LabeledContent("App name", value: AppFlavor.appName)
+        LabeledContent("Bundle identifier", value: AppFlavor.storageNamespace)
+        LabeledContent("URL scheme", value: "\(AppFlavor.urlScheme)://")
+        LabeledContent("Version", value: Self.version)
+        LabeledContent("Brave Search key", value: AppSecrets.hasBraveSearchKey ? "Present" : "None")
+      } header: {
+        Text("Build")
+      } footer: {
+        Text(
+          "The public and development apps install side by side and keep separate chats, settings, "
+            + "and imported models.")
+      }
+
+      Section {
+        ForEach(ToolRegistry.catalog) { entry in
+          VStack(alignment: .leading, spacing: 3) {
+            HStack {
+              Text(entry.name)
+                .font(.body.monospaced())
+              if entry.isDevelopmentOnly {
+                Text("DEV")
+                  .font(.caption2.weight(.bold))
+                  .padding(.horizontal, 5)
+                  .padding(.vertical, 1)
+                  .background(.tint.opacity(0.2), in: RoundedRectangle(cornerRadius: 4))
+              }
+              Spacer()
+              Text(ToolRegistry.isAvailable(entry, with: options) ? "Available now" : "Off")
+                .font(.caption)
+                .foregroundStyle(
+                  ToolRegistry.isAvailable(entry, with: options) ? Color.green : .secondary)
+            }
+            Text(entry.summary)
+              .font(.footnote)
+              .foregroundStyle(.secondary)
+            Text(entry.requirement.label)
+              .font(.caption2)
+              .foregroundStyle(.secondary)
+          }
+          .padding(.vertical, 2)
+        }
+      } header: {
+        Text("Tools")
+      } footer: {
+        Text(
+          "Declared in Sources/Tools/ToolRegistry.swift. Entries inside its ANVIL_DEV block exist "
+            + "only in this app; the public build never sees them.")
+      }
+
+      Section("Reply routing") {
+        LabeledContent("Setting", value: chat.settings.values.replyLocation.label)
+        LabeledContent("Your computer", value: chat.computerState.label)
+        LabeledContent("Network", value: chat.isOffline ? "Offline" : "Online")
+      }
+    }
+    .navigationTitle("Developer")
+  }
+
+  /// Only the parts of the conversation options that decide whether a tool is available.
+  private var options: ConversationOptions {
+    ConversationOptions(
+      systemPrompt: "",
+      sampler: nil,
+      thinking: false,
+      webSearch: chat.webSearchOn,
+      memoryEnabled: chat.settings.values.memoryEnabled,
+      memories: [])
+  }
+
+  private static var version: String {
+    let info = Bundle.main.infoDictionary
+    let short = info?["CFBundleShortVersionString"] as? String ?? "0"
+    let build = info?["CFBundleVersion"] as? String ?? "0"
+    return "\(short) (\(build))"
+  }
+}

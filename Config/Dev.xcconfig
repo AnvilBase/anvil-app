@@ -1,0 +1,20 @@
+// The development app: Anvil Dev. Installs alongside the public app.
+
+#include "Shared.xcconfig"
+
+PRODUCT_NAME = $(TARGET_NAME)
+PRODUCT_BUNDLE_IDENTIFIER = $(ANVIL_BUNDLE_PREFIX).AnvilAI.dev
+INFOPLIST_KEY_CFBundleDisplayName = Anvil Dev
+INFOPLIST_FILE = Support/AnvilAIDev/Info.plist
+
+// Its own scheme, so a pairing QR code can target the development app specifically.
+ANVIL_URL_SCHEME = anvil-dev
+
+ANVIL_ENTITLEMENTS = Support/AnvilAIDev/AnvilAIDev.entitlements
+CODE_SIGN_ENTITLEMENTS = $(ANVIL_ENTITLEMENTS)
+
+// The one compile-time difference between the two apps: the developer screen and any tools
+// registered for development builds only (see Sources/Tools/ToolRegistry.swift).
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited) ANVIL_DEV
+
+#include? "Local.xcconfig"

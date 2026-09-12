@@ -1,0 +1,51 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build both apps
+    runs-on: macos-15
+    env:
+      # LiteRT-LM keeps Android binaries in Git LFS and one object is missing upstream. iOS needs
+      # none of them: the framework arrives as a release zip.
+      GIT_LFS_SKIP_SMUDGE: 1
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select --switch /Applications/Xcode_16.4.app
+
+      - name: Resolve packages
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project AnvilAI.xcodeproj \
+            -onlyUsePackageVersionsFromResolvedFile
+
+      - name: Build AnvilAI
+        run: |
+          xcodebuild build \
+            -project AnvilAI.xcodeproj \
+            -scheme AnvilAI \
+            -destination 'generic/platform=iOS Simulator' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcbeautify || exit ${PIPESTATUS[0]}
+
+      - name: Build AnvilAIDev
+        run: |
+          xcodebuild build \
+            -project AnvilAI.xcodeproj \
+            -scheme AnvilAIDev \
+            -destination 'generic/platform=iOS Simulator' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcbeautify || exit ${PIPESTATUS[0]}

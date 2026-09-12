@@ -1,0 +1,63 @@
+import Foundation
+
+/// Builds the system prompt from the conversation's options.
+///
+/// Both engines use this, so the model on your computer is told exactly what the model on the iPhone
+/// is told. Tools are assembled next door, in `ToolRegistry`.
+enum PromptBuilder {
+  static func systemPrompt(for options: ConversationOptions) -> String {
+    var prompt = options.systemPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+    let today = Date().formatted(date: .complete, time: .omitted)
+    prompt +=
+      "\n\nToday is \(today). For the current time or date anywhere, call get_current_time instead "
+      + "of guessing."
+
+    if options.webSearch {
+      prompt += """
+
+
+        You can call the web_search tool. Use it for recent events, current information, or facts \
+        you aren't sure about; answer things you already know well directly. Combine what the \
+        results say into a direct, complete answer and cite the results you used by number, like \
+        [1] or [2]. Results can be out of date, so mention how recent the information is when it \
+        matters. If the results don't contain the answer, say so plainly, then give your best \
+        answer from what you know. Never write placeholder text.
+        """
+    } else {
+      prompt += """
+
+
+        Answer from your own knowledge. If something may have changed since your training or you \
+        aren't completely sure, still give your best, specific answer (for example, a product's \
+        usual ingredients) and add a brief note that details may be out of date. Never answer only \
+        by telling the user to look it up somewhere else.
+        """
+    }
+
+    if options.memoryEnabled {
+      prompt += """
+
+
+        You can call save_memory to remember lasting facts about the user for future chats, such \
+        as their name, preferences, or ongoing projects. Save one when the user asks you to remember \
+        something or shares a clearly lasting detail; don't save trivial or temporary things.
+        """
+      if !options.memories.isEmpty {
+        prompt += "\n\nWhat you remember about the user from earlier chats:\n"
+          + options.memories.map { "- \($0)" }.joined(separator: "\n")
+          + "\nUse these when they're relevant."
+      }
+    }
+
+    return prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+  }
+
+  /// A short line, seen only by the model, telling it that web search was just turned on or off.
+  /// Without it the model keeps answering the way it did earlier in the chat.
+  static func searchChangeNote(webSearchOn: Bool) -> String {
+    webSearchOn
+      ? "(Web search is now on. Use the web_search tool if this message needs current or specific "
+        + "information.)"
+      : "(Web search is now off. Answer from your own knowledge.)"
+  }
+}

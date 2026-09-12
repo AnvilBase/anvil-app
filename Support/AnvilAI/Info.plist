@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Lets you drag the model file onto the app in Finder's Files tab or the Files app. -->
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Anvil AI uses the camera to take a photo for your message. Photos stay on this iPhone.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Anvil AI uses the microphone so you can talk to it. Audio is processed on this iPhone and never leaves it.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Anvil AI turns your speech into text on this iPhone. Audio is never sent off the device.</string>
+	<!-- Pairing links from the companion server on your computer: anvil://pair?url=…&amp;token=… -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER).pairing</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>$(ANVIL_URL_SCHEME)</string>
+			</array>
+		</dict>
+	</array>
+	<!-- Empty unless you put a key in Config/Local.xcconfig. Web search is off without one. -->
+	<key>BraveSearchAPIKey</key>
+	<string>$(ANVIL_BRAVE_API_KEY)</string>
+</dict>
+</plist>

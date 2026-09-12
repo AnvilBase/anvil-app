@@ -1,0 +1,23 @@
+# Your own signing team and API keys. Copy Config/Local.xcconfig.example to get started,
+# or run Scripts/bootstrap.sh.
+Config/Local.xcconfig
+
+# macOS and Xcode
+.DS_Store
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+DerivedData/
+build/
+*.xcarchive
+*.ipa
+*.dSYM.zip
+
+# Swift Package Manager working state (Package.resolved is committed on purpose)
+.swiftpm/
+.build/
+
+# Model files are copied onto the phone separately and are far too large for git.
+*.litertlm
+*.gguf
+*.task

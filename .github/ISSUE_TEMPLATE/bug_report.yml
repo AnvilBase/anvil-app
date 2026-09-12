@@ -1,0 +1,82 @@
+name: Bug report
+description: Something doesn't work the way it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please don't report security problems here — use a
+        [private advisory](https://github.com/AnvilBase/anvil-app/security/advisories/new) instead.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. …
+        2. …
+        3. …
+    validations:
+      required: true
+
+  - type: dropdown
+    id: app
+    attributes:
+      label: Which app
+      options:
+        - AnvilAI (public)
+        - AnvilAIDev (development)
+        - Both
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: iPhone and iOS version
+      placeholder: iPhone 16 Pro, iOS 18.5
+    validations:
+      required: true
+
+  - type: input
+    id: model
+    attributes:
+      label: Model file
+      placeholder: gemma-4-E4B-it-litert-lm
+    validations:
+      required: true
+
+  - type: dropdown
+    id: reply-location
+    attributes:
+      label: Where replies were running
+      options:
+        - iPhone
+        - My computer
+        - Automatic
+        - Not relevant
+    validations:
+      required: true
+
+  - type: textarea
+    id: metrics
+    attributes:
+      label: Settings and metrics
+      description: >
+        Anything relevant from Settings (backend, context size, image input, web search, thinking) and
+        from Performance and usage — app memory, memory left before the iOS limit, and thermal state
+        are the useful ones for crashes.
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Console output, if any
+      render: text
