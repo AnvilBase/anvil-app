@@ -209,6 +209,11 @@ struct ChatSidebar: View {
 
   // MARK: - Bottom
 
+  /// How close two surfaces have to be to run together, and how far apart the two end up. The
+  /// second is the larger on purpose — see `actionBar`.
+  private static let mergeWithin: CGFloat = 16
+  private static let restingGap: CGFloat = 24
+
   /// Clear the list, search it, or start a new chat — or, once search is open, the field itself in
   /// their place. Three ordinary buttons with air between them: they are three separate things and
   /// must look like three separate things.
@@ -216,6 +221,10 @@ struct ChatSidebar: View {
   /// The button that confirms Clear All comes up out of it rather than replacing it. Those two are
   /// held in a glass group so that they are one surface while they are touching and pull apart into
   /// two as it rises — Search and New chat are outside that group, and stay their own buttons.
+  ///
+  /// The merging is the journey, not the destination. Glass in a group runs together only while it
+  /// is closer than the group's spacing, so the gap they come to rest at is wider than that: they
+  /// flow apart on the way up and are two separate buttons by the time they stop.
   @ViewBuilder
   private var actionBar: some View {
     Group {
@@ -223,8 +232,8 @@ struct ChatSidebar: View {
         searchField
       } else {
         HStack(alignment: .bottom, spacing: 10) {
-          LiquidGlassGroup(spacing: 44) {
-            VStack(spacing: 10) {
+          LiquidGlassGroup(spacing: Self.mergeWithin) {
+            VStack(spacing: Self.restingGap) {
               if confirmingClearAll { confirmButton }
               clearAllButton
             }
@@ -261,7 +270,7 @@ struct ChatSidebar: View {
     // Starts exactly on top of the button it came from, the same width and the same shape, so
     // there is one surface there and not two. Rising, it drags away from it and pinches off.
     .transition(
-      .offset(y: ChatStyle.control + 10)
+      .offset(y: ChatStyle.control + Self.restingGap)
         .combined(with: .scale(scale: 0.82, anchor: .bottom))
         .combined(with: .opacity))
   }
