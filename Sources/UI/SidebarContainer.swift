@@ -62,7 +62,13 @@ struct SidebarContainer<Sidebar: View, Content: View>: View {
         shape
           .fill(ChatStyle.page)
           .frame(width: proxy.size.width, height: proxy.size.height)
-          .shadow(color: .black.opacity(0.28 * progress), radius: 22, x: -8)
+          // Two soft ones rather than one dark one. A single 28% shadow at this size reads as a
+          // grey band painted down the edge of the page — and it no longer has to carry the
+          // separating on its own, now that the hairline draws the edge and the page lifts off the
+          // drawer as it goes. So: a wide, faint one for the depth, and a short, fainter one just
+          // under the edge for the contact, which together fall away instead of stopping.
+          .shadow(color: .black.opacity(0.10 * progress), radius: 30, x: -10)
+          .shadow(color: .black.opacity(0.06 * progress), radius: 8, x: -2)
           .offset(x: offset)
           .allowsHitTesting(false)
 
