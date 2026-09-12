@@ -1,10 +1,13 @@
 import SwiftUI
 
 /// Everything you can change, in the order it matters: what the model is told, what it remembers,
-/// how you talk to it, what it can reach, where it runs, and how long chats are kept.
+/// how you talk to it, what it can reach, where it runs, how long chats are kept, and how it looks.
 struct SettingsScreen: View {
   let chat: ChatModel
   @Bindable var settings: SettingsStore
+  /// Throwing the model away and starting again. It is the last resort for a model that won't
+  /// load, and this is the only place it can be reached from.
+  let onRemoveModel: () -> Void
 
   @Environment(\.dismiss) private var dismiss
   @State private var confirmingDeleteAll = false
@@ -20,6 +23,7 @@ struct SettingsScreen: View {
         generationSection
         modelSection
         historySection
+        appearanceSection
       }
       .navigationTitle("Settings")
       #if os(iOS)
@@ -191,11 +195,15 @@ struct SettingsScreen: View {
       }
       Toggle("Image input", isOn: $settings.values.engine.imageInput)
 
-      if chat.needsReload {
-        Button("Reload model to apply") {
-          Task { await chat.reloadModel() }
-          dismiss()
-        }
+      // Always here, not only when something above has been changed: this is also the way back
+      // from a model that wouldn't load, and that screen says nothing but what happened.
+      Button(chat.needsReload ? "Reload model to apply" : "Reload model") {
+        Task { await chat.reloadModel() }
+        dismiss()
+      }
+      Button("Remove model and re-import", role: .destructive) {
+        dismiss()
+        onRemoveModel()
       }
     } header: {
       Text("Model")
@@ -203,7 +211,23 @@ struct SettingsScreen: View {
       Text(
         "Settings for the model on this iPhone. A larger context remembers more of the chat but "
           + "uses more memory; if iOS closes the app, go back to 4,096. Turning off image input "
-          + "saves memory too.")
+          + "saves memory too. If the model won't load, reload it here; removing it lets you "
+          + "download or copy it across again.")
+    }
+  }
+
+  private var appearanceSection: some View {
+    Section {
+      Picker("Appearance", selection: $settings.values.appearance) {
+        ForEach(AppearancePreference.allCases) { preference in
+          Text(preference.label).tag(preference)
+        }
+      }
+      .pickerStyle(.segmented)
+    } header: {
+      Text("Appearance")
+    } footer: {
+      Text("System follows whatever this iPhone is set to.")
     }
   }
 

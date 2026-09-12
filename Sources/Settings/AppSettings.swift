@@ -17,6 +17,23 @@ enum EngineBackendPreference: String, Codable, CaseIterable, Identifiable, Senda
   }
 }
 
+/// Whether the app follows the phone or is told which way to look.
+enum AppearancePreference: String, Codable, CaseIterable, Identifiable, Sendable {
+  case system
+  case light
+  case dark
+
+  var id: Self { self }
+
+  var label: String {
+    switch self {
+    case .system: "System"
+    case .light: "Light"
+    case .dark: "Dark"
+    }
+  }
+}
+
 /// Settings that only take effect when the engine is reloaded.
 struct EngineOptions: Codable, Equatable, Sendable {
   var backend: EngineBackendPreference = .automatic
@@ -59,6 +76,8 @@ struct AppSettings: Codable, Equatable, Sendable {
   var memoryEnabled = true
   /// Send a dictated message automatically when you pause.
   var autoSendVoice = true
+  /// Light, dark, or whatever the phone is set to.
+  var appearance = AppearancePreference.system
 
   init() {}
 
@@ -81,6 +100,7 @@ struct AppSettings: Codable, Equatable, Sendable {
     webSearchResultCount = try value(.webSearchResultCount, defaults.webSearchResultCount)
     memoryEnabled = try value(.memoryEnabled, defaults.memoryEnabled)
     autoSendVoice = try value(.autoSendVoice, defaults.autoSendVoice)
+    appearance = try value(.appearance, defaults.appearance)
   }
 }
 

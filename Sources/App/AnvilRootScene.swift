@@ -50,6 +50,8 @@ private struct RootView: View {
     // moves all of it together. A floor rather than a fixed size, so anyone who has already asked
     // iOS for larger text keeps the size they chose.
     .dynamicTypeSize(.xxLarge...)
+    // Nothing for "System", which leaves SwiftUI following the phone.
+    .preferredColorScheme(chat.settings.values.appearance.colorScheme)
     .onChange(of: scenePhase) {
       guard scenePhase == .active else { return }
       Task {

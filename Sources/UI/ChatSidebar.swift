@@ -18,6 +18,14 @@ struct ChatSidebar: View {
   @State private var isSearching = false
   @State private var confirmingClearAll = false
   @FocusState private var searchFocused: Bool
+  /// The space the three surfaces along the bottom share, so one can flow into another.
+  @Namespace private var glass
+
+  /// The three places along the bottom a glass surface can be. What sits in each one changes; the
+  /// glass doesn't, which is what lets it stretch from a button into an answer and back.
+  private enum Slot: Hashable {
+    case wide, middle, trailing
+  }
   /// How much of the drawer the keyboard is sitting over. The drawer keeps its full height while
   /// the keyboard is up — see `SidebarContainer` — so the search field, which lives along the
   /// bottom, has to be lifted clear of it by hand or you can't see what you're typing.
@@ -40,17 +48,6 @@ struct ChatSidebar: View {
       actionBar
     }
     .background(ChatStyle.sidebar)
-    .confirmationDialog(
-      "Are you sure?", isPresented: $confirmingClearAll, titleVisibility: .visible
-    ) {
-      Button("Clear All", role: .destructive) {
-        chat.deleteAllChats()
-        onOpenChat()
-      }
-      Button("Cancel", role: .cancel) {}
-    } message: {
-      Text("Every chat saved on this iPhone is deleted. This can't be undone.")
-    }
     .onChange(of: isSearching) { _, searching in
       // Nothing to lift once search is closed, and the field that raised the keyboard is gone.
       if !searching { keyboardOverlap = 0 }
@@ -207,35 +204,87 @@ struct ChatSidebar: View {
   // MARK: - Bottom
 
   /// Clear the list, search it, or start a new chat — or, once search is open, the field itself in
-  /// their place.
+  /// their place, or, once Clear All has been pressed, the question and the way out of it.
+  ///
+  /// All three are the same three pieces of glass in the same three places, so the bar never swaps
+  /// one set of buttons for another: Clear All stretches into the question it is asking, New chat
+  /// rounds itself off into the way out of it, and Search is drawn into its neighbours on the way.
+  /// Held in one group, glass this close together flows rather than cuts — which is the whole of
+  /// the effect, and none of it is a picture of a dialog laid over the app.
   @ViewBuilder
   private var actionBar: some View {
-    Group {
-      if isSearching {
-        searchField
-      } else {
-        HStack(spacing: 10) {
-          clearAllButton
-          searchButton
-          newChatButton
+    LiquidGlassGroup(spacing: 26) {
+      Group {
+        if isSearching {
+          searchField
+        } else if confirmingClearAll {
+          confirmClearRow
+        } else {
+          HStack(spacing: 10) {
+            clearAllButton
+            searchButton
+            newChatButton
+          }
         }
       }
+      .animation(ChatStyle.gooMotion, value: confirmingClearAll)
     }
     .padding(.horizontal, 14)
     .padding(.top, 8)
     .padding(.bottom, 12 + (isSearching ? keyboardOverlap : 0))
   }
 
+  /// What Clear All becomes when you press it: itself, wider and red and asking, with the way out
+  /// where New chat was.
+  private var confirmClearRow: some View {
+    HStack(spacing: 10) {
+      Button {
+        chat.deleteAllChats()
+        onOpenChat()
+        withAnimation(ChatStyle.gooMotion) { confirmingClearAll = false }
+      } label: {
+        Text("Delete every chat")
+          .font(.body.weight(.semibold))
+          .foregroundStyle(.white)
+          .frame(maxWidth: .infinity)
+          .frame(height: ChatStyle.control)
+          .liquidGlass(in: Capsule(), tint: .red)
+          .liquidGlassID(Slot.wide, in: glass)
+          .contentShape(Capsule())
+      }
+      .buttonStyle(.plain)
+      .accessibilityHint("Every chat saved on this iPhone is deleted. This can't be undone.")
+
+      Button {
+        withAnimation(ChatStyle.gooMotion) { confirmingClearAll = false }
+      } label: {
+        Image(systemName: "xmark")
+          .font(.system(size: ChatStyle.controlGlyph, weight: .medium))
+          .frame(width: ChatStyle.control, height: ChatStyle.control)
+          .liquidGlass(in: Circle(), interactive: true)
+          .liquidGlassID(Slot.trailing, in: glass)
+          .contentShape(Circle())
+      }
+      .buttonStyle(.plain)
+      .foregroundStyle(.primary)
+      .accessibilityLabel("Keep my chats")
+    }
+  }
+
   /// The one named button of the three, because it's the one there is no undo for. It asks before
   /// it does anything.
   private var clearAllButton: some View {
-    Button { confirmingClearAll = true } label: {
+    Button {
+      withAnimation(ChatStyle.gooMotion) { confirmingClearAll = true }
+    } label: {
       Label("Clear All", systemImage: "trash")
         .font(.body.weight(.medium))
         .foregroundStyle(.red)
         .frame(maxWidth: .infinity)
         .frame(height: ChatStyle.control)
         .liquidGlass(in: Capsule(), interactive: true)
+        .liquidGlassID(Slot.wide, in: glass)
+        .contentShape(Capsule())
     }
     .buttonStyle(.plain)
     .disabled(chat.savedChats.isEmpty)
@@ -251,6 +300,8 @@ struct ChatSidebar: View {
         .font(.system(size: ChatStyle.controlGlyph, weight: .medium))
         .frame(width: ChatStyle.control, height: ChatStyle.control)
         .liquidGlass(in: Circle(), interactive: true)
+        .liquidGlassID(Slot.middle, in: glass)
+        .contentShape(Circle())
     }
     .buttonStyle(.plain)
     .foregroundStyle(.primary)
@@ -264,6 +315,8 @@ struct ChatSidebar: View {
         .font(.system(size: ChatStyle.controlGlyph, weight: .medium))
         .frame(width: ChatStyle.control, height: ChatStyle.control)
         .liquidGlass(in: Circle(), interactive: true)
+        .liquidGlassID(Slot.trailing, in: glass)
+        .contentShape(Circle())
     }
     .buttonStyle(.plain)
     .foregroundStyle(.primary)

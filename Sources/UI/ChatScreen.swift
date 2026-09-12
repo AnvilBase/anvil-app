@@ -67,7 +67,7 @@ struct ChatScreen: View {
     }
     .task(id: model) { await chat.load(model) }
     .sheet(isPresented: $showingSettings, onDismiss: { Task { await chat.settingsDidClose() } }) {
-      SettingsScreen(chat: chat, settings: chat.settings)
+      SettingsScreen(chat: chat, settings: chat.settings, onRemoveModel: onRemoveModel)
     }
     .sheet(isPresented: $showingDeveloper) {
       NavigationStack {
@@ -173,23 +173,15 @@ struct ChatScreen: View {
     case .idle, .loading, .ready:
       conversation
 
-    case .failed(let message):
+    // The mark and the sentence, and nothing else. What to do about it lives in Settings › Model,
+    // which the bar across the top can still reach from here.
+    case .failed:
       VStack(spacing: 16) {
         Image(systemName: "exclamationmark.triangle")
           .font(.largeTitle)
           .foregroundStyle(.orange)
         Text("Couldn't load the model")
           .font(.title3.weight(.semibold))
-        Text(message)
-          .font(.subheadline)
-          .foregroundStyle(.secondary)
-          .multilineTextAlignment(.center)
-        Button("Try again") {
-          Task { await chat.load(model, force: true) }
-        }
-        .buttonStyle(.borderedProminent)
-        Button("Settings") { showingSettings = true }
-        Button("Remove model and re-import", role: .destructive, action: onRemoveModel)
       }
       .padding()
       .frame(maxWidth: .infinity, maxHeight: .infinity)
