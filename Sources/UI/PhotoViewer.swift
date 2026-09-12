@@ -44,7 +44,7 @@ struct PhotoViewer: View {
         ) {
           Image(systemName: "square.and.arrow.up")
             .font(.body.weight(.semibold))
-            .frame(width: 44, height: 44)
+            .frame(width: ChatStyle.control, height: ChatStyle.control)
             .background(.ultraThinMaterial, in: Circle())
         }
         .accessibilityLabel("Share photo")
@@ -56,7 +56,7 @@ struct PhotoViewer: View {
         } label: {
           Image(systemName: "xmark")
             .font(.body.weight(.semibold))
-            .frame(width: 44, height: 44)
+            .frame(width: ChatStyle.control, height: ChatStyle.control)
             .background(.ultraThinMaterial, in: Circle())
         }
         .accessibilityLabel("Close")

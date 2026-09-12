@@ -255,8 +255,8 @@ struct MessageRow: View {
   ) -> some View {
     Button(action: action) {
       Image(systemName: systemImage)
-        .font(.system(size: 20, weight: .medium))
-        .frame(width: 28, height: 28)
+        .font(.system(size: ChatStyle.smallControlGlyph, weight: .medium))
+        .frame(width: ChatStyle.smallControl, height: ChatStyle.smallControl)
         .contentShape(Rectangle())
     }
     .buttonStyle(.plain)

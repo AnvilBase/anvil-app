@@ -10,6 +10,24 @@ enum ChatStyle {
   static let messageCorner: CGFloat = 22
   static let composerCorner: CGFloat = 30
   static let sidebarWidth: CGFloat = 320
+
+  // MARK: - Controls
+  //
+  // Three sizes, and every round button in the app is one of them, so they stay in proportion to
+  // each other and to the type when any of it moves. All three are comfortably past the 44pt
+  // Apple asks for, because a phone held one-handed is not a mouse.
+
+  /// The drawer's bottom row, and the search capsule beside it.
+  static let largeControl: CGFloat = 60
+  /// The composer's buttons, the chat's own bar, the photo viewer.
+  static let control: CGFloat = 50
+  /// The actions under a reply — a row of glyphs rather than a row of buttons, so it sits under
+  /// the other two.
+  static let smallControl: CGFloat = 40
+  /// The glyph inside a `control` or a `largeControl`.
+  static let controlGlyph: CGFloat = 22
+  /// The glyph inside a `smallControl`.
+  static let smallControlGlyph: CGFloat = 20
   /// The corner the chat is cut to once it starts sliding over the drawer. Rounder than the
   /// display's own, which is what makes it read as a card lifted off the screen rather than as the
   /// screen itself; nothing shows through the extra, because what is behind it is the same colour.

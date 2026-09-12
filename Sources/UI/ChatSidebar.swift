@@ -102,8 +102,8 @@ struct ChatSidebar: View {
       Spacer(minLength: 0)
       Button(action: onOpenSettings) {
         Image(systemName: "gearshape")
-          .font(.system(size: 20, weight: .medium))
-          .frame(width: 44, height: 44)
+          .font(.system(size: ChatStyle.controlGlyph, weight: .medium))
+          .frame(width: ChatStyle.control, height: ChatStyle.control)
           .liquidGlass(in: Circle(), interactive: true)
       }
       .buttonStyle(.plain)
@@ -234,7 +234,7 @@ struct ChatSidebar: View {
         .font(.body.weight(.medium))
         .foregroundStyle(.red)
         .frame(maxWidth: .infinity)
-        .frame(height: 52)
+        .frame(height: ChatStyle.largeControl)
         .liquidGlass(in: Capsule(), interactive: true)
     }
     .buttonStyle(.plain)
@@ -248,8 +248,8 @@ struct ChatSidebar: View {
       searchFocused = true
     } label: {
       Image(systemName: "magnifyingglass")
-        .font(.system(size: 20, weight: .medium))
-        .frame(width: 52, height: 52)
+        .font(.system(size: ChatStyle.controlGlyph, weight: .medium))
+        .frame(width: ChatStyle.largeControl, height: ChatStyle.largeControl)
         .liquidGlass(in: Circle(), interactive: true)
     }
     .buttonStyle(.plain)
@@ -261,8 +261,8 @@ struct ChatSidebar: View {
   private var newChatButton: some View {
     Button(action: onNewChat) {
       Image(systemName: "square.and.pencil")
-        .font(.system(size: 20, weight: .medium))
-        .frame(width: 52, height: 52)
+        .font(.system(size: ChatStyle.controlGlyph, weight: .medium))
+        .frame(width: ChatStyle.largeControl, height: ChatStyle.largeControl)
         .liquidGlass(in: Circle(), interactive: true)
     }
     .buttonStyle(.plain)
@@ -283,8 +283,8 @@ struct ChatSidebar: View {
           .autocorrectionDisabled()
           .focused($searchFocused)
       }
-      .padding(.horizontal, 16)
-      .frame(height: 52)
+      .padding(.horizontal, 18)
+      .frame(height: ChatStyle.largeControl)
       .liquidGlass(in: Capsule())
 
       Button {
@@ -293,8 +293,8 @@ struct ChatSidebar: View {
         withAnimation(.snappy(duration: 0.22)) { isSearching = false }
       } label: {
         Image(systemName: "xmark")
-          .font(.system(size: 17, weight: .semibold))
-          .frame(width: 52, height: 52)
+          .font(.system(size: 19, weight: .semibold))
+          .frame(width: ChatStyle.largeControl, height: ChatStyle.largeControl)
           .liquidGlass(in: Circle(), interactive: true)
       }
       .buttonStyle(.plain)

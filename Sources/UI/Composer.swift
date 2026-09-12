@@ -89,7 +89,7 @@ struct Composer: View {
         Image(image.preview, scale: 1, label: Text("Photo to send"))
           .resizable()
           .scaledToFill()
-          .frame(width: 56, height: 56)
+          .frame(width: 64, height: 64)
           .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
           .onTapGesture { onShowPhoto(image.preview) }
           .accessibilityAddTraits(.isButton)
@@ -97,7 +97,7 @@ struct Composer: View {
           .overlay(alignment: .topTrailing) {
             Button("Remove image", systemImage: "xmark.circle.fill") { chat.removePendingImage() }
               .labelStyle(.iconOnly)
-              .font(.system(size: 20))
+              .font(.system(size: ChatStyle.controlGlyph))
               .symbolRenderingMode(.palette)
               .foregroundStyle(.white, .black.opacity(0.5))
               .offset(x: 6, y: -6)
@@ -109,7 +109,7 @@ struct Composer: View {
     } else if chat.isPreparingImage {
       HStack {
         ProgressView()
-          .frame(width: 56, height: 56)
+          .frame(width: 64, height: 64)
         Spacer(minLength: 0)
       }
       .padding(.horizontal, 4)
@@ -192,9 +192,9 @@ struct Composer: View {
 
   private func plusLabel(available: Bool) -> some View {
     Image(systemName: "plus")
-      .font(.system(size: 20, weight: .medium))
+      .font(.system(size: ChatStyle.controlGlyph, weight: .medium))
       .foregroundStyle(available ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary))
-      .frame(width: 42, height: 42)
+      .frame(width: ChatStyle.control, height: ChatStyle.control)
       .contentShape(Circle())
   }
 
@@ -222,9 +222,9 @@ struct Composer: View {
       chat.setWebSearch(!chat.webSearchOn)
     } label: {
       Image(systemName: "globe")
-        .font(.system(size: 20, weight: .medium))
+        .font(.system(size: ChatStyle.controlGlyph, weight: .medium))
         .foregroundStyle(webSearchGlyph)
-        .frame(width: 42, height: 42)
+        .frame(width: ChatStyle.control, height: ChatStyle.control)
         .background(
           chat.webSearchOn ? AnyShapeStyle(ChatStyle.sendFill) : AnyShapeStyle(.clear),
           in: Circle()
@@ -277,9 +277,9 @@ struct Composer: View {
   private var micButton: some View {
     Button { chat.toggleDictation() } label: {
       Image(systemName: chat.speechInput.isActive ? "stop.fill" : "mic.fill")
-        .font(.system(size: 20, weight: .medium))
+        .font(.system(size: ChatStyle.controlGlyph, weight: .medium))
         .foregroundStyle(chat.speechInput.isActive ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
-        .frame(width: 42, height: 42)
+        .frame(width: ChatStyle.control, height: ChatStyle.control)
         .contentShape(Circle())
     }
     .buttonStyle(.plain)
@@ -295,9 +295,9 @@ struct Composer: View {
   ) -> some View {
     Button(action: action) {
       Image(systemName: systemImage)
-        .font(.system(size: 20, weight: .semibold))
+        .font(.system(size: ChatStyle.controlGlyph, weight: .semibold))
         .foregroundStyle(tint == nil ? ChatStyle.sendGlyph : .white)
-        .frame(width: 42, height: 42)
+        .frame(width: ChatStyle.control, height: ChatStyle.control)
         .background(tint ?? ChatStyle.sendFill, in: Circle())
         .opacity(disabled ? 0.35 : 1)
     }

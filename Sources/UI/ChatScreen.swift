@@ -271,9 +271,9 @@ struct ChatScreen: View {
             jumpToLatest(proxy)
           } label: {
             Image(systemName: "chevron.down")
-              .font(.system(size: 20, weight: .medium))
+              .font(.system(size: ChatStyle.controlGlyph, weight: .medium))
               .foregroundStyle(.primary)
-              .frame(width: 42, height: 42)
+              .frame(width: ChatStyle.control, height: ChatStyle.control)
               .liquidGlass(in: Circle(), interactive: true)
           }
           .buttonStyle(.plain)
