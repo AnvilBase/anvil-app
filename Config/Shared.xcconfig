@@ -30,6 +30,10 @@ ANVIL_BRAVE_API_KEY =
 // the start of a comment.
 ANVIL_MODELS_HOST = www.anvilai.com
 
+// The icon lives in each app's own Assets.xcassets, so the two builds can look different on the
+// Home Screen: the public app is the white anvil on black, the development app its inverse.
+ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon
+
 CODE_SIGN_STYLE = Automatic
 ENABLE_PREVIEWS = YES
 GENERATE_INFOPLIST_FILE = YES
