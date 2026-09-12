@@ -43,6 +43,10 @@ final class SpeechInput {
 
   private(set) var state: State = .idle
 
+  /// How loud the microphone is right now, nought to one. Only the wave in the composer reads it;
+  /// nothing dictation does depends on it.
+  private(set) var level: Float = 0
+
   var isActive: Bool { state != .idle }
 
   /// A pause this long ends dictation when "send when you stop talking" is on.
@@ -85,8 +89,10 @@ final class SpeechInput {
     let input = audioEngine.inputNode
     let format = input.outputFormat(forBus: 0)
     guard format.sampleRate > 0 else { throw SpeechInputError.unavailable }
-    input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
+    input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
       request.append(buffer)
+      let loudness = Self.loudness(of: buffer)
+      Task { @MainActor in self?.absorb(loudness) }
     }
     audioEngine.prepare()
     do {
@@ -166,6 +172,36 @@ final class SpeechInput {
   private func stopAudio() {
     audioEngine.stop()
     audioEngine.inputNode.removeTap(onBus: 0)
+    level = 0
+  }
+
+  /// How loud one buffer is, on a scale a bar can be drawn from: a quiet room near nought, talking
+  /// into the phone near one.
+  ///
+  /// Runs on the audio thread, so it touches nothing but the buffer it was handed.
+  private nonisolated static func loudness(of buffer: AVAudioPCMBuffer) -> Float {
+    guard let channel = buffer.floatChannelData?[0] else { return 0 }
+    let count = Int(buffer.frameLength)
+    guard count > 0 else { return 0 }
+    var sum: Float = 0
+    for frame in 0..<count { sum += channel[frame] * channel[frame] }
+    let rms = (sum / Float(count)).squareRoot()
+    // Loudness is logarithmic; a bar drawn straight from the raw value barely leaves the floor.
+    // -50dB is a quiet room and -10dB is someone talking into the phone, so that is the range the
+    // bars get to use.
+    let decibels = 20 * log10(max(rms, 1e-7))
+    return min(max((decibels + 50) / 40, 0), 1)
+  }
+
+  /// Quick to rise so a word registers the moment it is said, slower to fall so the bars settle
+  /// between syllables instead of flickering.
+  private func absorb(_ loudness: Float) {
+    guard state == .listening else { return }
+    let next = loudness > level ? loudness : level * 0.8 + loudness * 0.2
+    // Buffers arrive around fifty times a second and each one that moves this redraws the row.
+    // A change too small to see isn't worth a frame.
+    guard abs(next - level) > 0.02 || (next == 0 && level != 0) else { return }
+    level = next
   }
 
   private func complete() {

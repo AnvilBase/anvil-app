@@ -139,9 +139,15 @@ struct Composer: View {
         HStack(spacing: 6) {
           addButton
           webSearchButton
+          if chat.speechInput.state == .listening {
+            SpeechWave(level: CGFloat(chat.speechInput.level))
+              .padding(.leading, 4)
+              .transition(.opacity.combined(with: .scale(scale: 0.6, anchor: .leading)))
+          }
           Spacer(minLength: 0)
           trailingButtons
         }
+        .animation(.snappy(duration: 0.22), value: chat.speechInput.state)
       }
       .padding(8)
       .liquidGlass(in: containerShape)
@@ -291,7 +297,6 @@ struct Composer: View {
     }
     .buttonStyle(.plain)
     .disabled(chat.loadState != .ready || chat.isPreparingImage)
-    .symbolEffect(.pulse, isActive: chat.speechInput.state == .listening)
     .accessibilityLabel(chat.speechInput.isActive ? "Stop listening" : "Talk")
     .accessibilityHint("Speech is typed into the message field on this iPhone")
   }

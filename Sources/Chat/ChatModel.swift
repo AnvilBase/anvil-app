@@ -46,6 +46,8 @@ final class ChatModel {
   /// The past message being edited. Sending replaces it and everything after it.
   private(set) var editingMessageID: ChatMessage.ID?
   var draft = ""
+  /// Which run of dictation the message field currently belongs to. See `endDictation`.
+  private var dictationSession = 0
   var alertMessage: String?
 
   let settings: SettingsStore
@@ -171,6 +173,11 @@ final class ChatModel {
 
   func send() {
     guard canSend else { return }
+    // The message has gone, so the microphone's work is done. Without this the recogniser carries
+    // on — and its next result, or the final one still owed from a stop a moment ago, lands in the
+    // field that has just been emptied, which is the text you thought you had sent sitting there
+    // again.
+    endDictation()
     let typed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
     let image = pendingImage
     draft = ""
@@ -186,6 +193,10 @@ final class ChatModel {
 
   /// Starts or stops dictation. Speech is recognized on this iPhone and typed into the message
   /// field; with "send when you stop talking" on, the message goes as soon as you pause.
+  ///
+  /// Stopping is not the same as ending it: tapping stop still wants the last words the recogniser
+  /// owes you, so the field keeps filling until they arrive. Sending is what ends it — see
+  /// `endDictation`.
   func toggleDictation() {
     if speechInput.isActive {
       speechInput.stop()
@@ -194,21 +205,37 @@ final class ChatModel {
     guard loadState == .ready, !isGenerating else { return }
     let existing = draft.trimmingCharacters(in: .whitespacesAndNewlines)
     let autoSend = settings.values.autoSendVoice
+    let session = dictationSession
     Task {
       do {
         try await speechInput.start(
           stopAfterSilence: autoSend,
           onUpdate: { [weak self] transcript in
-            self?.draft = existing.isEmpty ? transcript : "\(existing) \(transcript)"
+            guard let self, session == dictationSession else { return }
+            draft = existing.isEmpty ? transcript : "\(existing) \(transcript)"
           },
           onFinish: { [weak self] transcript in
-            guard let self, autoSend, !transcript.isEmpty else { return }
+            guard let self, session == dictationSession, autoSend, !transcript.isEmpty else {
+              return
+            }
             send()
           })
       } catch {
         alertMessage = error.localizedDescription
       }
     }
+  }
+
+  /// Ends dictation and disowns the session that was running, so nothing it still has in flight can
+  /// write to the field afterwards.
+  ///
+  /// Stopping the recogniser is not enough on its own. A result already on its way from the audio
+  /// thread will be delivered whatever happens here, and the closure that handles it captured a
+  /// field that was full when dictation began; the counter is what tells it the field has moved on
+  /// without it.
+  private func endDictation() {
+    dictationSession &+= 1
+    speechInput.cancel()
   }
 
   /// True for the last reply, when it answers one of your messages and nothing else is in progress.
@@ -565,7 +592,7 @@ final class ChatModel {
   }
 
   private func startNewChat() {
-    speechInput.cancel()
+    endDictation()
     openChat = Chat(systemPrompt: settings.values.systemPrompt)
     images = [:]
     pendingImage = nil
