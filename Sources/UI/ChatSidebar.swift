@@ -209,20 +209,22 @@ struct ChatSidebar: View {
 
   // MARK: - Bottom
 
-  /// How far above Clear All the confirmation comes to rest, and so also how far it travels.
-  private static let restingGap: CGFloat = 20
+  /// How close two surfaces have to be to run together, and how far apart the two end up. The
+  /// second is the larger on purpose — see `actionBar`.
+  private static let mergeWithin: CGFloat = 16
+  private static let restingGap: CGFloat = 24
 
   /// Clear the list, search it, or start a new chat — or, once search is open, the field itself in
   /// their place. Three ordinary buttons with air between them: they are three separate things and
   /// must look like three separate things.
   ///
-  /// The button that confirms Clear All comes up out of it rather than replacing it — flattened
-  /// onto it to begin with, then stretching into shape as it rises and settling with a little
-  /// overshoot, so it reads as one surface drawing out into two.
+  /// The button that confirms Clear All comes up out of it rather than replacing it. Those two are
+  /// held in a glass group so that they are one surface while they are touching and pull apart into
+  /// two as it rises — Search and New chat are outside that group, and stay their own buttons.
   ///
-  /// Not a glass group. A button whose face is glass cannot be pressed inside one, which is what
-  /// took Clear All away twice; the stretch here is the animation on its own and nothing is wrapped
-  /// around anything.
+  /// The merging is the journey, not the destination. Glass in a group runs together only while it
+  /// is closer than the group's spacing, so the gap they come to rest at is wider than that: they
+  /// flow apart on the way up and are two separate buttons by the time they stop.
   @ViewBuilder
   private var actionBar: some View {
     Group {
@@ -230,9 +232,11 @@ struct ChatSidebar: View {
         searchField
       } else {
         HStack(alignment: .bottom, spacing: 10) {
-          VStack(spacing: Self.restingGap) {
-            if confirmingClearAll { confirmButton }
-            clearAllButton
+          LiquidGlassGroup(spacing: Self.mergeWithin) {
+            VStack(spacing: Self.restingGap) {
+              if confirmingClearAll { confirmButton }
+              clearAllButton
+            }
           }
           searchButton
           newChatButton
@@ -263,7 +267,12 @@ struct ChatSidebar: View {
     }
     .buttonStyle(.plain)
     .accessibilityHint("Every chat saved on this iPhone is deleted. This can't be undone.")
-    .transition(.drawnOut(by: ChatStyle.control + Self.restingGap))
+    // Starts exactly on top of the button it came from, the same width and the same shape, so
+    // there is one surface there and not two. Rising, it drags away from it and pinches off.
+    .transition(
+      .offset(y: ChatStyle.control + Self.restingGap)
+        .combined(with: .scale(scale: 0.82, anchor: .bottom))
+        .combined(with: .opacity))
   }
 
   /// The one named button of the three, because it's the one there is no undo for. It asks before
@@ -402,38 +411,5 @@ struct ChatDateGroup {
       return date.formatted(.dateTime.month(.wide))
     }
     return date.formatted(.dateTime.month(.wide).year())
-  }
-}
-
-
-/// Drawn out of whatever is underneath it: lying flat on it to start with, and stretching upright
-/// as it travels clear. Squeezed in a little at the sides on the way, the way something with
-/// surface tension narrows where it is being pulled, and wider than it ends up for a moment as the
-/// spring overshoots.
-private struct DrawnOut: ViewModifier {
-  /// Nought lying on the button below, one standing in its own place.
-  let progress: CGFloat
-  /// How far below its own place it starts.
-  let travel: CGFloat
-
-  func body(content: Content) -> some View {
-    content
-      .scaleEffect(
-        x: 0.78 + 0.22 * progress,
-        // Never quite nothing: a height of zero has no shape to stretch out of.
-        y: max(progress, 0.06),
-        anchor: .bottom
-      )
-      .offset(y: travel * (1 - progress))
-      // In quickly, so it is already there to be watched stretching rather than arriving faded.
-      .opacity(Double(min(progress * 2.5, 1)))
-  }
-}
-
-extension AnyTransition {
-  static func drawnOut(by travel: CGFloat) -> AnyTransition {
-    .modifier(
-      active: DrawnOut(progress: 0, travel: travel),
-      identity: DrawnOut(progress: 1, travel: travel))
   }
 }
