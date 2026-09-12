@@ -36,17 +36,22 @@ struct ChatScreen: View {
           showingSettings = true
         })
     } content: {
-      NavigationStack {
+      GeometryReader { proxy in
+        // The drawer runs the chat to the screen's edges, which leaves everything inside it a safe
+        // area of nothing, so what is missing is put back here. There is no `NavigationStack` doing
+        // it any more: the stack was only ever here for a toolbar, and a navigation bar that has
+        // been hidden is still a navigation bar — it goes on taking every touch over the top of the
+        // screen, which is where these buttons now are, and none of them could be pressed.
+        let missing = WindowInsets.missing(from: proxy.safeAreaInsets)
         content
           // The colour runs to the screen edges; the content itself stays inside the safe area.
           .background(ChatStyle.page.ignoresSafeArea())
-          .safeAreaInset(edge: .top, spacing: 0) { topBar }
-          #if os(iOS)
-            // The stack is kept for the safe area it works out and the scroll edges it softens.
-            // Its bar is not: see `topBar`.
-            .toolbar(.hidden, for: .navigationBar)
-            .navigationBarTitleDisplayMode(.inline)
-          #endif
+          .safeAreaInset(edge: .top, spacing: 0) { topBar.padding(.top, missing.top) }
+          // The composer adds itself below this, so it clears the home indicator without the
+          // keyboard, and sits straight on the keyboard when there is one.
+          .safeAreaInset(edge: .bottom, spacing: 0) {
+            Color.clear.frame(height: missing.bottom).allowsHitTesting(false)
+          }
       }
     }
     .onChange(of: chat.messagesSent) {
@@ -148,6 +153,7 @@ struct ChatScreen: View {
         .font(.system(size: ChatStyle.controlGlyph, weight: .medium))
         .frame(width: ChatStyle.control, height: ChatStyle.control)
         .liquidGlass(in: Circle(), interactive: true)
+        .contentShape(Circle())
     }
     .buttonStyle(.plain)
     .foregroundStyle(.primary)

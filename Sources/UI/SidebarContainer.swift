@@ -21,19 +21,7 @@ struct SidebarContainer<Sidebar: View, Content: View>: View {
   /// ignored, and on the reading where it reports nothing the drawer would sit under the notch. So
   /// the proxy is believed when it says something, and the window is asked when it doesn't.
   private static func resolvedInsets(_ proxy: EdgeInsets) -> EdgeInsets {
-    if proxy.top > 0 { return proxy }
-    #if canImport(UIKit)
-      let window = UIApplication.shared.connectedScenes
-        .compactMap { $0 as? UIWindowScene }
-        .flatMap(\.windows)
-        .first { $0.isKeyWindow }
-      if let safeArea = window?.safeAreaInsets {
-        return EdgeInsets(
-          top: safeArea.top, leading: safeArea.left, bottom: safeArea.bottom,
-          trailing: safeArea.right)
-      }
-    #endif
-    return proxy
+    proxy.top > 0 ? proxy : WindowInsets.current
   }
 
   var body: some View {
