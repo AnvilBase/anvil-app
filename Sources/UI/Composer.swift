@@ -37,8 +37,6 @@ struct Composer: View {
         .liquidGlass(in: containerShape)
         .overlay(containerShape.strokeBorder(ChatStyle.hairline, lineWidth: 0.5))
       }
-
-      statusLine
     }
     .padding(.horizontal, 12)
     .padding(.bottom, 8)
@@ -279,27 +277,4 @@ struct Composer: View {
     .accessibilityLabel(title)
   }
 
-  // MARK: - Under the card
-
-  @ViewBuilder
-  private var statusLine: some View {
-    let parts = [
-      chat.speechInput.state == .listening ? "Listening… your voice stays on this iPhone" : nil,
-      chat.isOffline
-        ? "Internet connection is offline · web search unavailable"
-        : (chat.webSearchOn ? "Web search on" : nil),
-      chat.contextTokens.flatMap { used in
-        chat.modelDetails.map { "Context: \(used.formatted()) / \($0.contextSize.formatted()) tokens" }
-      },
-    ].compactMap { $0 }
-
-    if !parts.isEmpty {
-      Text(parts.joined(separator: " · "))
-        .font(.caption2)
-        .foregroundStyle(.secondary)
-        .frame(maxWidth: .infinity)
-        .multilineTextAlignment(.center)
-        .padding(.horizontal, 16)
-    }
-  }
 }
