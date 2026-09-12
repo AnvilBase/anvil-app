@@ -8,7 +8,7 @@ import SwiftUI
 /// at all for the reply, and Liquid Glass on the surfaces that float above the conversation.
 enum ChatStyle {
   static let messageCorner: CGFloat = 20
-  static let composerCorner: CGFloat = 26
+  static let composerCorner: CGFloat = 24
   static let sidebarWidth: CGFloat = 320
 
   static let page = adaptive(light: .white, dark: Color(white: 0.078))

@@ -5,9 +5,10 @@ import SwiftUI
   import UIKit
 #endif
 
-/// The card at the bottom of the chat: what you're editing, the photo waiting to be sent, the
-/// message field, and a row of controls under it — add a photo, search the web, and the one round
-/// button on the right that talks, sends, or stops.
+/// The capsule at the bottom of the chat. Everything you can do to a message lives on its one row:
+/// what you can attach, whether the web is in play, what you're typing, and the single round button
+/// that talks, sends, or stops. What you're editing and the photo waiting to be sent sit above it,
+/// so the capsule itself is always one line tall and keeps its shape.
 struct Composer: View {
   @Bindable var chat: ChatModel
   @FocusState.Binding var isInputFocused: Bool
@@ -17,29 +18,23 @@ struct Composer: View {
   @State private var showingCamera = false
   @State private var showingPhotoLibrary = false
 
+  /// A 24-point radius on a 48-point row is a capsule; it stays 24 as the field grows, which a
+  /// true Capsule would not — its ends would swell into half-circles over a long message.
   private var containerShape: RoundedRectangle {
     RoundedRectangle(cornerRadius: ChatStyle.composerCorner, style: .continuous)
   }
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 6) {
+    VStack(alignment: .leading, spacing: 8) {
       if chat.editingMessageID != nil { editingBanner }
-
-      LiquidGlassGroup {
-        VStack(alignment: .leading, spacing: 10) {
-          pendingPhoto
-          messageField
-          controlRow
-        }
-        .padding(.horizontal, 12)
-        .padding(.top, 12)
-        .padding(.bottom, 10)
-        .liquidGlass(in: containerShape)
-        .overlay(containerShape.strokeBorder(ChatStyle.hairline, lineWidth: 0.5))
-      }
+      pendingPhoto
+      inputCapsule
     }
     .padding(.horizontal, 12)
     .padding(.bottom, 8)
+    // Swiping down anywhere on the composer puts the keyboard away, the same way dragging the
+    // conversation does. Simultaneous, so the field keeps its own taps and text selection.
+    .simultaneousGesture(swipeDownToDismiss)
     .photosPicker(isPresented: $showingPhotoLibrary, selection: $photoSelection, matching: .images)
     #if canImport(UIKit)
       .fullScreenCover(isPresented: $showingCamera) {
@@ -119,24 +114,41 @@ struct Composer: View {
   // MARK: - The field
 
   private var messageField: some View {
-    TextField("Ask anything", text: $chat.draft, axis: .vertical)
+    TextField("Ask Anvil", text: $chat.draft, axis: .vertical)
       .textFieldStyle(.plain)
-      .lineLimit(1...6)
+      .lineLimit(1...5)
       .font(.system(size: 17))
       .focused($isInputFocused)
-      .padding(.horizontal, 6)
-      .padding(.top, 2)
+      .padding(.horizontal, 4)
+      .padding(.vertical, 7)
   }
 
   // MARK: - The controls under it
 
-  private var controlRow: some View {
-    HStack(spacing: 8) {
-      addButton
-      webSearchButton
-      Spacer(minLength: 0)
-      primaryButton
+  private var inputCapsule: some View {
+    LiquidGlassGroup {
+      // Bottom-aligned so the buttons stay put while the field grows upward under a long message.
+      HStack(alignment: .bottom, spacing: 4) {
+        addButton
+        webSearchButton
+        messageField
+        primaryButton
+      }
+      .padding(7)
+      .frame(minHeight: 48)
+      .liquidGlass(in: containerShape)
+      .overlay(containerShape.strokeBorder(ChatStyle.hairline, lineWidth: 0.5))
     }
+  }
+
+  /// Down, and meaningfully down rather than a wobble on the way to something else.
+  private var swipeDownToDismiss: some Gesture {
+    DragGesture(minimumDistance: 24)
+      .onEnded { value in
+        let down = value.translation.height
+        guard down > 24, down > abs(value.translation.width) else { return }
+        isInputFocused = false
+      }
   }
 
   /// Everything you can put into a message. It's always here, the way ChatGPT's plus is: a control
