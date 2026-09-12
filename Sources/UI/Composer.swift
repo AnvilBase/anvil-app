@@ -314,16 +314,23 @@ struct Composer: View {
     .accessibilityHint("Speech is typed into the message field on this iPhone")
   }
 
+  /// The filled ones, drawn smaller than the bare glyphs beside them. A circle of solid colour
+  /// carries to the eye in a way an outlined microphone doesn't, so at the size the others are set
+  /// to it was the heaviest thing on the row by some way. Six points off puts it back in the row.
+  private static let filledControl = ChatStyle.inlineControl - 6
+
   private func circleButton(
     _ title: String, systemImage: String, tint: Color? = nil, disabled: Bool = false,
     action: @escaping () -> Void
   ) -> some View {
     Button(action: action) {
       Image(systemName: systemImage)
-        .font(.system(size: ChatStyle.inlineControlGlyph, weight: .semibold))
+        .font(.system(size: ChatStyle.inlineControlGlyph - 3, weight: .semibold))
         .foregroundStyle(tint == nil ? ChatStyle.sendGlyph : .white)
-        .frame(width: ChatStyle.inlineControl, height: ChatStyle.inlineControl)
+        .frame(width: Self.filledControl, height: Self.filledControl)
         .background(tint ?? ChatStyle.sendFill, in: Circle())
+        .frame(width: ChatStyle.inlineControl, height: ChatStyle.inlineControl)
+        .contentShape(Circle())
         .opacity(disabled ? 0.35 : 1)
     }
     .buttonStyle(.plain)
