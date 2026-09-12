@@ -21,3 +21,7 @@ build/
 *.litertlm
 *.gguf
 *.task
+
+# Queued tasks for claude-queue. Local scratch, and it names files after the task text, so anything
+# pasted into /q — a key, a token — would otherwise land in the repository as a filename.
+.claude-queue/
