@@ -222,12 +222,10 @@ struct ChatScreen: View {
   private var emptyState: some View {
     VStack(spacing: 12) {
       Spacer()
-      Image(systemName: "hammer.fill")
-        .font(.system(size: 26, weight: .medium))
-        .foregroundStyle(ChatStyle.sendGlyph)
+      PixelAnvil(size: 30, color: ChatStyle.sendGlyph)
         .frame(width: 56, height: 56)
         .background(ChatStyle.sendFill, in: Circle())
-      Text("What's on your mind?")
+      Text(AppFlavor.appName)
         .font(.title2.weight(.semibold))
       Text(
         chat.webSearchOn
