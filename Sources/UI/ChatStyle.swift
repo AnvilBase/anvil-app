@@ -40,10 +40,8 @@ enum ChatStyle {
   /// Sending: the message lifting out of the capsule, the capsule collapsing back to one line, and
   /// the conversation scrolling up to meet it all ride the same spring, so they read as one motion.
   static let sendMotion: Animation = .spring(duration: 0.32, bounce: 0.12)
-  /// Glass flowing from one shape into another. Long and springy on purpose: the overshoot at the
-  /// end is what makes a surface read as something with weight settling rather than a picture
-  /// being swapped.
-  static let gooMotion: Animation = .spring(duration: 0.5, bounce: 0.3)
+  /// A confirmation arriving over the button that asked for it, and leaving again.
+  static let confirmMotion: Animation = .snappy(duration: 0.24)
 
   static let page = adaptive(light: .white, dark: Color(white: 0.078))
   static let userBubble = adaptive(light: Color(white: 0.945), dark: Color(white: 0.188))
@@ -118,23 +116,6 @@ extension View {
       }
     #else
       background(tint, in: shape)
-    #endif
-  }
-
-  /// Gives a glass surface an identity inside a ``LiquidGlassGroup``. Two surfaces that share one,
-  /// only one of which is on screen at a time, are the same piece of glass: it flows from the shape
-  /// it had into the shape it is taking, carrying its highlights with it, instead of one vanishing
-  /// and another arriving in its place.
-  @ViewBuilder
-  func liquidGlassID(_ id: some Hashable & Sendable, in namespace: Namespace.ID) -> some View {
-    #if compiler(>=6.2)
-      if #available(iOS 26.0, *) {
-        glassEffectID(id, in: namespace)
-      } else {
-        self
-      }
-    #else
-      self
     #endif
   }
 

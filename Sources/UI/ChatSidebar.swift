@@ -35,8 +35,19 @@ struct ChatSidebar: View {
 
   var body: some View {
     VStack(spacing: 0) {
-      header
-      chatList
+      VStack(spacing: 0) {
+        header
+        chatList
+      }
+      // Clicking out of the question is the way out of it, so everything above the bar takes that
+      // tap and nothing else while it is up.
+      .overlay {
+        if confirmingClearAll {
+          Color.clear
+            .contentShape(Rectangle())
+            .onTapGesture { withAnimation(ChatStyle.confirmMotion) { confirmingClearAll = false } }
+        }
+      }
       actionBar
     }
     .background(ChatStyle.sidebar)
@@ -202,12 +213,11 @@ struct ChatSidebar: View {
   /// their place. Three ordinary buttons with air between them: they are three separate things and
   /// must look like three separate things.
   ///
-  /// The question Clear All asks rises above them rather than replacing them, and it is the only
-  /// part of this that is made of flowing glass.
+  /// The button that confirms Clear All rises above them rather than replacing them.
   @ViewBuilder
   private var actionBar: some View {
     VStack(alignment: .leading, spacing: 12) {
-      if confirmingClearAll, !isSearching { confirmBubble }
+      if confirmingClearAll, !isSearching { confirmButton }
       if isSearching {
         searchField
       } else {
@@ -218,58 +228,38 @@ struct ChatSidebar: View {
         }
       }
     }
-    .animation(ChatStyle.gooMotion, value: confirmingClearAll)
+    .animation(ChatStyle.confirmMotion, value: confirmingClearAll)
     .padding(.horizontal, 14)
     .padding(.top, 8)
     .padding(.bottom, 12 + (isSearching ? keyboardOverlap : 0))
   }
 
-  /// The question, over the button that asked it: two pieces of glass close enough to be one, which
-  /// come out of the button together and part on the way up. Held in a group of their own — the row
-  /// underneath is not in it, so nothing down there is drawn into this.
-  private var confirmBubble: some View {
-    LiquidGlassGroup(spacing: 24) {
-      HStack(spacing: 8) {
-        Button {
-          chat.deleteAllChats()
-          onOpenChat()
-          withAnimation(ChatStyle.gooMotion) { confirmingClearAll = false }
-        } label: {
-          Text("Delete every chat")
-            .font(.body.weight(.semibold))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 22)
-            .frame(height: ChatStyle.control)
-            .liquidGlass(in: Capsule(), tint: .red)
-        }
-        .buttonStyle(.plain)
-        .accessibilityHint("Every chat saved on this iPhone is deleted. This can't be undone.")
-
-        Button {
-          withAnimation(ChatStyle.gooMotion) { confirmingClearAll = false }
-        } label: {
-          Image(systemName: "xmark")
-            .font(.system(size: ChatStyle.controlGlyph, weight: .medium))
-            .frame(width: ChatStyle.control, height: ChatStyle.control)
-            .liquidGlass(in: Circle(), interactive: true)
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(.primary)
-        .accessibilityLabel("Keep my chats")
-      }
+  /// The one thing pressing Clear All puts on the screen: the button that means it, over the button
+  /// that asked. There is nothing to press to get out of it — anywhere else in the drawer does, and
+  /// so does Clear All again.
+  private var confirmButton: some View {
+    Button {
+      chat.deleteAllChats()
+      onOpenChat()
+      withAnimation(ChatStyle.confirmMotion) { confirmingClearAll = false }
+    } label: {
+      Text("Confirm")
+        .font(.body.weight(.semibold))
+        .foregroundStyle(.white)
+        .padding(.horizontal, 26)
+        .frame(height: ChatStyle.control)
+        .liquidGlass(in: Capsule(), tint: .red)
     }
-    // Out of the button below and up into place, the two pieces separating as they rise.
-    .transition(
-      .offset(y: ChatStyle.control + 12)
-        .combined(with: .scale(scale: 0.6, anchor: .bottomLeading))
-        .combined(with: .opacity))
+    .buttonStyle(.plain)
+    .accessibilityHint("Every chat saved on this iPhone is deleted. This can't be undone.")
+    .transition(.opacity.combined(with: .scale(scale: 0.94, anchor: .bottomLeading)))
   }
 
   /// The one named button of the three, because it's the one there is no undo for. It asks before
   /// it does anything.
   private var clearAllButton: some View {
     Button {
-      withAnimation(ChatStyle.gooMotion) { confirmingClearAll.toggle() }
+      withAnimation(ChatStyle.confirmMotion) { confirmingClearAll.toggle() }
     } label: {
       Label("Clear All", systemImage: "trash")
         .font(.body.weight(.medium))
