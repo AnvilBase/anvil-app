@@ -117,9 +117,7 @@ struct ChatSidebar: View {
   @ViewBuilder
   private var chatList: some View {
     if chat.savedChats.isEmpty {
-      emptyState(
-        "No chats yet",
-        detail: "Chats are saved on this iPhone as you send messages.")
+      emptyState("No chats yet")
     } else if results.isEmpty {
       emptyState("No results", detail: "Nothing here matches “\(trimmedQuery)”.")
     } else {
@@ -188,14 +186,19 @@ struct ChatSidebar: View {
     .accessibilityHint(caption(for: saved))
   }
 
-  private func emptyState(_ title: String, detail: String) -> some View {
+  /// A line saying why the list is empty, and under it a second only where there is something to
+  /// add. An empty list of chats explains itself; a search that found nothing has to say what it
+  /// looked for.
+  private func emptyState(_ title: String, detail: String? = nil) -> some View {
     VStack(spacing: 6) {
       Text(title)
         .font(.headline)
-      Text(detail)
-        .font(.subheadline)
-        .foregroundStyle(.secondary)
-        .multilineTextAlignment(.center)
+      if let detail {
+        Text(detail)
+          .font(.subheadline)
+          .foregroundStyle(.secondary)
+          .multilineTextAlignment(.center)
+      }
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .padding(.horizontal, 28)
