@@ -374,10 +374,25 @@ struct ChatScreen: View {
       + (last.sources?.count ?? 0) + (chat.isGenerating ? 0 : 1)
   }
 
+  /// Takes the conversation to the end of itself, and then makes sure it got there.
+  ///
+  /// Twice, because once is not reliable. The rows are in a lazy stack, which has only measured the
+  /// ones it has needed so far; asked from a long way up, it scrolls to the end of what it knows
+  /// about, which is not the end. Everything below that gets built on the way, and by the time it
+  /// exists the scroll has already finished — short, and looking like the button did nothing.
+  ///
+  /// The second ask runs once the stack has caught up. If the first one landed, it has nowhere to
+  /// go and does nothing.
   private func jumpToLatest(_ proxy: ScrollViewProxy) {
     isFollowingLatest = true
     // The same spring the message itself is riding, so the conversation comes up to meet it.
     withAnimation(ChatStyle.sendMotion) { proxy.scrollTo(bottomID, anchor: .bottom) }
+    Task { @MainActor in
+      try? await Task.sleep(for: .milliseconds(80))
+      // Not if a finger has taken over in the meantime — that is someone changing their mind.
+      guard isFollowingLatest, !isUserScrolling else { return }
+      withAnimation(ChatStyle.sendMotion) { proxy.scrollTo(bottomID, anchor: .bottom) }
+    }
   }
 }
 
