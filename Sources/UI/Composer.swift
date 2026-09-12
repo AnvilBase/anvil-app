@@ -12,7 +12,6 @@ struct Composer: View {
   @Bindable var chat: ChatModel
   @FocusState.Binding var isInputFocused: Bool
   let onShowPhoto: (CGImage) -> Void
-  let onOpenSettings: () -> Void
 
   @State private var photoSelection: PhotosPickerItem?
   @State private var showingCamera = false
@@ -166,11 +165,16 @@ struct Composer: View {
   /// A plain globe when it's off, a tinted pill that says what it does when it's on.
   private var webSearchButton: some View {
     Button {
-      if chat.hasSearchKey {
-        chat.setWebSearch(!chat.webSearchOn)
-      } else {
-        onOpenSettings()
+      guard chat.hasSearchKey else {
+        // Opening Settings here looked like the button was mis-wired, because Settings can't fix it
+        // either: the key is compiled in, so the only remedy is a rebuild. Say that instead.
+        chat.alertMessage =
+          "Web search needs a Brave Search API key, and this build has none. Put one in "
+          + "Config/Local.xcconfig as ANVIL_BRAVE_API_KEY and build again. Everything else works "
+          + "without it."
+        return
       }
+      chat.setWebSearch(!chat.webSearchOn)
     } label: {
       HStack(spacing: 5) {
         Image(systemName: "globe")
@@ -180,7 +184,7 @@ struct Composer: View {
             .font(.system(size: 15, weight: .medium))
         }
       }
-      .foregroundStyle(chat.webSearchOn ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
+      .foregroundStyle(webSearchTint)
       .padding(.horizontal, chat.webSearchOn ? 12 : 0)
       .frame(minWidth: 34, minHeight: 34)
       .background(
@@ -193,8 +197,21 @@ struct Composer: View {
     .animation(.snappy(duration: 0.2), value: chat.webSearchOn)
     .accessibilityLabel("Web search")
     .accessibilityValue(chat.webSearchOn ? "On" : "Off")
-    .accessibilityHint(chat.isOffline ? "Unavailable while the internet connection is offline" : "")
+    .accessibilityHint(webSearchHint)
     .disabled(chat.isGenerating || chat.isOffline)
+  }
+
+  /// Tinted when on, plain when off, and faded when the build carries no key — so a globe that
+  /// can't be switched on doesn't look like one that can.
+  private var webSearchTint: AnyShapeStyle {
+    if chat.webSearchOn { return AnyShapeStyle(.tint) }
+    return chat.hasSearchKey ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary)
+  }
+
+  private var webSearchHint: String {
+    if chat.isOffline { return "Unavailable while the internet connection is offline" }
+    if !chat.hasSearchKey { return "This build has no Brave Search API key" }
+    return ""
   }
 
   /// The filled circle on the right: Stop while a reply is coming, a stop square while it's

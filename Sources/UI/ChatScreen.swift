@@ -18,8 +18,6 @@ struct ChatScreen: View {
   /// False once you scroll up, so a streaming reply doesn't drag you back down.
   @State private var isFollowingLatest = true
   @State private var isUserScrolling = false
-  /// Sampled for the top bar's menu, faster while a reply is being written.
-  @State private var cpuPercent: Double?
   @FocusState private var inputFocused: Bool
 
   private let bottomID = "bottom"
@@ -40,7 +38,8 @@ struct ChatScreen: View {
     } content: {
       NavigationStack {
         content
-          .background(ChatStyle.page)
+          // The colour runs to the screen edges; the content itself stays inside the safe area.
+          .background(ChatStyle.page.ignoresSafeArea())
           .toolbar { toolbarItems }
           #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -48,13 +47,6 @@ struct ChatScreen: View {
       }
     }
     .task(id: model) { await chat.load(model) }
-    .task(id: chat.isGenerating) {
-      let interval: Duration = chat.isGenerating ? .milliseconds(500) : .seconds(2)
-      while !Task.isCancelled {
-        cpuPercent = DeviceMetrics.cpuPercent()
-        try? await Task.sleep(for: interval)
-      }
-    }
     .sheet(isPresented: $showingSettings, onDismiss: { Task { await chat.settingsDidClose() } }) {
       SettingsScreen(chat: chat, settings: chat.settings)
     }
@@ -122,9 +114,7 @@ struct ChatScreen: View {
   private var modelMenu: some View {
     Menu {
       Section {
-        Button("CPU \(MetricFormat.percent(cpuPercent)) · Performance", systemImage: "speedometer") {
-          showingMetrics = true
-        }
+        Button("Performance", systemImage: "speedometer") { showingMetrics = true }
         Button("Settings", systemImage: "gearshape") { showingSettings = true }
       }
     } label: {
@@ -210,8 +200,7 @@ struct ChatScreen: View {
       Composer(
         chat: chat,
         isInputFocused: $inputFocused,
-        onShowPhoto: { fullScreenPhoto = FullScreenPhoto(image: $0) },
-        onOpenSettings: { showingSettings = true })
+        onShowPhoto: { fullScreenPhoto = FullScreenPhoto(image: $0) })
     }
   }
 

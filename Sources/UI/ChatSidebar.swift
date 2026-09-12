@@ -25,6 +25,7 @@ struct ChatSidebar: View {
       searchField
       newChatRow
       chatList
+      clearAllRow
       Divider()
         .overlay(ChatStyle.hairline)
       accountRow
@@ -163,6 +164,32 @@ struct ChatSidebar: View {
   }
 
   // MARK: - Bottom
+
+  /// Clears every saved chat on one tap, with nothing to confirm — which is what was asked for, and
+  /// worth knowing there is no undo behind it.
+  private var clearAllRow: some View {
+    Button {
+      chat.deleteAllChats()
+      onOpenChat()
+    } label: {
+      HStack(spacing: 8) {
+        Image(systemName: "trash")
+          .font(.system(size: 15, weight: .medium))
+        Text("Clear all chats")
+          .font(.system(size: 15, weight: .medium))
+        Spacer(minLength: 0)
+      }
+      .foregroundStyle(.red)
+      .padding(.horizontal, 14)
+      .frame(height: 44)
+      .liquidGlass(in: Capsule(), interactive: true)
+    }
+    .buttonStyle(.plain)
+    .disabled(chat.savedChats.isEmpty)
+    .padding(.horizontal, 14)
+    .padding(.bottom, 10)
+    .accessibilityLabel("Clear all chats")
+  }
 
   private var accountRow: some View {
     Button(action: onOpenSettings) {
