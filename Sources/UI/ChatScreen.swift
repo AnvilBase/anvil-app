@@ -73,7 +73,8 @@ struct ChatScreen: View {
     }
     .task(id: model) { await chat.load(model) }
     .sheet(isPresented: $showingSettings, onDismiss: { Task { await chat.settingsDidClose() } }) {
-      SettingsScreen(chat: chat, settings: chat.settings, onRemoveModel: onRemoveModel)
+      SettingsScreen(
+        chat: chat, model: model, settings: chat.settings, onRemoveModel: onRemoveModel)
     }
     .sheet(isPresented: $showingDeveloper) {
       NavigationStack {

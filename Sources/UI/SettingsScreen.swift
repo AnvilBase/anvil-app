@@ -1,9 +1,11 @@
 import SwiftUI
 
-/// Everything you can change, in the order it matters: what the model is told, what it remembers,
-/// how you talk to it, what it can reach, where it runs, how long chats are kept, and how it looks.
+/// Everything you can change, in the order it matters: which model is running and how, what it is
+/// told, what it remembers, how you talk to it, what it can reach, how long chats are kept, and how
+/// it looks.
 struct SettingsScreen: View {
   let chat: ChatModel
+  let model: ModelFile
   @Bindable var settings: SettingsStore
   /// Throwing the model away and starting again. It is the last resort for a model that won't
   /// load, and this is the only place it can be reached from.
@@ -19,13 +21,13 @@ struct SettingsScreen: View {
   var body: some View {
     NavigationStack {
       Form {
+        modelSection
         systemPromptSection
         memorySection
         voiceSection
         webSearchSection
         if showsDevelopmentFeatures { metricsSection }
         generationSection
-        modelSection
         historySection
         appearanceSection
         if AppFlavor.isDevelopment, !showsDevelopmentFeatures { backToDevelopmentSection }
@@ -188,6 +190,7 @@ struct SettingsScreen: View {
 
   private var modelSection: some View {
     Section {
+      LabeledContent("Loaded", value: model.displayName)
       Picker("Backend", selection: $settings.values.engine.backend) {
         ForEach(EngineBackendPreference.allCases) { preference in
           Text(preference.label).tag(preference)
