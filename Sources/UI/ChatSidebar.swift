@@ -94,11 +94,22 @@ struct ChatSidebar: View {
 
   private var header: some View {
     HStack(spacing: 10) {
-      // Drawn flat, not lit up a row at a time: the mark animating itself in every time the drawer
-      // is pulled open would be the loudest thing on the screen.
-      PixelAnvil(size: 24, animated: false)
-      Text("Anvil")
-        .font(.title2.weight(.semibold))
+      // The mark and the name are the way back to the chat you were in, the way a logo is
+      // everywhere else. Together, because they read as one thing and so should take one tap.
+      Button(action: onOpenChat) {
+        HStack(spacing: 10) {
+          // Drawn flat, not lit up a row at a time: the mark animating itself in every time the
+          // drawer is pulled open would be the loudest thing on the screen.
+          PixelAnvil(size: 24, animated: false)
+          Text("Anvil")
+            .font(.title2.weight(.semibold))
+        }
+        .contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
+      .foregroundStyle(.primary)
+      .accessibilityLabel("Anvil")
+      .accessibilityHint("Goes back to the chat")
       Spacer(minLength: 0)
       Button(action: onOpenSettings) {
         Image(systemName: "gearshape")
