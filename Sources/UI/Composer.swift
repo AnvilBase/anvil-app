@@ -122,7 +122,7 @@ struct Composer: View {
     TextField("Ask Anvil", text: $chat.draft, axis: .vertical)
       .textFieldStyle(.plain)
       .lineLimit(1...5)
-      .font(.system(size: 17))
+      .font(.system(size: 19))
       .focused($isInputFocused)
       .padding(.horizontal, 4)
       .padding(.vertical, 7)
@@ -142,7 +142,7 @@ struct Composer: View {
               addButton
               webSearchButton
               Spacer(minLength: 0)
-              primaryButton
+              trailingButtons
             }
           }
         } else {
@@ -151,7 +151,7 @@ struct Composer: View {
             addButton
             webSearchButton
             messageField
-            primaryButton
+            trailingButtons
           }
         }
       }
@@ -161,6 +161,7 @@ struct Composer: View {
       .liquidGlass(in: containerShape)
       .overlay(containerShape.strokeBorder(ChatStyle.hairline, lineWidth: 0.5))
       .animation(.snappy(duration: 0.22), value: isExpanded)
+      .animation(.snappy(duration: 0.18), value: hasSomethingToSend)
     }
     .onChange(of: isExpanded) { _, _ in
       // Moving the field between rows rebuilds it, which drops the keyboard mid-sentence. The
@@ -170,7 +171,11 @@ struct Composer: View {
   }
 
   private var isExpanded: Bool {
-    oneLineHeight > 0 && messageHeight > oneLineHeight * 1.4
+    // A newline the user typed counts even when it measures as nothing: Text drops a trailing one,
+    // so "Hello\n" comes back a single line tall and the capsule would stay shut on the very
+    // keystroke that should open it.
+    if chat.draft.contains("\n") { return true }
+    return oneLineHeight > 0 && messageHeight > oneLineHeight * 1.4
   }
 
   /// Decides when the message needs its own row, by laying it out at the width it *would* get there.
@@ -182,10 +187,10 @@ struct Composer: View {
   private var measurements: some View {
     VStack(alignment: .leading, spacing: 0) {
       Text(" ")
-        .font(.system(size: 17))
+        .font(.system(size: 19))
         .measuringHeight { oneLineHeight = $0 }
       Text(chat.draft.isEmpty ? " " : chat.draft)
-        .font(.system(size: 17))
+        .font(.system(size: 19))
         .lineLimit(5)
         .frame(maxWidth: .infinity, alignment: .leading)
         .measuringHeight { messageHeight = $0 }
@@ -267,7 +272,7 @@ struct Composer: View {
         .foregroundStyle(webSearchGlyph)
         .frame(width: 34, height: 34)
         .background(
-          chat.webSearchOn ? AnyShapeStyle(.tint) : AnyShapeStyle(.clear),
+          chat.webSearchOn ? AnyShapeStyle(ChatStyle.sendFill) : AnyShapeStyle(.clear),
           in: Circle()
         )
         .contentShape(Circle())
@@ -283,7 +288,7 @@ struct Composer: View {
   /// Reversed out of the filled circle when on, plain when off, and faded when the build carries
   /// no key — so a globe that can't be switched on doesn't look like one that can.
   private var webSearchGlyph: AnyShapeStyle {
-    if chat.webSearchOn { return AnyShapeStyle(.white) }
+    if chat.webSearchOn { return AnyShapeStyle(ChatStyle.sendGlyph) }
     return chat.hasSearchKey ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary)
   }
 
@@ -295,28 +300,39 @@ struct Composer: View {
 
   /// The filled circle on the right: Stop while a reply is coming, a stop square while it's
   /// listening, the microphone when there's nothing to send, and Send otherwise.
+  /// The microphone stays put and Send appears beside it once there's something to send, rather
+  /// than one button changing job underneath your thumb.
   @ViewBuilder
-  private var primaryButton: some View {
+  private var trailingButtons: some View {
     if chat.isGenerating {
       circleButton("Stop", systemImage: "stop.fill", disabled: chat.isStopping) { chat.stop() }
-    } else if chat.speechInput.isActive {
-      circleButton("Stop listening", systemImage: "stop.fill", tint: .red) {
-        chat.toggleDictation()
-      }
-      .symbolEffect(.pulse, isActive: chat.speechInput.state == .listening)
-    } else if chat.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-      && chat.pendingImage == nil
-    {
-      circleButton(
-        "Talk", systemImage: "mic.fill",
-        disabled: chat.loadState != .ready || chat.isPreparingImage
-      ) {
-        chat.toggleDictation()
-      }
-      .accessibilityHint("Speech is typed into the message field on this iPhone")
     } else {
-      circleButton("Send", systemImage: "arrow.up", disabled: !chat.canSend) { chat.send() }
+      micButton
+      if hasSomethingToSend {
+        circleButton("Send", systemImage: "arrow.up", disabled: !chat.canSend) { chat.send() }
+          .transition(.scale.combined(with: .opacity))
+      }
     }
+  }
+
+  private var hasSomethingToSend: Bool {
+    !chat.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || chat.pendingImage != nil
+  }
+
+  /// A plain glyph, not a filled circle — the filled circle is what marks the one button that acts.
+  private var micButton: some View {
+    Button { chat.toggleDictation() } label: {
+      Image(systemName: chat.speechInput.isActive ? "stop.fill" : "mic.fill")
+        .font(.system(size: 18, weight: .medium))
+        .foregroundStyle(chat.speechInput.isActive ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
+        .frame(width: 34, height: 34)
+        .contentShape(Circle())
+    }
+    .buttonStyle(.plain)
+    .disabled(chat.loadState != .ready || chat.isPreparingImage)
+    .symbolEffect(.pulse, isActive: chat.speechInput.state == .listening)
+    .accessibilityLabel(chat.speechInput.isActive ? "Stop listening" : "Talk")
+    .accessibilityHint("Speech is typed into the message field on this iPhone")
   }
 
   private func circleButton(
