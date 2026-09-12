@@ -36,6 +36,22 @@ struct SidebarContainer<Sidebar: View, Content: View>: View {
     return proxy
   }
 
+  /// The corner the chat is cut to: the screen's own, so that closed it sits exactly inside the
+  /// display's rounding and open it carries that same curve into the middle of the screen.
+  ///
+  /// iOS 26 will work the radius out from the container for us, which is the only way to get it
+  /// right on every device without reading a private property off `UIScreen`. Older releases get
+  /// the radius the iPhones that run them are cut to, which is 55pt from the X on and a little
+  /// less before that — near enough that no corner shows a seam.
+  private static var pageShape: AnyShape {
+    #if compiler(>=6.2)
+      if #available(iOS 26.0, *) {
+        return AnyShape(ConcentricRectangle(corners: .concentric(minimum: .fixed(34))))
+      }
+    #endif
+    return AnyShape(RoundedRectangle(cornerRadius: 55, style: .continuous))
+  }
+
   var body: some View {
     GeometryReader { proxy in
       // Ignoring the safe area means measuring the whole screen, so the chat runs edge to edge the
@@ -46,7 +62,7 @@ struct SidebarContainer<Sidebar: View, Content: View>: View {
       let width = min(ChatStyle.sidebarWidth, proxy.size.width * 0.86)
       let offset = min(max((isOpen ? width : 0) + drag, 0), width)
       let progress = width > 0 ? offset / width : 0
-      let shape = RoundedRectangle(cornerRadius: 34 * progress, style: .continuous)
+      let shape = Self.pageShape
 
       ZStack(alignment: .leading) {
         sidebar
@@ -84,6 +100,9 @@ struct SidebarContainer<Sidebar: View, Content: View>: View {
           .offset(x: offset)
           .accessibilityHidden(progress > 0.5)
       }
+      // What the rounded corners cut away, and the strips above and below the drawer, open onto
+      // this rather than onto the black of the window behind everything.
+      .background(ChatStyle.sidebar.ignoresSafeArea())
       #if canImport(UIKit)
         // One recogniser does both directions. A zero-sized view is the only way to reach into the
         // view hierarchy from here; it takes no touches of its own.
