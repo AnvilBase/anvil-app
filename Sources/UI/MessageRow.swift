@@ -222,7 +222,12 @@ struct MessageRow: View {
         #if canImport(UIKit)
           if !message.text.isEmpty {
             actionButton(
-              didCopy ? "Copied" : "Copy", systemImage: didCopy ? "checkmark" : "doc.on.doc"
+              didCopy ? "Copied" : "Copy",
+              systemImage: didCopy ? "checkmark" : "doc.on.doc",
+              // Two filled sheets fill their square in a way an arrow and a dial don't, so at the
+              // size the others are set to it reads as the largest thing in the row. Drawn a
+              // little smaller, it matches them.
+              glyph: ChatStyle.smallControlGlyph - 2
             ) {
               UIPasteboard.general.string = message.text
               didCopy = true
@@ -252,11 +257,12 @@ struct MessageRow: View {
   }
 
   private func actionButton(
-    _ title: String, systemImage: String, action: @escaping () -> Void
+    _ title: String, systemImage: String, glyph: CGFloat = ChatStyle.smallControlGlyph,
+    action: @escaping () -> Void
   ) -> some View {
     Button(action: action) {
       Image(systemName: systemImage)
-        .font(.system(size: ChatStyle.smallControlGlyph, weight: .medium))
+        .font(.system(size: glyph, weight: .medium))
         .frame(width: ChatStyle.smallControl, height: ChatStyle.smallControl)
         .contentShape(Rectangle())
     }
