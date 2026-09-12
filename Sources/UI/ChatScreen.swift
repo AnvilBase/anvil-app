@@ -136,21 +136,11 @@ struct ChatScreen: View {
   @ViewBuilder
   private var content: some View {
     switch chat.loadState {
-    case .idle, .loading:
-      VStack(spacing: 16) {
-        ProgressView()
-        Text("Loading \(model.displayName)…")
-          .font(.title3.weight(.semibold))
-        Text(
-          "The first load can take a while as the engine prepares the model. Later launches are "
-            + "much faster."
-        )
-        .font(.subheadline)
-        .foregroundStyle(.secondary)
-        .multilineTextAlignment(.center)
-      }
-      .padding()
-      .frame(maxWidth: .infinity, maxHeight: .infinity)
+    // Loading is not a screen of its own. The chat is there from the first frame and you can
+    // start typing into it; the composer's send button is what waits for the engine, and it
+    // comes alive on its own the moment the model is ready.
+    case .idle, .loading, .ready:
+      conversation
 
     case .failed(let message):
       VStack(spacing: 16) {
@@ -172,9 +162,6 @@ struct ChatScreen: View {
       }
       .padding()
       .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-    case .ready:
-      conversation
     }
   }
 
