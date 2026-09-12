@@ -71,14 +71,16 @@ struct SidebarContainer<Sidebar: View, Content: View>: View {
 
         content
           .frame(width: proxy.size.width, height: proxy.size.height)
-          .clipShape(shape)
           .overlay {
-            // Dims the chat and takes the taps while the drawer is open.
+            // Dims the chat and takes the taps while the drawer is open. Under the clip, not over
+            // it: a full square of black laid on top would paint its own corners straight back
+            // over the rounded ones, and the chat would slide open looking square.
             Color.black
               .opacity(0.2 * progress)
               .allowsHitTesting(progress > 0.01)
               .onTapGesture { setOpen(false) }
           }
+          .clipShape(shape)
           .offset(x: offset)
           .accessibilityHidden(progress > 0.5)
       }
