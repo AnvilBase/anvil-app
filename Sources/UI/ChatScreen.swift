@@ -240,9 +240,9 @@ struct ChatScreen: View {
     }
   }
 
-  /// What you see before you've said anything: nothing at all. It is still a scroll view, though
-  /// there is nothing to scroll, so that dragging down here puts the keyboard away exactly as it
-  /// does over a conversation.
+  /// What you see before you've said anything: the mark, in glass, and nothing else. It is still a
+  /// scroll view, though there is nothing to scroll, so that dragging down here puts the keyboard
+  /// away exactly as it does over a conversation.
   private var emptyState: some View {
     GeometryReader { proxy in
       ScrollView {
@@ -250,6 +250,16 @@ struct ChatScreen: View {
       }
       .scrollBounceBehavior(.always)
       .scrollDismissesKeyboard(.interactively)
+      // The mark, in ice, turning over the empty page. It takes no touches of its own — a finger
+      // that lands on it goes straight through to the scroll view under it — so dragging anywhere
+      // on this screen still puts the keyboard away exactly as it always did.
+      .overlay {
+        GlassAnvil()
+          .offset(y: -proxy.size.height * 0.06)
+          // It arrives with the empty screen rather than being there before it, and it leaves
+          // with the first message — the same spring the message itself rides up on.
+          .transition(.scale(scale: 0.86).combined(with: .opacity))
+      }
     }
   }
 
@@ -283,19 +293,29 @@ struct ChatScreen: View {
             // Yours rises out of the capsule; the reply it is waiting on just appears.
             .transition(message.role == .user ? .sendLift : .opacity)
           }
+          // The end of the conversation, and while a reply is being written the runway it climbs
+          // into. Both at once: this is what the conversation follows, so the space it opens is
+          // space the reply is given, and it closes on the same motion when the reply is done.
           Color.clear
-            .frame(height: 1)
+            .frame(height: chat.isGenerating ? ChatStyle.replyRunway : 1)
+            .animation(ChatStyle.followMotion, value: chat.isGenerating)
             .id(bottomID)
         }
         .padding(.horizontal, 16)
         .padding(.top, 12)
-        // Room to read the last line against, rather than having it end on the composer's glass.
-        .padding(.bottom, 16)
+        // Room to read the last line against when the conversation is sitting still, rather than
+        // having it come to rest on the composer's glass. Scrolling still takes it under there —
+        // that is the whole point of the glass — but where the conversation ends is not behind it.
+        .padding(.bottom, 26)
         // Keyed on the count of messages sent rather than on the transcript itself: opening
         // another chat and streaming a reply both change the rows, and neither is an arrival.
         .animation(ChatStyle.sendMotion, value: chat.messagesSent)
       }
       .scrollDismissesKeyboard(.interactively)
+      // What has scrolled past the bar and the composer thins out rather than running on behind
+      // them. The button below is outside this: it floats over the conversation, it isn't part of
+      // it, and a control that fades as you scroll would read as broken.
+      .scrollEdgeFade()
       .modifier(LatestMessageTracker(isFollowing: $isFollowingLatest, isUserScrolling: $isUserScrolling))
       .onChange(of: chat.messages.count) { oldCount, newCount in
         // Sending jumps to your message and then follows the reply.
@@ -303,9 +323,12 @@ struct ChatScreen: View {
       }
       .onChange(of: chat.openChat.id) { jumpToLatest(proxy) }
       .onChange(of: replyProgress) {
-        if LatestMessageTracker.isSupported, isFollowingLatest, !isUserScrolling {
-          proxy.scrollTo(bottomID, anchor: .bottom)
-        }
+        guard LatestMessageTracker.isSupported, isFollowingLatest, !isUserScrolling else { return }
+        // Animated, because a reply arrives a few characters at a time and most of them change
+        // nothing: the ones that do push the last line up by a whole line at once, and taking that
+        // in one frame is a flick of the page between every line. Each step is retargeted by the
+        // next before it lands, which is what turns a column of small jumps into one slow climb.
+        withAnimation(ChatStyle.followMotion) { proxy.scrollTo(bottomID, anchor: .bottom) }
       }
       .overlay(alignment: .bottom) {
         if LatestMessageTracker.isSupported, !isFollowingLatest, !chat.messages.isEmpty {
@@ -412,15 +435,32 @@ private struct LatestMessageTracker: ViewModifier {
   func body(content: Content) -> some View {
     if #available(iOS 18.0, *) {
       content
-        .onScrollPhaseChange { _, phase, context in
-          isUserScrolling = phase != .idle
-          if phase == .idle { isFollowing = Self.isNearBottom(context.geometry) }
+        .onScrollPhaseChange { oldPhase, phase, context in
+          isUserScrolling = Self.isHandDriven(phase)
+          // Where a scroll came to rest settles whether the conversation goes on following the
+          // reply — but only a scroll that someone did. The ones this view asks for land at the
+          // bottom by definition, and reading the answer back off a transcript that is still
+          // growing is how following used to stop halfway through a reply, leaving the rest of it
+          // to be written behind the composer.
+          if phase == .idle, Self.isHandDriven(oldPhase) {
+            isFollowing = Self.isNearBottom(context.geometry)
+          }
         }
         .onScrollGeometryChange(for: Bool.self, of: Self.isNearBottom) { _, nearBottom in
           if isUserScrolling { isFollowing = nearBottom }
         }
     } else {
       content
+    }
+  }
+
+  /// Whether a finger is behind this phase. `.animating` is the view scrolling itself and is not.
+  @available(iOS 18.0, *)
+  private static func isHandDriven(_ phase: ScrollPhase) -> Bool {
+    switch phase {
+    case .tracking, .interacting, .decelerating: true
+    case .idle, .animating: false
+    @unknown default: false
     }
   }
 

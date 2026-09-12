@@ -40,6 +40,15 @@ enum ChatStyle {
   /// Sending: the message lifting out of the capsule, the capsule collapsing back to one line, and
   /// the conversation scrolling up to meet it all ride the same spring, so they read as one motion.
   static let sendMotion: Animation = .spring(duration: 0.32, bounce: 0.12)
+  /// The empty space kept under a reply while it is being written, on top of the usual room at the
+  /// end of the conversation. About a line of it: the conversation follows the reply a line at a
+  /// time and takes a moment to get there, and without a runway the sentence being written spends
+  /// that moment down against the composer, in the fade, half gone. It closes when the reply does.
+  static let replyRunway: CGFloat = 52
+  /// The conversation keeping pace with a reply as it is written. Short, and without bounce: each
+  /// step is retargeted by the next piece of text before it has finished, and anything springy
+  /// would still be settling from the last word while the next one is being put down.
+  static let followMotion: Animation = .smooth(duration: 0.22)
   /// A confirmation sliding up out of the button that asked for it, and back into it.
   static let confirmMotion: Animation = .snappy(duration: 0.25)
 
@@ -151,5 +160,60 @@ extension View {
           .onChange(of: proxy.size.height) { _, height in report(height) }
       }
     }
+  }
+}
+
+// MARK: - The fade at the ends of the conversation
+
+extension ChatStyle {
+  /// How far a line of the conversation takes to dissolve as it leaves the screen. Short: this is
+  /// meant to be noticed only as the text having thinned out by the time it is gone, not as a band
+  /// laid over the conversation.
+  static let scrollFade: CGFloat = 40
+}
+
+extension View {
+  /// Fades what is scrolling out of the conversation, at the top and at the bottom.
+  ///
+  /// Nothing over the chat is opaque — the bar is a few glass circles, the composer a glass
+  /// capsule — and the conversation is not made to stop at either of them. It carries on past
+  /// both, through the glass and out the other side, and gives itself up in the last
+  /// ``ChatStyle/scrollFade`` points at the edge of the screen itself: in the notch above, and in
+  /// the strip below the composer. Neither end finishes on a line.
+  ///
+  /// The mask is laid out from inside the safe area, because that is what it is given, and then
+  /// hung off both insets so it covers the whole scroll view rather than the part of it left over
+  /// between the two. The ends stay right whatever moves them: the notch, the keyboard, the
+  /// composer growing a line or taking a photo.
+  func scrollEdgeFade(_ length: CGFloat = ChatStyle.scrollFade) -> some View {
+    mask {
+      GeometryReader { proxy in
+        let insets = proxy.safeAreaInsets
+        VStack(spacing: 0) {
+          fadeBand(height: min(insets.top, length), towards: .top)
+          Color.black
+          fadeBand(height: min(insets.bottom, length), towards: .bottom)
+        }
+        .frame(height: proxy.size.height + insets.top + insets.bottom)
+        .offset(y: -insets.top)
+      }
+    }
+  }
+
+  /// One end of the fade: opaque where the conversation is read, clear where it runs out.
+  private func fadeBand(height: CGFloat, towards edge: VerticalEdge) -> some View {
+    LinearGradient(
+      // Eased rather than a straight ramp — a linear fade reads as the text dimming evenly, and
+      // what is wanted is for it to hold its colour and then go.
+      stops: [
+        .init(color: .black.opacity(0), location: 0),
+        .init(color: .black.opacity(0.15), location: 0.34),
+        .init(color: .black.opacity(0.58), location: 0.68),
+        .init(color: .black, location: 1),
+      ],
+      startPoint: edge == .top ? .top : .bottom,
+      endPoint: edge == .top ? .bottom : .top
+    )
+    .frame(height: height)
   }
 }
