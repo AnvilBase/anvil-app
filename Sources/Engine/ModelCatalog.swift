@@ -10,7 +10,7 @@ struct CatalogModel: Codable, Identifiable, Hashable, Sendable {
   let name: String
   let version: String
   let summary: String
-  /// What the assembled file is called on the phone, e.g. `anvil-lite.litertlm`.
+  /// What the assembled file is called on the phone, e.g. `anvil-forge.litertlm`.
   let fileName: String
   let sizeBytes: Int64
   let sha256: String

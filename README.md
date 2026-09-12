@@ -111,10 +111,9 @@ screen asks for one. There are two ways to get one.
 The first screen lists the models published at
 [anvilai.com/api/models](https://www.anvilai.com/api/models). Tap **Download** and leave it running.
 
-| Model | Size | Based on |
+| Model | Size | Licence |
 | --- | --- | --- |
-| Anvil Lite | 3.41 GB | [Gemma 4 E4B](https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm) |
-| Anvil Nano | 2.41 GB | [Gemma 4 E2B](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm) |
+| Anvil Forge | 3.41 GB | [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0) |
 
 A model is served as a list of 512 MB parts, because a file that size can't be hosted as a single
 asset. The app downloads them one at a time, checks each against its SHA-256, appends it to the file
@@ -134,8 +133,9 @@ deployment to serve your own.
 Any LiteRT-LM `.litertlm` file works, including ones Anvil doesn't publish. Open **Copy a file across
 instead** on the model screen, then:
 
-1. On your Mac, download a `.litertlm` file — for example Gemma 4 E4B from
-   [litert-community/gemma-4-E4B-it-litert-lm](https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm).
+1. On your Mac, download a `.litertlm` file. The
+   [LiteRT community](https://huggingface.co/litert-community) publishes a number of them; pick one
+   small enough to load on a phone, which in practice means 4 GB or under.
 2. Launch the app on the iPhone.
 3. In Finder, select the iPhone in the sidebar, open the **Files** tab, and drag the `.litertlm` file
    onto **Anvil AI** (or **Anvil Dev**). You can also move it into **On My iPhone › Anvil AI** in the
