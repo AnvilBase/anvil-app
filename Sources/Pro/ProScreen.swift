@@ -46,7 +46,7 @@ struct ProScreen: View {
     ("slider.horizontal.3", "Sampling controls"),
     ("paintpalette", "Themes"),
     ("app", "App icons"),
-    ("faceid", "Face ID lock"),
+    ("lock", "Passcode lock"),
     ("waveform", "Talk mode"),
   ]
 

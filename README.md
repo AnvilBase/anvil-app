@@ -222,7 +222,7 @@ the context this chat is using; and totals across every reply, which survive del
 
 Anvil Pro is a monthly subscription, bought through the App Store, that unlocks the settings the
 free app keeps simple: your own system prompt, the model's sampling values and thinking, themes,
-alternate app icons, a Face ID or passcode lock, and Talk mode — replies read aloud on the phone,
+alternate app icons, a passcode lock, and Talk mode — replies read aloud on the phone,
 with the microphone open again when they finish. The paywall is the **Anvil Pro** row at the top of
 Settings.
 
@@ -294,7 +294,7 @@ Support/         per-app Info.plist and entitlements
 | `App/AnvilRootScene.swift` | Switches between welcome, installing a model and chatting; the theme, the lock, foreground work |
 | `Pro/ProAccess.swift`, `ProScreen.swift` | Whether Anvil Pro is active, read from the App Store, and the paywall |
 | `Pro/Theme.swift` | The themes and app icons, and the `Theme` every view reads from the environment |
-| `Pro/AppLock.swift`, `LockScreen.swift` | Face ID or passcode when the app comes back |
+| `Pro/AppLock.swift`, `LockScreen.swift`, `PasscodeSheet.swift` | The app's own passcode when it comes back to the screen |
 | `Chat/ChatModel.swift` | The observable state every screen reads; decides where each reply runs |
 | `Chat/ChatTranscript.swift` | Chat, message, reply-stats, and usage-totals models |
 | `Chat/ChatArchive.swift` | Saves chats, photos, and totals as protected files |

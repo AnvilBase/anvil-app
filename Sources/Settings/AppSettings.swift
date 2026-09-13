@@ -105,7 +105,8 @@ struct AppSettings: Codable, Equatable, Sendable {
   var theme = AppTheme.ink
   /// Which of the app's icons is on the Home Screen.
   var appIcon = AppIconChoice.anvil
-  /// Face ID or passcode when the app comes back to the screen.
+  /// The app's own passcode, asked for when the app comes back to the screen. Honoured only while
+  /// a passcode is set — see `AppLock`.
   var appLockEnabled = false
   /// Replies read aloud, and the microphone open again when they finish.
   var talkMode = false

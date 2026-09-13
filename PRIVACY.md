@@ -57,8 +57,10 @@ Nothing about your chats is involved.
 `NWPathMonitor` (`Sources/System/NetworkStatus.swift`) reads whether the phone is online and
 transmits nothing. The app has no web views and opens no sockets.
 
-Three Pro features touch the phone's own hardware and nothing beyond it. **Face ID lock** asks iOS to
-authenticate you; the app is told yes or no and never sees your face or your passcode. **Talk mode**
+Three Pro features touch the phone's own hardware and nothing beyond it. **Passcode lock** asks for a
+passcode of the app's own, chosen in Settings; a salted hash of it is kept in the Keychain on this
+iPhone, never backed up and never sent anywhere, and the app never sees your face or the phone's
+own passcode. **Talk mode**
 reads replies aloud with the voices built into iOS, on the phone, and then listens with the same
 on-device speech recognition as the microphone button. **Anvil Dream** makes pictures with Core ML on
 the phone's Neural Engine: the prompt, the picture, and the model itself never leave the phone, and

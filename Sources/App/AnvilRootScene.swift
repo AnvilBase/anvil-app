@@ -129,9 +129,9 @@ private struct RootView: View {
     .task {
       // Locked from the first frame if that is what was asked for, before anything is drawn under
       // it that shouldn't be seen.
+      // Nothing happens without a passcode to lock behind: `lock()` sees to that.
       if chat.settings.values.appLockEnabled {
         lock.lock()
-        await lock.unlock()
       }
       // Lets iOS hand over anything a background download finished while the app was closed.
       ModelDownloadSession.shared.activate()
@@ -176,7 +176,6 @@ private struct RootView: View {
       case .active:
         lock.uncover()
         Task {
-          if lock.isLocked { await lock.unlock() }
           await library.refresh()
           await chat.purgeExpiredChats()
         }

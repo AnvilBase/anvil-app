@@ -18,6 +18,8 @@ struct SettingsScreen: View {
   @Environment(\.dismiss) private var dismiss
   @Environment(\.openURL) private var openURL
   @State private var confirmingDeleteAll = false
+  /// The passcode being set or changed, while its sheet is up.
+  @State private var passcodeSheet: PasscodeSheet.Mode?
   /// Shown when a mail row finds no mail app to hand its message to.
   @State private var showingNoMailApp = false
   /// What anvilai.com publishes, for the models that aren't on the phone yet.
@@ -510,10 +512,20 @@ struct SettingsScreen: View {
   }
 
   private var securitySection: some View {
-    Section("Security") {
-      proGated("Face ID lock") {
-        Toggle("Lock with Face ID or passcode", isOn: $settings.values.appLockEnabled)
-          .disabled(!AppLock.isAvailable)
+    Section {
+      proGated("Passcode lock") {
+        Toggle("Lock with a passcode", isOn: lockBinding)
+        if lockBinding.wrappedValue {
+          Button("Change passcode") { passcodeSheet = .change }
+        }
+      }
+    } header: {
+      Text("Security")
+    } footer: {
+      if pro.isUnlocked, lockBinding.wrappedValue {
+        Text(
+          "Anvil locks whenever it leaves the screen. If you forget the passcode, the only way back "
+            + "in is to delete the app and install it again.")
       }
     }
   }
@@ -570,6 +582,10 @@ struct SettingsScreen: View {
   private func mailRow(_ title: String, subject: String, body: String) -> some View {
     Button {
       guard let url = AppLinks.mail(subject: subject, body: body) else { return }
+  /// The lock: a passcode of the app's own, set here, asked for whenever the app comes back to the
+  /// screen. Turning the switch on opens the sheet that sets the passcode, and the switch only
+  /// stays on once one is saved; turning it off forgets the passcode. There is no recovery, and
+  /// the footer says so before anyone needs it.
       openURL(url) { accepted in
         if !accepted { showingNoMailApp = true }
       }
@@ -577,6 +593,28 @@ struct SettingsScreen: View {
       HStack {
         Text(title)
           .foregroundStyle(Color.primary)
+    .sheet(item: $passcodeSheet) { mode in
+      PasscodeSheet(mode: mode) {
+        settings.values.appLockEnabled = true
+        settings.save()
+      }
+    }
+  }
+
+  /// On only when asked for and a passcode exists to lock behind; switching it on goes through
+  /// the sheet, and switching it off clears the passcode so a stale one can't lock a later switch-on.
+  private var lockBinding: Binding<Bool> {
+    Binding(
+      get: { settings.values.appLockEnabled && AppLock.hasPasscode },
+      set: { on in
+        if on {
+          passcodeSheet = .set
+        } else {
+          settings.values.appLockEnabled = false
+          settings.save()
+          AppLock.clearPasscode()
+        }
+      })
         Spacer()
         Image(systemName: "arrow.up.right")
           .font(.footnote.weight(.semibold))
