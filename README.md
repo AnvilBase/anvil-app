@@ -209,7 +209,7 @@ tables, dividers, and inline bold, italics, code, and links. LaTeX like `$O(n)$`
 unfinished code block renders as code while the reply streams.
 
 **Settings**, in order: system prompt · memory · voice input · web search · metrics ·
-generation (temperature, top-K, top-P, max reply length, thinking) · model (backend, context size,
+generation (temperature, top-K, top-P, max reply length) · model (backend, context size,
 image input — these need **Reload model**) · chat history (delete chats after 1, 3, 7, or 30 days, or
 never) · developer (development app only).
 
@@ -231,7 +231,7 @@ the context this chat is using; and totals across every reply, which survive del
 ## Anvil Pro
 
 Anvil Pro is a monthly subscription, bought through the App Store, that unlocks the settings the
-free app keeps simple: your own system prompt, the model's sampling values and thinking, themes,
+free app keeps simple: your own system prompt, the model's sampling values, themes,
 alternate app icons, a passcode lock, and Talk mode — replies read aloud on the phone,
 with the microphone open again when they finish. The paywall is the **Anvil Pro** row at the top of
 Settings.
@@ -333,7 +333,7 @@ Support/         per-app Info.plist and entitlements
 | `UI/SidebarContainer.swift` | The drawer the chat slides over: button, edge swipe, scrim |
 | `UI/ChatSidebar.swift` | What's in the drawer: search, new chat, chats by day, settings |
 | `UI/Composer.swift` | Input card: photos, web search, field, Send/Stop/microphone |
-| `UI/MessageRow.swift` | One message, with thinking, searches, sources, and metrics |
+| `UI/MessageRow.swift` | One message, with searches, sources, and metrics |
 | `UI/ChatStyle.swift` | Shared sizes and motion, and the Liquid Glass helpers |
 | `System/SpeechOutput.swift` | Talk mode's voice: replies read aloud with the voices iOS ships |
 | `UI/MarkdownView.swift` | The Markdown renderer |
@@ -345,7 +345,7 @@ back. GPU only and CPU only try just their half of that list.
 
 **LiteRT-LM APIs used (0.17.0).** `EngineConfig(modelPath:backend:visionBackend:maxNumTokens:cacheDir:)`,
 `Engine(engineConfig:)`, `initialize()`, `createConversation(with:)`, `ConversationConfig`,
-`SamplerConfig`, `ThinkingConfig`, `Tool` + `@ToolParam`, `sendMessageStream(_:maxOutputTokens:)`,
+`SamplerConfig`, `Tool` + `@ToolParam`, `sendMessageStream(_:maxOutputTokens:)`,
 `cancel()`, `getTokenCount()`, `ExperimentalFlags.enableBenchmark` + `getBenchmarkInfo()`,
 `Capabilities(modelPath:)`, and `Message(contents:)` for image input.
 

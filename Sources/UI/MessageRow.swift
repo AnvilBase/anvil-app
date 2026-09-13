@@ -6,7 +6,7 @@ import SwiftUI
 
 /// One message. What you send sits in a grey bubble on the right; the reply has no bubble at all
 /// and runs the full width of the page, with everything the model did along the way — searches,
-/// saved memories, thinking, sources — above it and the actions you can take underneath.
+/// saved memories, sources — above it and the actions you can take underneath.
 struct MessageRow: View {
   @Environment(\.theme) private var theme
   let message: ChatMessage
@@ -25,9 +25,6 @@ struct MessageRow: View {
   let onShowImage: () -> Void
 
   @State private var didCopy = false
-  /// The thinking panel is open while the thinking is all there is to read, and closes on its own
-  /// when the answer starts. Opened later by hand, it stays open.
-  @State private var thinkingExpanded = false
 
   private var isUser: Bool { message.role == .user }
 
@@ -116,7 +113,6 @@ struct MessageRow: View {
       if let prompt = message.imagePrompt, !prompt.isEmpty {
         activityLabel("“\(prompt)”", systemImage: "paintbrush")
       }
-      if !message.thinking.isEmpty { thinking }
       if image != nil { photo }
 
       if !message.text.isEmpty {
@@ -132,7 +128,7 @@ struct MessageRow: View {
           }
         }
         .transition(.opacity)
-      } else if isStreaming && message.thinking.isEmpty {
+      } else if isStreaming {
         workingIndicator
           .transition(.opacity)
       }
@@ -152,32 +148,9 @@ struct MessageRow: View {
       .foregroundStyle(.secondary)
   }
 
-  private var thinking: some View {
-    DisclosureGroup(isExpanded: $thinkingExpanded) {
-      Text(message.thinking)
-        .font(.subheadline)
-        .foregroundStyle(.secondary)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.top, 4)
-    } label: {
-      HStack(spacing: 8) {
-        if isStreaming, message.text.isEmpty { PixelThinking(size: 14) }
-        Text(isStreaming && message.text.isEmpty ? "Thinking…" : "Thinking")
-      }
-    }
-    .font(.subheadline)
-    .padding(.horizontal, 14)
-    .padding(.vertical, 10)
-    .background(theme.fieldFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-    .onAppear { if isStreaming, message.text.isEmpty { thinkingExpanded = true } }
-    .onChange(of: message.text.isEmpty) { _, empty in
-      if !empty, isStreaming { thinkingExpanded = false }
-    }
-  }
-
-  /// What the model is busy with before any words arrive. Thinking is the pixels alone — there is
-  /// nothing to say about it that the animation doesn't already say. Searching says what it's
-  /// looking for, and a picture says it's being made.
+  /// What the model is busy with before any words arrive. Working on the answer is the pixels
+  /// alone — there is nothing to say about it that the animation doesn't already say. Searching
+  /// says what it's looking for, and a picture says it's being made.
   private var workingIndicator: some View {
     HStack(spacing: 8) {
       PixelThinking()
@@ -199,7 +172,7 @@ struct MessageRow: View {
     if message.imagePrompt != nil, image == nil { return "Making the picture" }
     if message.sources != nil { return "Reading results" }
     if message.searchQueries != nil { return "Searching the web" }
-    return "Thinking"
+    return "Working on the answer"
   }
 
   /// Numbered to match the model's [1], [2] citations.

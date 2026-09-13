@@ -31,7 +31,7 @@ what every file does; this is about the decisions behind them.
                  └────────────────────────────┘
 ```
 
-The engine emits `ReplyEvent` values — text, thinking, searching, sources, searchError, memorySaved
+The engine emits `ReplyEvent` values — text, searching, sources, searchError, memorySaved
 — and `ChatModel` applies each one to the screen in a single place. When you add something a reply
 can do, add a case there and handle it once.
 
@@ -105,7 +105,7 @@ stored with a chat — those all say "default" by saying nothing.
 
 `ProAccess` is the only thing that knows whether Pro is active, and it learns it from StoreKit's
 current entitlements — at launch and whenever a transaction lands — not from the settings file. The
-settings Pro unlocks (`systemPrompt`, `sampler`, `thinkingEnabled`, `theme`, `appIcon`,
+settings Pro unlocks (`systemPrompt`, `sampler`, `theme`, `appIcon`,
 `appLockEnabled`, `talkMode`) are ordinary `AppSettings` fields, stored either way; the places that
 honour them ask `pro.isUnlocked` first. `ChatModel.conversationOptions()` does it for the model,
 `RootView` does it for the theme. The gate is in a few well-named places rather than in every view,

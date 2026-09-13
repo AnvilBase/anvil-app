@@ -55,7 +55,6 @@ struct ProScreen: View {
     ("paintbrush", "Anvil Dream", "Image"),
     ("text.quote", "Custom System Prompt", nil),
     ("slider.horizontal.3", "Sampling Controls", nil),
-    ("lightbulb", "Thinking Mode", nil),
     ("paintpalette", "Themes", nil),
     ("app", "App Icons", nil),
     ("lock", "Passcode Lock", nil),

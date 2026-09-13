@@ -84,14 +84,6 @@ final class ChatModel {
   /// Replies read aloud, and the microphone open again when they finish. Pro, and on.
   var talkModeOn: Bool { pro.isUnlocked && settings.values.talkMode }
 
-  /// Whether the loaded model can reason before it answers. Both of Anvil's text models can; a file
-  /// brought in by hand may not.
-  var canThink: Bool { modelDetails?.supportsThinking ?? false }
-
-  /// The model working through its answer before it writes it. Pro, switched on, and a model that
-  /// can — decided here so the composer's button and the conversation agree.
-  var thinkingOn: Bool { pro.isUnlocked && settings.values.thinkingEnabled && canThink }
-
   /// Whether a reply can come with a picture: Anvil Dream is on the phone, and Pro is active. The
   /// library only ever hands over a Pro model while Pro is active, but this is decided in one
   /// place, so it is asked again here.
@@ -219,13 +211,6 @@ final class ChatModel {
 
   func setWebSearch(_ enabled: Bool) {
     settings.values.webSearchEnabled = enabled
-    settings.save()
-  }
-
-  /// The choice is kept whether or not Pro is active, the way the other Pro settings are: it is
-  /// honoured by `thinkingOn` only while Pro is.
-  func setThinking(_ enabled: Bool) {
-    settings.values.thinkingEnabled = enabled
     settings.save()
   }
 
@@ -712,12 +697,6 @@ final class ChatModel {
         replyStarted += 1
       }
       updateMessage(replyID) { $0.text += piece }
-    case .thinking(let piece):
-      if firstPiece == nil {
-        firstPiece = started.duration(to: .now)
-        replyStarted += 1
-      }
-      updateMessage(replyID) { $0.thinking += piece }
     case .searching(let query):
       updateMessage(replyID) { $0.searchQueries = ($0.searchQueries ?? []) + [query] }
     case .sources(let sources):
@@ -791,17 +770,16 @@ final class ChatModel {
     savedChats.insert(snapshot, at: 0)
   }
 
-  /// What the model is told and how it samples. The prompt a chat carries, custom sampling and
-  /// thinking are Anvil Pro: without it the chat runs on the default prompt and the model's own
-  /// sampling, whatever the settings file says — the file is where a Pro subscriber's choices
-  /// wait, not where Pro is decided.
+  /// What the model is told and how it samples. The prompt a chat carries and custom sampling
+  /// are Anvil Pro: without it the chat runs on the default prompt and the model's own sampling,
+  /// whatever the settings file says — the file is where a Pro subscriber's choices wait, not
+  /// where Pro is decided.
   private func conversationOptions() -> ConversationOptions {
     let values = settings.values
     let isPro = pro.isUnlocked
     return ConversationOptions(
       systemPrompt: isPro ? AppSettings.prompt(for: openChat.systemPrompt) : AppSettings.defaultSystemPrompt,
       sampler: isPro && !values.useModelSamplerDefaults ? values.sampler : nil,
-      thinking: thinkingOn,
       webSearch: webSearchOn,
       memoryEnabled: values.memoryEnabled,
       memories: values.memoryEnabled ? memory.promptItems : [],

@@ -158,7 +158,6 @@ struct DeveloperScreen: View {
     ConversationOptions(
       systemPrompt: "",
       sampler: nil,
-      thinking: false,
       webSearch: chat.webSearchOn,
       memoryEnabled: chat.settings.values.memoryEnabled,
       memories: [],

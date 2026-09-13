@@ -83,7 +83,6 @@ struct MetricsScreen: View {
       LabeledContent("Image input", value: details.imageBackend.map { "On (\($0))" } ?? "Off")
       LabeledContent("Context size", value: "\(details.contextSize.formatted()) tokens")
       LabeledContent("Load time", value: MetricFormat.seconds(details.loadSeconds))
-      LabeledContent("Thinking", value: details.supportsThinking ? "Supported" : "Not supported")
       LabeledContent("Tool calling", value: details.supportsToolCalling ? "Supported" : "Not supported")
       LabeledContent("Audio input", value: details.supportsAudio ? "Supported" : "Not supported")
       LabeledContent(

@@ -40,7 +40,6 @@ actor OnDeviceEngine {
 
   /// What the model file itself says it can do.
   private struct FileCapabilities {
-    let supportsThinking: Bool
     let supportsImages: Bool
     let supportsAudio: Bool
     let supportsToolCalling: Bool
@@ -83,7 +82,6 @@ actor OnDeviceEngine {
           imageBackend: attempt.vision.map { Self.name(of: $0) },
           contextSize: options.contextSize,
           loadSeconds: started.duration(to: .now).inSeconds,
-          supportsThinking: capabilities?.supportsThinking ?? false,
           supportsImages: attempt.vision != nil,
           supportsAudio: capabilities?.supportsAudio ?? false,
           supportsToolCalling: capabilities?.supportsToolCalling ?? false,
@@ -118,7 +116,6 @@ actor OnDeviceEngine {
     let sampler = try options.sampler.map {
       try SamplerConfig(topK: $0.topK, topP: Float($0.topP), temperature: Float($0.temperature))
     }
-    let thinking = options.thinking ? ThinkingConfig(enableThinking: true) : nil
     let tools = ToolRegistry.tools(for: options)
     let initialMessages = history
       .filter { !$0.text.isEmpty }
@@ -128,14 +125,13 @@ actor OnDeviceEngine {
       conversation = try await engine.createConversation(
         with: ConversationConfig(
           systemMessage: systemMessage, initialMessages: initialMessages, tools: tools,
-          samplerConfig: sampler, thinkingConfig: thinking))
+          samplerConfig: sampler))
       return true
     } catch {
       guard !initialMessages.isEmpty else { throw error }
       conversation = try await engine.createConversation(
         with: ConversationConfig(
-          systemMessage: systemMessage, tools: tools, samplerConfig: sampler,
-          thinkingConfig: thinking))
+          systemMessage: systemMessage, tools: tools, samplerConfig: sampler))
       return false
     }
   }
@@ -160,9 +156,6 @@ actor OnDeviceEngine {
           contents.append(.text(text))
           let message = Message(contents: contents)
           for try await chunk in conversation.sendMessageStream(message, maxOutputTokens: maxReplyTokens) {
-            // Reasoning arrives on a named channel ("thought" for Gemma); tool-call channels are skipped.
-            let thought = chunk.channels.filter { !$0.key.contains("tool") }.map(\.value).joined()
-            if !thought.isEmpty { continuation.yield(.thinking(thought)) }
             let piece = chunk.toString
             if !piece.isEmpty { continuation.yield(.text(piece)) }
           }
@@ -219,7 +212,6 @@ actor OnDeviceEngine {
         temperature: Double(params.temperature), topK: params.topK, topP: Double(params.topP))
       : nil
     return FileCapabilities(
-      supportsThinking: capabilities.supportsThinking(),
       supportsImages: modalities.vision,
       supportsAudio: modalities.audio,
       supportsToolCalling: capabilities.supportsFunctionCalling(),

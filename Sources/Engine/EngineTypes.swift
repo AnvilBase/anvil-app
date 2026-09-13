@@ -8,7 +8,6 @@ struct ModelDetails: Equatable, Sendable {
   var imageBackend: String?
   var contextSize: Int
   var loadSeconds: Double
-  var supportsThinking: Bool
   var supportsImages: Bool
   var supportsAudio: Bool
   var supportsToolCalling: Bool
@@ -24,7 +23,6 @@ struct ModelDetails: Equatable, Sendable {
 struct ConversationOptions: Equatable, Sendable {
   var systemPrompt: String
   var sampler: SamplerValues?
-  var thinking: Bool
   /// Gives the model the web_search tool.
   var webSearch: Bool
   /// Gives the model the save_memory tool, and the facts it has already saved.
@@ -46,7 +44,6 @@ struct HistoryTurn: Sendable {
 /// applies them to the message on screen.
 enum ReplyEvent: Sendable {
   case text(String)
-  case thinking(String)
   case searching(String)
   case sources([WebSource])
   case searchError(String)

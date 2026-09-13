@@ -466,7 +466,7 @@ struct ChatScreen: View {
     }
   }
 
-  /// Changes whenever the last message grows, including its thinking and search activity.
+  /// Changes whenever the last message grows, including its search activity.
   /// How far along the reply at the bottom is. The conversation follows this while it climbs, so
   /// anything that makes the last row taller has to be counted in it.
   ///
@@ -477,7 +477,7 @@ struct ChatScreen: View {
   /// of the reply counts as a step of its own.
   private var replyProgress: Int {
     guard let last = chat.messages.last else { return 0 }
-    return last.text.count + last.thinking.count + (last.searchQueries?.count ?? 0)
+    return last.text.count + (last.searchQueries?.count ?? 0)
       + (last.sources?.count ?? 0) + (chat.isGenerating ? 0 : 1)
   }
 

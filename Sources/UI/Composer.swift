@@ -186,7 +186,6 @@ struct Composer: View {
       // What it was set to is kept in the settings file, not in the button, so it comes back the
       // way it was left.
       if !chat.isOffline { webSearchButton }
-      thinkingButton
       if chat.speechInput.state == .listening {
         SpeechWave(level: CGFloat(chat.speechInput.level))
           .padding(.leading, 4)
@@ -323,55 +322,6 @@ struct Composer: View {
     .accessibilityValue(chat.webSearchOn ? "On" : "Off")
     .accessibilityHint(webSearchHint)
     .disabled(chat.isGenerating || chat.loadState != .ready)
-  }
-
-  /// Thinking: the model reasoning before it answers, shown in a panel above the reply. Drawn the
-  /// way the globe is, a wash behind the glyph when it's on. It is Anvil Pro, so without Pro the
-  /// button is the paywall's door; with a model that can't think it says so rather than vanishing.
-  private var thinkingButton: some View {
-    Button {
-      guard chat.pro.isUnlocked else {
-        chat.showingPro = true
-        return
-      }
-      guard chat.canThink else {
-        chat.alertMessage = "The model that's loaded can't think before it answers."
-        return
-      }
-      chat.setThinking(!chat.thinkingOn)
-    } label: {
-      Image(systemName: "lightbulb")
-        .font(
-          .system(
-            size: ChatStyle.inlineControlGlyph, weight: chat.thinkingOn ? .semibold : .medium)
-        )
-        .foregroundStyle(thinkingGlyph)
-        .frame(width: Self.leadingControl, height: ChatStyle.inlineControl)
-        .background(
-          Color.primary.opacity(chat.thinkingOn ? 0.12 : 0),
-          in: Circle()
-        )
-        .contentShape(Circle())
-    }
-    .buttonStyle(.plain)
-    .animation(.snappy(duration: 0.2), value: chat.thinkingOn)
-    .accessibilityLabel("Thinking")
-    .accessibilityValue(chat.thinkingOn ? "On" : "Off")
-    .accessibilityHint(thinkingHint)
-    .disabled(chat.isGenerating || chat.loadState != .ready)
-  }
-
-  /// Faded while there is no model to think, like its neighbours, and faded too when the loaded
-  /// one can't: a bulb that can't be switched on shouldn't look like one that can. Full strength
-  /// without Pro, because tapping it does something — it opens the Pro page.
-  private var thinkingGlyph: AnyShapeStyle {
-    chat.loadState == .ready && (chat.canThink || !chat.pro.isUnlocked)
-      ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary)
-  }
-
-  private var thinkingHint: String {
-    if !chat.pro.isUnlocked { return "Anvil Pro" }
-    return chat.canThink ? "" : "The model that's loaded can't think"
   }
 
   /// Full strength either way — the wash behind it is what says it's on — and faded when the

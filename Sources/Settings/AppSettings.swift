@@ -85,9 +85,8 @@ struct AppSettings: Codable, Equatable, Sendable {
   var systemPrompt = ""
   var useModelSamplerDefaults = true
   var sampler = SamplerValues(temperature: 1.0, topK: 64, topP: 0.95)
-  /// Maximum tokens per reply (thinking included); 0 means no limit.
+  /// Maximum tokens per reply; 0 means no limit.
   var maxReplyTokens = 0
-  var thinkingEnabled = false
   var engine = EngineOptions()
   /// Days without activity before a chat is deleted; 0, the default, keeps chats until they are
   /// deleted by hand.
@@ -143,7 +142,6 @@ struct AppSettings: Codable, Equatable, Sendable {
     useModelSamplerDefaults = try value(.useModelSamplerDefaults, defaults.useModelSamplerDefaults)
     sampler = try value(.sampler, defaults.sampler)
     maxReplyTokens = try value(.maxReplyTokens, defaults.maxReplyTokens)
-    thinkingEnabled = try value(.thinkingEnabled, defaults.thinkingEnabled)
     engine = try value(.engine, defaults.engine)
     historyRetentionDays = try value(.historyRetentionDays, defaults.historyRetentionDays)
     webSearchEnabled = try value(.webSearchEnabled, defaults.webSearchEnabled)

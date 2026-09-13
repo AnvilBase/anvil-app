@@ -89,7 +89,7 @@ actor ChatArchive {
   private static func droppingUnfinishedReplies(_ chat: Chat) -> Chat {
     var chat = chat
     chat.messages.removeAll {
-      $0.role == .assistant && $0.text.isEmpty && $0.thinking.isEmpty && $0.stats == nil
+      $0.role == .assistant && $0.text.isEmpty && $0.stats == nil
     }
     return chat
   }
