@@ -23,6 +23,12 @@ struct GenerateImageTool: Tool {
     let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !trimmed.isEmpty else { return ["error": "The prompt is empty."] }
     guard let generate = ToolSession.shared.imageGenerator else {
+      // Asked for a picture that can't be made: the chat is told why, so it can open the Pro page
+      // or point at the download, and the model is told what to say.
+      if let why = ToolSession.shared.imageUnavailability {
+        ToolSession.shared.send(.imageUnavailable(why))
+        return ["error": why.modelNote]
+      }
       return ["error": "Image generation isn't available right now."]
     }
     ToolSession.shared.send(.generatingImage(trimmed))

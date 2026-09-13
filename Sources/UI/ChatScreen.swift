@@ -110,6 +110,18 @@ struct ChatScreen: View {
       }
       .scrollIndicators(.hidden)
     }
+    // The paywall, when a reply asked for a picture without Pro: what was asked for is one tap
+    // away, and Not now is the other way out.
+    .sheet(isPresented: $chat.showingPro) {
+      NavigationStack {
+        ProScreen()
+          .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+              Button("Not now") { chat.showingPro = false }
+            }
+          }
+      }
+    }
     .sheet(item: $statsMessage) { message in
       if let stats = message.stats {
         ReplyStatsSheet(stats: stats)

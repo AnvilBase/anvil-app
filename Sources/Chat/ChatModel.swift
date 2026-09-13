@@ -545,6 +545,9 @@ final class ChatModel {
     } else {
       imageGenerator = nil
     }
+    // Why there is no generator, when there isn't one: the tool tells the model and the chat.
+    let imageUnavailability: ImageUnavailability? =
+      options.imageGeneration ? nil : (pro.isUnlocked ? .needsDream : .needsPro)
 
     generationTask = Task {
       for id in removedImageIDs {
@@ -563,8 +566,8 @@ final class ChatModel {
         try await streamOnDevice(
           options: options, history: history, contextLimit: contextLimit, prompt: prompt,
           image: image, maxReplyTokens: maxReplyTokens, webSearch: webSearch,
-          imageGenerator: imageGenerator, replyID: reply.id, started: started,
-          firstPiece: &firstPiece)
+          imageGenerator: imageGenerator, imageUnavailability: imageUnavailability,
+          replyID: reply.id, started: started, firstPiece: &firstPiece)
       } catch {
         if !isStopping {
           // The engine's conversation may no longer match the chat, so rebuild it next time.
@@ -651,6 +654,7 @@ final class ChatModel {
     options: ConversationOptions, history: [ChatMessage], contextLimit: Int, prompt: String,
     image: PreparedImage?, maxReplyTokens: Int, webSearch: WebSearchConfig?,
     imageGenerator: (@Sendable (String) async throws -> Data)?,
+    imageUnavailability: ImageUnavailability?,
     replyID: ChatMessage.ID, started: ContinuousClock.Instant, firstPiece: inout Duration?
   ) async throws {
     if activeConversation != options {
@@ -666,7 +670,7 @@ final class ChatModel {
     let stream = try await device.stream(
       prompt, imageData: supportsImages ? image?.jpegData : nil,
       maxReplyTokens: maxReplyTokens > 0 ? maxReplyTokens : nil,
-      webSearch: webSearch, imageGenerator: imageGenerator)
+      webSearch: webSearch, imageGenerator: imageGenerator, imageUnavailability: imageUnavailability)
     for try await event in stream {
       apply(event, to: replyID, started: started, firstPiece: &firstPiece)
     }

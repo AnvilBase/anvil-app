@@ -179,7 +179,8 @@ backed up.
 
 **Pictures.** With Anvil Pro and **Anvil Dream** installed, the model can make a picture with the
 `generate_image` tool: ask for a drawing, a painting or a photo of something and it appears in the
-reply, made on the phone in a few seconds. Anvil Dream is a Latent Consistency Model (LCM
+reply, made on the phone in a few seconds. The tool is offered either way, so asking without Pro
+opens the Pro page, and asking with Pro but without Anvil Dream points at the download. Anvil Dream is a Latent Consistency Model (LCM
 Dreamshaper v7) run through Core ML on the Neural Engine, four passes of the network for a 512×512
 image; the sampler is `Sources/Engine/LCMScheduler.swift` and the loop is `DreamEngine.swift`.
 Pictures are kept with the chat the way photos are, and open full screen the same way. Nothing
@@ -236,8 +237,8 @@ switched to only while Pro is active; if the subscription lapses the chat moves 
 back to the install screen if that is the only one on the phone. **Anvil Dream** is the entry marked
 `pro` and `"kind": "image"`: it makes pictures rather than text, is never the model the chat runs
 on, and works beside whichever one is — see [Pictures](#what-the-app-does). It arrives as an Apple
-Archive of Core ML models that the app unpacks into its own folder, and the chat gets the
-`generate_image` tool while it is installed and Pro is active. The install screen never offers
+Archive of Core ML models that the app unpacks into its own folder, and the `generate_image` tool
+makes pictures while it is installed and Pro is active. The install screen never offers
 either — the way in is the Anvil Model, and Pro is found in Settings.
 
 Whether Pro is active is read from the App Store's entitlements, in `Sources/Pro/ProAccess.swift`,

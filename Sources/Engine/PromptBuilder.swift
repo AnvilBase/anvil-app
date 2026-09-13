@@ -60,6 +60,16 @@ enum PromptBuilder {
         light. The picture appears in your reply on its own; once the tool has returned, add one \
         short sentence and nothing more.
         """
+    } else {
+      // The tool is there so that asking is answered; what it answers with is in its result.
+      prompt += """
+
+
+        When the user asks for an image, picture, drawing, painting, illustration or photo of \
+        something, call generate_image with a short description of it. Pictures are part of Anvil \
+        Pro; the tool's result says what the user needs, and your reply is that, in one short \
+        sentence. Never describe or invent the picture yourself.
+        """
     }
 
     if options.spokenReplies {

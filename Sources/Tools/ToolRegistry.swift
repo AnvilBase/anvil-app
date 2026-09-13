@@ -9,15 +9,12 @@ enum ToolRequirement: Sendable {
   case webSearch
   /// Only when memory is on.
   case memory
-  /// Only with Anvil Dream installed and Anvil Pro active.
-  case imageGeneration
 
   var label: String {
     switch self {
     case .always: "Always available"
     case .webSearch: "When web search is on"
     case .memory: "When memory is on"
-    case .imageGeneration: "When Anvil Dream is installed and Pro is active"
     }
   }
 }
@@ -74,10 +71,11 @@ enum ToolRegistry {
       summary: "Searches the web with Brave. The only tool that uses the network.",
       requirement: .webSearch,
       make: { WebSearchTool() }),
+    // Always offered, so that asking for a picture is always answered: with the picture when
+    // Anvil Dream is installed and Pro is active, and with the Pro page otherwise.
     ToolEntry(
       name: GenerateImageTool.name,
-      summary: "Makes a picture with Anvil Dream, on this iPhone. Part of Anvil Pro.",
-      requirement: .imageGeneration,
+      summary: "Makes a picture with Anvil Dream, on this iPhone. Without Pro, opens the Pro page.",
       make: { GenerateImageTool() }),
   ]
 
@@ -104,7 +102,6 @@ enum ToolRegistry {
     case .always: true
     case .webSearch: options.webSearch
     case .memory: options.memoryEnabled
-    case .imageGeneration: options.imageGeneration
     }
   }
 }
