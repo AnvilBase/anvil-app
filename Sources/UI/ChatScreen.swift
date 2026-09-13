@@ -97,7 +97,7 @@ struct ChatScreen: View {
     }
     .sheet(isPresented: $showingDeveloper) {
       NavigationStack {
-        DeveloperScreen(chat: chat)
+        DeveloperScreen(chat: chat, library: library)
           .navigationTitle("Developer")
           #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)

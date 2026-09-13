@@ -6,9 +6,11 @@ import SwiftUI
 /// rather than from a hard-coded list, so a tool added to the registry shows up here on its own.
 struct DeveloperScreen: View {
   let chat: ChatModel
+  let library: ModelLibrary
 
   @Environment(\.dismiss) private var dismiss
   @Environment(ProAccess.self) private var pro
+  @State private var confirmingStartOver = false
 
   var body: some View {
     @Bindable var pro = pro
@@ -102,8 +104,51 @@ struct DeveloperScreen: View {
             + "will ship, without swapping apps. Nothing is uninstalled and nothing moves; "
             + "Settings has the way back.")
       }
+
+      Section {
+        Button("Delete everything and start over", role: .destructive) {
+          confirmingStartOver = true
+        }
+      } header: {
+        Text("Reset")
+      } footer: {
+        Text(
+          "Deletes every model, chat and memory, the usage totals, the passcode and every setting, "
+            + "and shows the welcome screen again: a fresh install, without reinstalling.")
+      }
     }
     .navigationTitle("Developer")
+    .confirmationDialog(
+      "Delete everything and start over?", isPresented: $confirmingStartOver,
+      titleVisibility: .visible
+    ) {
+      Button("Delete everything", role: .destructive) { resetApp() }
+    } message: {
+      Text("Models, chats, memories and settings all go. This can't be undone.")
+    }
+  }
+
+  /// A fresh install without reinstalling. The engines let go of their files first, the way a
+  /// swipe-to-delete in Settings does; then every model goes, every chat, every memory, the
+  /// totals and the passcode; the settings go back to their defaults — the welcome flag with
+  /// them, so the root shows the welcome screen and the install screen after it — and the Pro
+  /// preview is switched off.
+  private func resetApp() {
+    Task {
+      await chat.unload()
+      await chat.unloadImageModel()
+      for file in library.installed {
+        await library.remove(file)
+      }
+      chat.deleteAllChats()
+      chat.memory.deleteAll()
+      chat.resetTotals()
+      AppLock.clearPasscode()
+      pro.previewUnlocked = false
+      chat.settings.values = AppSettings()
+      chat.settings.save()
+      dismiss()
+    }
   }
 
   /// Only the parts of the conversation options that decide whether a tool is available.
