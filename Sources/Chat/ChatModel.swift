@@ -89,8 +89,8 @@ final class ChatModel {
   /// place, so it is asked again here.
   var canGenerateImages: Bool { pro.isUnlocked && imageModel != nil }
 
-  /// Set when a reply asked for a picture and Pro isn't active: the chat screen shows the Pro
-  /// page, and clears this when it goes.
+  /// Set when a message asked for a picture and Pro isn't active: the chat screen shows the Pro
+  /// page, and clears this when it goes. See `ImageRequest` for what counts as asking.
   var showingPro = false
 
   // MARK: - What the screens ask
@@ -242,6 +242,20 @@ final class ChatModel {
 
   func send() {
     guard canSend else { return }
+    // A picture asked for where none can be made. Without Pro the message stays in the field and
+    // the Pro page opens: what was asked for is one tap away, and the words are still there to
+    // send once it is. With Pro and no Anvil Dream the message goes, and a notice says where the
+    // download is. Read from the words, not decided by the model — see `ImageRequest`.
+    if !canGenerateImages, pendingImage == nil,
+      ImageRequest.isAsking(draft.trimmingCharacters(in: .whitespacesAndNewlines))
+    {
+      if pro.isUnlocked {
+        chatNotice = "Download Anvil Dream in Settings › Models to make pictures."
+      } else {
+        showingPro = true
+        return
+      }
+    }
     speechOutput.stop()
     // The message has gone, so the microphone's work is done. Without this the recogniser carries
     // on — and its next result, or the final one still owed from a stop a moment ago, lands in the
@@ -545,9 +559,6 @@ final class ChatModel {
     } else {
       imageGenerator = nil
     }
-    // Why there is no generator, when there isn't one: the tool tells the model and the chat.
-    let imageUnavailability: ImageUnavailability? =
-      options.imageGeneration ? nil : (pro.isUnlocked ? .needsDream : .needsPro)
 
     generationTask = Task {
       for id in removedImageIDs {
@@ -566,8 +577,8 @@ final class ChatModel {
         try await streamOnDevice(
           options: options, history: history, contextLimit: contextLimit, prompt: prompt,
           image: image, maxReplyTokens: maxReplyTokens, webSearch: webSearch,
-          imageGenerator: imageGenerator, imageUnavailability: imageUnavailability,
-          replyID: reply.id, started: started, firstPiece: &firstPiece)
+          imageGenerator: imageGenerator, replyID: reply.id, started: started,
+          firstPiece: &firstPiece)
       } catch {
         if !isStopping {
           // The engine's conversation may no longer match the chat, so rebuild it next time.
@@ -654,7 +665,6 @@ final class ChatModel {
     options: ConversationOptions, history: [ChatMessage], contextLimit: Int, prompt: String,
     image: PreparedImage?, maxReplyTokens: Int, webSearch: WebSearchConfig?,
     imageGenerator: (@Sendable (String) async throws -> Data)?,
-    imageUnavailability: ImageUnavailability?,
     replyID: ChatMessage.ID, started: ContinuousClock.Instant, firstPiece: inout Duration?
   ) async throws {
     if activeConversation != options {
@@ -670,7 +680,7 @@ final class ChatModel {
     let stream = try await device.stream(
       prompt, imageData: supportsImages ? image?.jpegData : nil,
       maxReplyTokens: maxReplyTokens > 0 ? maxReplyTokens : nil,
-      webSearch: webSearch, imageGenerator: imageGenerator, imageUnavailability: imageUnavailability)
+      webSearch: webSearch, imageGenerator: imageGenerator)
     for try await event in stream {
       apply(event, to: replyID, started: started, firstPiece: &firstPiece)
     }
@@ -721,11 +731,6 @@ final class ChatModel {
     case .imageGenerationFailed(let message):
       updateMessage(replyID) { $0.imagePrompt = nil }
       chatNotice = "Anvil Dream couldn't make the picture: \(message)"
-    case .imageUnavailable(let why):
-      switch why {
-      case .needsPro: showingPro = true
-      case .needsDream: chatNotice = "Download Anvil Dream in Settings › Models to make pictures."
-      }
     }
   }
 

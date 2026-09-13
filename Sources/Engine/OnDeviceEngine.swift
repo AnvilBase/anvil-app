@@ -145,14 +145,11 @@ actor OnDeviceEngine {
   /// Anvil Dream, for any picture it asks for.
   func stream(
     _ text: String, imageData: Data?, maxReplyTokens: Int?, webSearch: WebSearchConfig?,
-    imageGenerator: (@Sendable (String) async throws -> Data)?,
-    imageUnavailability: ImageUnavailability? = nil
+    imageGenerator: (@Sendable (String) async throws -> Data)?
   ) throws -> AsyncThrowingStream<ReplyEvent, Error> {
     guard let conversation else { throw EngineError.notLoaded }
     return AsyncThrowingStream { continuation in
-      ToolSession.shared.begin(
-        webSearch: webSearch, imageGenerator: imageGenerator, imageUnavailability: imageUnavailability
-      ) { event in
+      ToolSession.shared.begin(webSearch: webSearch, imageGenerator: imageGenerator) { event in
         continuation.yield(event)
       }
       let task = Task {

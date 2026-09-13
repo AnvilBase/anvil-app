@@ -180,8 +180,12 @@ backed up.
 
 **Pictures.** With Anvil Pro and **Anvil Dream** installed, the model can make a picture with the
 `generate_image` tool: ask for a drawing, a painting or a photo of something and it appears in the
-reply, made on the phone in a few seconds. The tool is offered either way, so asking without Pro
-opens the Pro page, and asking with Pro but without Anvil Dream points at the download. Anvil Dream is a Latent Consistency Model (LCM
+reply, made on the phone in a few seconds. The tool is only offered where a picture can be made.
+Without Pro, a message that clearly asks for one — "generate an image", "a picture of a fox" —
+opens the Pro page instead of sending, with the words kept in the field; the app reads the message
+for that itself (`Sources/Chat/ImageRequest.swift`) rather than trusting the model, which reaches
+for a picture tool on messages that never asked. With Pro but without Anvil Dream the message goes
+and a notice points at the download. Anvil Dream is a Latent Consistency Model (LCM
 Dreamshaper v7) run through Core ML on the Neural Engine, four passes of the network for a 512×512
 image; the sampler is `Sources/Engine/LCMScheduler.swift` and the loop is `DreamEngine.swift`.
 Pictures are kept with the chat the way photos are, and open full screen the same way. Nothing

@@ -11,19 +11,16 @@ final class ToolSession: @unchecked Sendable {
   private let lock = NSLock()
   private var webSearchConfig: WebSearchConfig?
   private var generator: (@Sendable (String) async throws -> Data)?
-  private var unavailability: ImageUnavailability?
   private var eventHandler: (@Sendable (ReplyEvent) -> Void)?
   private var sourceCount = 0
 
   func begin(
     webSearch: WebSearchConfig?, imageGenerator: (@Sendable (String) async throws -> Data)?,
-    imageUnavailability: ImageUnavailability? = nil,
     onEvent: @escaping @Sendable (ReplyEvent) -> Void
   ) {
     lock.withLock {
       webSearchConfig = webSearch
       generator = imageGenerator
-      unavailability = imageUnavailability
       eventHandler = onEvent
       sourceCount = 0
     }
@@ -33,7 +30,6 @@ final class ToolSession: @unchecked Sendable {
     lock.withLock {
       webSearchConfig = nil
       generator = nil
-      unavailability = nil
       eventHandler = nil
     }
   }
@@ -47,11 +43,6 @@ final class ToolSession: @unchecked Sendable {
   /// this reply.
   var imageGenerator: (@Sendable (String) async throws -> Data)? {
     lock.withLock { generator }
-  }
-
-  /// Why there is no generator for this reply, when there isn't one.
-  var imageUnavailability: ImageUnavailability? {
-    lock.withLock { unavailability }
   }
 
   /// Reports tool activity — a search, its sources, a saved memory — to the reply on screen.

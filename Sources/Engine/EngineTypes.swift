@@ -30,9 +30,7 @@ struct ConversationOptions: Equatable, Sendable {
   /// Gives the model the save_memory tool, and the facts it has already saved.
   var memoryEnabled: Bool
   var memories: [String]
-  /// Whether a picture can actually be made: Anvil Dream is installed and Pro is active. The
-  /// generate_image tool is offered either way, so that asking for a picture without Pro leads to
-  /// the Pro page rather than nowhere; this decides what the tool does when called.
+  /// Gives the model the generate_image tool: Anvil Dream is installed and Pro is active.
   var imageGeneration = false
   /// Talk mode: the reply is going to be spoken, so it should be written to be heard.
   var spokenReplies = false
@@ -58,26 +56,6 @@ enum ReplyEvent: Sendable {
   /// The picture, as JPEG data, and what it was made from.
   case imageGenerated(Data, prompt: String)
   case imageGenerationFailed(String)
-  /// The model asked for a picture and none can be made: the chat shows what is needed.
-  case imageUnavailable(ImageUnavailability)
-}
-
-/// Why a picture can't be made right now, in the order they are fixed: Pro first, then the model.
-enum ImageUnavailability: Sendable {
-  case needsPro
-  case needsDream
-
-  /// What the tool tells the model, so the reply says the right thing in a sentence.
-  var modelNote: String {
-    switch self {
-    case .needsPro:
-      "Making pictures is part of Anvil Pro, which the user doesn't have. The Anvil Pro page has "
-        + "been opened for them. Tell them, in one short sentence, that pictures come with Anvil Pro."
-    case .needsDream:
-      "Anvil Dream, the picture model, isn't installed. Tell the user, in one short sentence, to "
-        + "download Anvil Dream under Models in Settings."
-    }
-  }
 }
 
 /// Token counts and speeds for the reply that just finished.
