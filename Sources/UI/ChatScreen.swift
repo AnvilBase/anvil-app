@@ -74,6 +74,11 @@ struct ChatScreen: View {
       if isOpen { inputFocused = false }
     }
     .task(id: model) { await chat.load(model) }
+    // Anvil Dream comes and goes with the library — installed, deleted, Pro lapsing — and the chat
+    // hears about it here, the same way it is handed the text model.
+    .onChange(of: library.imageModel, initial: true) { _, imageModel in
+      chat.setImageModel(imageModel)
+    }
     // The lock screen is laid over this view, and a sheet is presented above the view — so a sheet
     // left up would be a sheet left up over the lock. Nothing that was open stays open.
     .onChange(of: lock.isLocked) { _, locked in
@@ -84,6 +89,8 @@ struct ChatScreen: View {
       textToSelect = nil
       fullScreenPhoto = nil
     }
+    // Each sheet says it again: a sheet is its own presentation, and the root's word on scroll
+    // bars is not one to leave to inheritance.
     .sheet(isPresented: $showingSettings, onDismiss: { Task { await chat.settingsDidClose() } }) {
       SettingsScreen(chat: chat, library: library, settings: chat.settings)
         .scrollIndicators(.hidden)
@@ -220,6 +227,7 @@ struct ChatScreen: View {
           .font(.subheadline)
           .foregroundStyle(.secondary)
           .multilineTextAlignment(.center)
+          .textSelection(.enabled)
       }
       Button {
         Task { await chat.reloadModel() }
@@ -337,6 +345,7 @@ struct ChatScreen: View {
         guideRow("plus", "Add a photo")
         if !chat.isOffline { guideRow("globe", "Search the web") }
         guideRow("mic.fill", "Speak to type")
+        if chat.canGenerateImages { guideRow("paintbrush", "Ask for a picture") }
       }
     }
   }

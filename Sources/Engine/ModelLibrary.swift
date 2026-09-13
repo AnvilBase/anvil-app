@@ -15,6 +15,9 @@ struct ModelFile: Hashable, Sendable, Identifiable {
   let version: String?
   /// Downloaded as part of Anvil Pro. Usable only while Pro is active: see `ModelLibrary.proUnlocked`.
   var isPro: Bool = false
+  /// A text model, which the chat runs on, or an image model, which Anvil Dream makes pictures
+  /// with. Only a text model is ever the active one.
+  var kind: ModelKind = .text
 
   var id: URL { url }
   var fileName: String { url.lastPathComponent }
@@ -60,6 +63,12 @@ final class ModelLibrary {
     return nil
   }
 
+  /// The image model the chat can make pictures with: Anvil Dream, while it is installed and Pro
+  /// is active. It is never the active model; it works beside whichever text model is.
+  var imageModel: ModelFile? {
+    installed.first { $0.kind == .image && usable($0) }
+  }
+
   /// Downloads a model from anvilai.com. Whatever is already installed stays; the new one joins it.
   func install(_ model: CatalogModel) {
     guard !downloader.isActive else { return }
@@ -94,7 +103,7 @@ final class ModelLibrary {
 
   /// Makes this the model the chat runs on. The chat sees the change and loads it.
   func select(_ file: ModelFile) {
-    guard installed.contains(file), usable(file) else { return }
+    guard installed.contains(file), usable(file), file.kind == .text else { return }
     ModelFiles.setActiveFileName(file.fileName)
     setState(.ready(file))
   }
@@ -115,7 +124,7 @@ final class ModelLibrary {
   /// choice is stable from here on rather than being the first file in the folder each time.
   private func apply(_ files: [ModelFile]) {
     installed = files
-    let candidates = files.filter(usable)
+    let candidates = files.filter { $0.kind == .text && usable($0) }
     guard let first = candidates.first else {
       setState(.missing)
       return
@@ -142,7 +151,15 @@ final class ModelLibrary {
 /// the main thread.
 enum ModelFiles {
   static let fileExtension = "litertlm"
+  /// An image model is a folder — the compiled Core ML models Anvil Dream runs — and is told
+  /// apart from a text model by this extension on the folder.
+  static let imageModelExtension = "imagemodel"
   private static let activeFileNameKey = "activeModelFileName"
+
+  /// The folder an image model is unpacked into, named for its catalog id.
+  static func imageModelName(for id: String) -> String {
+    id + "." + imageModelExtension
+  }
 
   /// Where the models live: private to the app and never backed up.
   static func modelsDirectory() throws -> URL {
@@ -164,12 +181,28 @@ enum ModelFiles {
     return directory
   }
 
-  /// Every model file in the directory, by name.
+  /// Every model in the directory, by name: text model files, and image model folders.
   static func models(in directory: URL) throws -> [URL] {
     try FileManager.default
       .contentsOfDirectory(at: directory, includingPropertiesForKeys: nil, options: .skipsHiddenFiles)
-      .filter { $0.pathExtension.lowercased() == fileExtension }
+      .filter {
+        let ext = $0.pathExtension.lowercased()
+        return ext == fileExtension || ext == imageModelExtension
+      }
       .sorted { $0.lastPathComponent < $1.lastPathComponent }
+  }
+
+  /// Everything in a folder, added up: an image model's size is the size of what was unpacked.
+  static func directorySize(of url: URL) -> Int64 {
+    guard
+      let files = FileManager.default.enumerator(
+        at: url, includingPropertiesForKeys: [.fileSizeKey], options: .skipsHiddenFiles)
+    else { return 0 }
+    var total: Int64 = 0
+    for case let file as URL in files {
+      total += Int64((try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+    }
+    return total
   }
 
   /// Reads the size straight from disk. URL resource values are cached, which would give a stale
@@ -184,14 +217,17 @@ enum ModelFiles {
     try excludeFromBackup(&url)
     let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
     let record = ModelDownloadFiles.installed(named: url.lastPathComponent)
+    let isImage = url.pathExtension.lowercased() == imageModelExtension
     return ModelFile(
       url: url,
-      fileSize: (attributes[.size] as? NSNumber)?.int64Value ?? 0,
+      fileSize: isImage
+        ? directorySize(of: url) : (attributes[.size] as? NSNumber)?.int64Value ?? 0,
       modificationDate: attributes[.modificationDate] as? Date ?? .distantPast,
       displayName: record?.name ?? url.deletingPathExtension().lastPathComponent,
       catalogID: record?.id,
       version: record?.version,
-      isPro: record?.pro ?? false)
+      isPro: record?.pro ?? false,
+      kind: isImage ? .image : .text)
   }
 
   /// The file, and the record of what it was.

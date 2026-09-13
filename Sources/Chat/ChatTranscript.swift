@@ -33,8 +33,10 @@ struct ChatMessage: Identifiable, Codable, Sendable {
   var text: String
   /// Reasoning streamed on a separate channel when thinking is enabled.
   var thinking = ""
-  /// The photo is stored next to the chat as `<id>.jpg`.
+  /// The photo is stored next to the chat as `<id>.jpg`. For a reply, the picture Anvil Dream made.
   var hasImage = false
+  /// What a reply's picture was made from, once Anvil Dream has been asked for one.
+  var imagePrompt: String?
   var isError = false
   var createdAt = Date()
   var stats: ReplyStats?

@@ -30,6 +30,8 @@ struct ConversationOptions: Equatable, Sendable {
   /// Gives the model the save_memory tool, and the facts it has already saved.
   var memoryEnabled: Bool
   var memories: [String]
+  /// Gives the model the generate_image tool: Anvil Dream is installed and Pro is active.
+  var imageGeneration = false
   /// Talk mode: the reply is going to be spoken, so it should be written to be heard.
   var spokenReplies = false
 }
@@ -49,6 +51,11 @@ enum ReplyEvent: Sendable {
   case sources([WebSource])
   case searchError(String)
   case memorySaved(String)
+  /// Anvil Dream has started on a picture with this prompt.
+  case generatingImage(String)
+  /// The picture, as JPEG data, and what it was made from.
+  case imageGenerated(Data, prompt: String)
+  case imageGenerationFailed(String)
 }
 
 /// Token counts and speeds for the reply that just finished.

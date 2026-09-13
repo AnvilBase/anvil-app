@@ -44,6 +44,19 @@ enum ImageProcessing {
     return PreparedImage(jpegData: output as Data, preview: image)
   }
 
+  /// A picture Anvil Dream made, as a JPEG, so it is kept with the chat the way a photo is.
+  static func jpegData(_ image: CGImage, quality: Double = 0.9) -> Data? {
+    let output = NSMutableData()
+    guard
+      let destination = CGImageDestinationCreateWithData(
+        output as CFMutableData, UTType.jpeg.identifier as CFString, 1, nil)
+    else { return nil }
+    let options = [kCGImageDestinationLossyCompressionQuality: quality] as CFDictionary
+    CGImageDestinationAddImage(destination, image, options)
+    guard CGImageDestinationFinalize(destination) else { return nil }
+    return output as Data
+  }
+
   /// Decodes a photo that was saved with a chat, for display.
   static func decode(_ data: Data) -> CGImage? {
     guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }

@@ -110,6 +110,9 @@ struct MessageRow: View {
       if let saved = message.savedMemories, !saved.isEmpty {
         activityLabel("Saved to memory: \(saved.joined(separator: "; "))", systemImage: "brain")
       }
+      if let prompt = message.imagePrompt, !prompt.isEmpty {
+        activityLabel("“\(prompt)”", systemImage: "paintbrush")
+      }
       if !message.thinking.isEmpty { thinking }
       if image != nil { photo }
 
@@ -162,11 +165,13 @@ struct MessageRow: View {
 
   /// What the model is busy with before any words arrive. Thinking is the pixels alone — there is
   /// nothing to say about it that the animation doesn't already say. Searching says what it's
-  /// looking for.
+  /// looking for, and a picture says it's being made.
   private var workingIndicator: some View {
     HStack(spacing: 8) {
       PixelThinking()
-      if message.sources != nil {
+      if message.imagePrompt != nil, image == nil {
+        Text("Making the picture…")
+      } else if message.sources != nil {
         Text("Reading results…")
       } else if message.searchQueries != nil {
         Text("Searching the web…")
@@ -179,6 +184,7 @@ struct MessageRow: View {
   }
 
   private var workingDescription: String {
+    if message.imagePrompt != nil, image == nil { return "Making the picture" }
     if message.sources != nil { return "Reading results" }
     if message.searchQueries != nil { return "Searching the web" }
     return "Thinking"

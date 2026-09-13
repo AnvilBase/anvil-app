@@ -6,7 +6,8 @@ import SwiftUI
 /// Underneath it is whichever entry the catalog publishes as `anvil-forge`, so the file, its size
 /// and its checksums all still come from anvilai.com; only the name is decided here. If the catalog
 /// stops publishing that entry, the recommended free one stands in, then the first free one. Pro
-/// models are never offered here: this screen is the way in, and Pro is found in Settings.
+/// models and image models are never offered here: this screen is the way in, and both of those
+/// are found in Settings.
 struct ModelSetupScreen: View {
   @Environment(\.theme) private var theme
   let library: ModelLibrary
@@ -250,7 +251,7 @@ struct ModelSetupScreen: View {
     catalogError = nil
     do {
       let catalog = try await ModelCatalog.load()
-      let free = catalog.filter { !$0.isPro }
+      let free = catalog.filter { !$0.isPro && !$0.isImage }
       model =
         free.first { $0.id == Self.catalogID }
         ?? free.first { $0.isRecommended }

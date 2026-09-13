@@ -1,5 +1,11 @@
 import Foundation
 
+/// What a catalog model is for: text, which the chat runs on, or pictures, which Anvil Dream makes.
+enum ModelKind: String, Codable, Sendable {
+  case text
+  case image
+}
+
 /// A model Anvil publishes, as described by https://www.anvilai.com/api/models.
 ///
 /// The file is several gigabytes, so it is served as a list of parts. Each part carries its own
@@ -12,8 +18,11 @@ struct CatalogModel: Codable, Identifiable, Hashable, Sendable {
   let summary: String
   /// How big the model is, the way models are sized: "2B", "4B". Shown after the summary.
   let parameters: String?
-  /// What the assembled file is called on the phone, e.g. `anvil-forge.litertlm`.
+  /// What the assembled file is called on the phone, e.g. `anvil-forge.litertlm`. For an image
+  /// model it is the archive that is unpacked on arrival, e.g. `anvil-dream.aar`.
   let fileName: String
+  /// Text unless the catalog says otherwise: image models arrived later than the schema.
+  let kind: ModelKind?
   let sizeBytes: Int64
   let sha256: String
   let parts: [CatalogPart]
@@ -30,6 +39,8 @@ struct CatalogModel: Codable, Identifiable, Hashable, Sendable {
 
   var isRecommended: Bool { recommended ?? false }
   var isPro: Bool { pro ?? false }
+  var modelKind: ModelKind { kind ?? .text }
+  var isImage: Bool { modelKind == .image }
 
   var requiredFreeBytes: Int64 { minimumFreeBytes ?? (sizeBytes + 1_000_000_000) }
 

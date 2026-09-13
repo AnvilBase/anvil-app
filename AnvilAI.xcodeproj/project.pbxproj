@@ -9,6 +9,8 @@
 /* Begin PBXBuildFile section */
 		A10000000000000000000053 /* LiteRTLM in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000051 /* LiteRTLM */; };
 		A10000000000000000000054 /* LiteRTLM in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000052 /* LiteRTLM */; };
+		A10000000000000000000063 /* StableDiffusion in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000061 /* StableDiffusion */; };
+		A10000000000000000000064 /* StableDiffusion in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000062 /* StableDiffusion */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -50,6 +52,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000000000000000000053 /* LiteRTLM in Frameworks */,
+				A10000000000000000000063 /* StableDiffusion in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -58,6 +61,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000000000000000000054 /* LiteRTLM in Frameworks */,
+				A10000000000000000000064 /* StableDiffusion in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -145,6 +149,7 @@
 			name = AnvilAI;
 			packageProductDependencies = (
 				A10000000000000000000051 /* LiteRTLM */,
+				A10000000000000000000061 /* StableDiffusion */,
 			);
 			productName = AnvilAI;
 			productReference = A10000000000000000000001 /* AnvilAI.app */;
@@ -169,6 +174,7 @@
 			name = AnvilAIDev;
 			packageProductDependencies = (
 				A10000000000000000000052 /* LiteRTLM */,
+				A10000000000000000000062 /* StableDiffusion */,
 			);
 			productName = AnvilAIDev;
 			productReference = A10000000000000000000002 /* AnvilAIDev.app */;
@@ -203,6 +209,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				A10000000000000000000050 /* XCRemoteSwiftPackageReference "LiteRT-LM" */,
+				A10000000000000000000060 /* XCRemoteSwiftPackageReference "ml-stable-diffusion" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A10000000000000000000021 /* Products */;
@@ -356,6 +363,14 @@
 				minimumVersion = 0.17.0;
 			};
 		};
+		A10000000000000000000060 /* XCRemoteSwiftPackageReference "ml-stable-diffusion" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/ml-stable-diffusion";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.1.1;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -368,6 +383,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = A10000000000000000000050 /* XCRemoteSwiftPackageReference "LiteRT-LM" */;
 			productName = LiteRTLM;
+		};
+		A10000000000000000000061 /* StableDiffusion */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000060 /* XCRemoteSwiftPackageReference "ml-stable-diffusion" */;
+			productName = StableDiffusion;
+		};
+		A10000000000000000000062 /* StableDiffusion */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000060 /* XCRemoteSwiftPackageReference "ml-stable-diffusion" */;
+			productName = StableDiffusion;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

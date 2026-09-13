@@ -55,10 +55,13 @@ Nothing about your chats is involved.
 `NWPathMonitor` (`Sources/System/NetworkStatus.swift`) reads whether the phone is online and
 transmits nothing. The app has no web views and opens no sockets.
 
-Two Pro features touch the phone's own hardware and nothing beyond it. **Face ID lock** asks iOS to
+Three Pro features touch the phone's own hardware and nothing beyond it. **Face ID lock** asks iOS to
 authenticate you; the app is told yes or no and never sees your face or your passcode. **Talk mode**
 reads replies aloud with the voices built into iOS, on the phone, and then listens with the same
-on-device speech recognition as the microphone button.
+on-device speech recognition as the microphone button. **Anvil Dream** makes pictures with Core ML on
+the phone's Neural Engine: the prompt, the picture, and the model itself never leave the phone, and
+the only network use is downloading the model, as in point 2. Pictures are stored with the chat they
+were made in, with the same protection as photos.
 
 Two things are worth knowing because they aren't the app:
 

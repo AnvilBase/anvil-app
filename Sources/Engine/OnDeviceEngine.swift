@@ -24,7 +24,9 @@ actor OnDeviceEngine {
       case .notLoaded:
         return "The model is not loaded."
       case .allAttemptsFailed(let attempts):
-        return attempts.map { "\($0.configuration): \($0.reason)" }.joined(separator: "\n")
+        let lines = attempts.map { "\($0.configuration): \($0.reason)" }
+        let advice = attempts.lazy.compactMap { EngineLog.advice(for: $0.reason) }.first
+        return (lines + [advice].compactMap { $0 }).joined(separator: "\n")
       }
     }
   }
@@ -60,6 +62,7 @@ actor OnDeviceEngine {
     var failures: [(configuration: String, reason: String)] = []
     for attempt in Self.attempts(for: options.backend, images: wantImages) {
       let started = ContinuousClock.now
+      let log = EngineLog()
       do {
         let config = try EngineConfig(
           modelPath: model.url.path,
@@ -85,11 +88,14 @@ actor OnDeviceEngine {
           supportsAudio: capabilities?.supportsAudio ?? false,
           supportsToolCalling: capabilities?.supportsToolCalling ?? false,
           defaultSampler: capabilities?.defaultSampler)
+        _ = log?.finish()
         return LoadResult(details: details, notice: attempt.notice)
       } catch {
         let images = attempt.vision == nil ? "" : " with images"
         let configuration = Self.name(of: attempt.backend) + images
-        failures.append((configuration, error.localizedDescription))
+        // The wrapper's error says only that the engine wasn't created; the runtime's log says why.
+        let reason = EngineLog.reason(from: log?.finish() ?? []) ?? error.localizedDescription
+        failures.append((configuration, reason))
         conversation = nil
       }
     }
@@ -134,14 +140,18 @@ actor OnDeviceEngine {
     }
   }
 
-  /// Streams one reply. `imageData` goes ahead of the text when there's a photo, and `webSearch`
-  /// supplies the key for any searches the model makes while it writes.
+  /// Streams one reply. `imageData` goes ahead of the text when there's a photo, `webSearch`
+  /// supplies the key for any searches the model makes while it writes, and `imageGenerator` is
+  /// Anvil Dream, for any picture it asks for.
   func stream(
-    _ text: String, imageData: Data?, maxReplyTokens: Int?, webSearch: WebSearchConfig?
+    _ text: String, imageData: Data?, maxReplyTokens: Int?, webSearch: WebSearchConfig?,
+    imageGenerator: (@Sendable (String) async throws -> Data)?
   ) throws -> AsyncThrowingStream<ReplyEvent, Error> {
     guard let conversation else { throw EngineError.notLoaded }
     return AsyncThrowingStream { continuation in
-      ToolSession.shared.begin(webSearch: webSearch) { event in continuation.yield(event) }
+      ToolSession.shared.begin(webSearch: webSearch, imageGenerator: imageGenerator) { event in
+        continuation.yield(event)
+      }
       let task = Task {
         defer { ToolSession.shared.end() }
         do {

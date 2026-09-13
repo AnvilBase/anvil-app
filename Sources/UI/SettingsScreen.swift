@@ -111,8 +111,9 @@ struct SettingsScreen: View {
 
   /// The models on the phone, with a mark against the one in use; the ones that could be, with a
   /// way to get them; and the reload. Tap a model to switch to it, swipe one to delete it. A Pro
-  /// model — Anvil Core — is listed either way, and is the paywall's door rather than a model to
-  /// switch to or download until Pro is active.
+  /// model — Anvil Core, Anvil Dream — is listed either way, and is the paywall's door rather than
+  /// a model to switch to or download until Pro is active. Anvil Dream is never switched to at
+  /// all: it makes pictures beside whichever model is in use, and its row says so.
   private var modelSection: some View {
     Section("Models") {
       ForEach(library.installed) { file in
@@ -122,6 +123,11 @@ struct SettingsScreen: View {
               ProScreen()
             } label: {
               LabeledContent(file.displayName) { proBadge }
+            }
+          } else if file.kind == .image {
+            LabeledContent(file.displayName) {
+              Text("Pictures")
+                .foregroundStyle(.secondary)
             }
           } else {
             Button {
@@ -146,6 +152,7 @@ struct SettingsScreen: View {
             Task {
               // The engine has the file open; let go of it before it goes.
               if file == library.active { await chat.unload() }
+              if file.kind == .image { await chat.unloadImageModel() }
               await library.remove(file)
             }
           }

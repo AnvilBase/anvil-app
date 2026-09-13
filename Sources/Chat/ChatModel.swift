@@ -64,8 +64,12 @@ final class ChatModel {
   let speechInput = SpeechInput()
   let speechOutput = SpeechOutput()
   private let device = OnDeviceEngine()
+  private let dream = DreamEngine()
   private let archive = ChatArchive()
   private var loadedModel: ModelFile?
+  /// Anvil Dream, when it is installed and Pro is active. Handed in by the chat screen from the
+  /// library, the way the text model is.
+  private(set) var imageModel: ModelFile?
   private var generationTask: Task<Void, Never>?
   /// How the engine's current conversation was created. nil means it no longer matches the open
   /// chat, so the next send rebuilds one from history.
@@ -79,6 +83,11 @@ final class ChatModel {
 
   /// Replies read aloud, and the microphone open again when they finish. Pro, and on.
   var talkModeOn: Bool { pro.isUnlocked && settings.values.talkMode }
+
+  /// Whether a reply can come with a picture: Anvil Dream is on the phone, and Pro is active. The
+  /// library only ever hands over a Pro model while Pro is active, but this is decided in one
+  /// place, so it is asked again here.
+  var canGenerateImages: Bool { pro.isUnlocked && imageModel != nil }
 
   // MARK: - What the screens ask
 
@@ -170,6 +179,19 @@ final class ChatModel {
     await load(loadedModel, force: true)
   }
 
+  /// The image model to make pictures with, or none. A change lets go of whatever Anvil Dream had
+  /// loaded; the next reply picks up the new one, or the tool, on its own.
+  func setImageModel(_ model: ModelFile?) {
+    guard model != imageModel else { return }
+    imageModel = model
+    Task { await dream.unload() }
+  }
+
+  /// Lets go of Anvil Dream's models, for before the folder they are in is deleted.
+  func unloadImageModel() async {
+    await dream.unload()
+  }
+
   func unload() async {
     speechOutput.stop()
     await stopGeneration()
@@ -180,6 +202,7 @@ final class ChatModel {
     loadedEngineOptions = nil
     activeConversation = nil
     await device.unload()
+    await dream.unload()
   }
 
   func setWebSearch(_ enabled: Bool) {
@@ -505,6 +528,19 @@ final class ChatModel {
     let maxReplyTokens = settings.values.maxReplyTokens
     let deviceBackend = modelDetails?.backend ?? "Unknown"
     let chatID = openChat.id
+    // Anvil Dream, for this reply, if it can be used: the picture comes back as a JPEG, the way a
+    // photo goes in, so it is kept with the chat the same way.
+    let imageGenerator: (@Sendable (String) async throws -> Data)?
+    if options.imageGeneration, let imageModel {
+      let dream = dream
+      imageGenerator = { prompt in
+        let image = try await dream.generate(prompt, from: imageModel)
+        guard let data = ImageProcessing.jpegData(image) else { throw DreamEngine.Failure.noOutput }
+        return data
+      }
+    } else {
+      imageGenerator = nil
+    }
 
     generationTask = Task {
       for id in removedImageIDs {
@@ -522,8 +558,9 @@ final class ChatModel {
       do {
         try await streamOnDevice(
           options: options, history: history, contextLimit: contextLimit, prompt: prompt,
-          image: image, maxReplyTokens: maxReplyTokens, webSearch: webSearch, replyID: reply.id,
-          started: started, firstPiece: &firstPiece)
+          image: image, maxReplyTokens: maxReplyTokens, webSearch: webSearch,
+          imageGenerator: imageGenerator, replyID: reply.id, started: started,
+          firstPiece: &firstPiece)
       } catch {
         if !isStopping {
           // The engine's conversation may no longer match the chat, so rebuild it next time.
@@ -609,6 +646,7 @@ final class ChatModel {
   private func streamOnDevice(
     options: ConversationOptions, history: [ChatMessage], contextLimit: Int, prompt: String,
     image: PreparedImage?, maxReplyTokens: Int, webSearch: WebSearchConfig?,
+    imageGenerator: (@Sendable (String) async throws -> Data)?,
     replyID: ChatMessage.ID, started: ContinuousClock.Instant, firstPiece: inout Duration?
   ) async throws {
     if activeConversation != options {
@@ -624,7 +662,7 @@ final class ChatModel {
     let stream = try await device.stream(
       prompt, imageData: supportsImages ? image?.jpegData : nil,
       maxReplyTokens: maxReplyTokens > 0 ? maxReplyTokens : nil,
-      webSearch: webSearch)
+      webSearch: webSearch, imageGenerator: imageGenerator)
     for try await event in stream {
       apply(event, to: replyID, started: started, firstPiece: &firstPiece)
     }
@@ -658,6 +696,23 @@ final class ChatModel {
       updateMessage(replyID) { $0.savedMemories = ($0.savedMemories ?? []) + [fact] }
       // This conversation already knows the fact, so it shouldn't be rebuilt over it.
       activeConversation?.memories = memory.promptItems
+    case .generatingImage(let prompt):
+      updateMessage(replyID) { $0.imagePrompt = prompt }
+    case .imageGenerated(let data, let prompt):
+      if let image = ImageProcessing.decode(data) { images[replyID] = image }
+      updateMessage(replyID) {
+        $0.hasImage = true
+        $0.imagePrompt = prompt
+      }
+      if firstPiece == nil {
+        firstPiece = started.duration(to: .now)
+        replyStarted += 1
+      }
+      let chatID = openChat.id
+      Task { try? await archive.saveImage(data, chatID: chatID, messageID: replyID) }
+    case .imageGenerationFailed(let message):
+      updateMessage(replyID) { $0.imagePrompt = nil }
+      chatNotice = "Anvil Dream couldn't make the picture: \(message)"
     }
   }
 
@@ -717,6 +772,7 @@ final class ChatModel {
       webSearch: webSearchOn,
       memoryEnabled: values.memoryEnabled,
       memories: values.memoryEnabled ? memory.promptItems : [],
+      imageGeneration: canGenerateImages,
       spokenReplies: talkModeOn)
   }
 
@@ -726,14 +782,21 @@ final class ChatModel {
   }
 
   /// The most recent turns that fit in about half the context (roughly four characters per token),
-  /// leaving room for the new message and its reply. Photos aren't re-sent; they're noted in text.
+  /// leaving room for the new message and its reply. Photos aren't re-sent, and neither are the
+  /// pictures Anvil Dream made; both are noted in text.
   private static func historyTurns(_ messages: [ChatMessage], contextSize: Int) -> [HistoryTurn] {
     var remaining = contextSize * 2
     var turns: [HistoryTurn] = []
     for message in messages.reversed() where !message.isError {
-      let text =
-        message.hasImage
-        ? "(shared a photo) \(message.text)".trimmingCharacters(in: .whitespaces) : message.text
+      let note: String
+      if !message.hasImage {
+        note = ""
+      } else if message.role == .user {
+        note = "(shared a photo) "
+      } else {
+        note = "(made a picture of: \(message.imagePrompt ?? "what was asked for")) "
+      }
+      let text = (note + message.text).trimmingCharacters(in: .whitespaces)
       guard !text.isEmpty else { continue }
       remaining -= text.count
       if remaining < 0 { break }

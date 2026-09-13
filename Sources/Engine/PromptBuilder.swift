@@ -50,6 +50,18 @@ enum PromptBuilder {
       }
     }
 
+    if options.imageGeneration {
+      prompt += """
+
+
+        You can call generate_image to make a picture on the user's phone. Use it when the user \
+        asks for an image, picture, drawing, painting, illustration or photo of something, with a \
+        prompt that describes the picture in detail: the subject, the setting, the style, the \
+        light. The picture appears in your reply on its own; once the tool has returned, add one \
+        short sentence and nothing more.
+        """
+    }
+
     if options.spokenReplies {
       prompt += """
 

@@ -114,7 +114,8 @@ struct DeveloperScreen: View {
       thinking: false,
       webSearch: chat.webSearchOn,
       memoryEnabled: chat.settings.values.memoryEnabled,
-      memories: [])
+      memories: [],
+      imageGeneration: chat.canGenerateImages)
   }
 
 }

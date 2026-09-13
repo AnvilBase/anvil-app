@@ -232,6 +232,8 @@ struct InstalledModel: Codable {
   /// Whether the catalog had it as part of Anvil Pro. Optional so records from before the flag
   /// still read; those were all free.
   var pro: Bool? = nil
+  /// Text or image. Optional for the same reason; the records before it were all text.
+  var kind: ModelKind? = nil
 }
 
 /// The file work behind a download. Not tied to an actor, so hashing and copying gigabytes stays off
@@ -331,7 +333,8 @@ enum ModelDownloadFiles {
   }
 
   /// Puts the finished download beside whatever is already installed. Only a model with the same
-  /// file name — the same model, downloaded again — is replaced.
+  /// file name — the same model, downloaded again — is replaced. An image model is an archive, and
+  /// is unpacked into its own folder rather than kept as the file that arrived.
   ///
   /// The whole file is checked against the catalog's hash first. Every part was checked on the way
   /// in, but the file is what the engine opens, and a part appended twice or out of order across
@@ -350,18 +353,35 @@ enum ModelDownloadFiles {
       throw Failure.assembledChecksum
     }
 
-    var destination = models.appendingPathComponent(model.fileName)
-    try? fileManager.removeItem(at: destination)
-    try fileManager.moveItem(at: partial, to: destination)
+    var destination: URL
+    switch model.modelKind {
+    case .text:
+      destination = models.appendingPathComponent(model.fileName)
+      try? fileManager.removeItem(at: destination)
+      try fileManager.moveItem(at: partial, to: destination)
+    case .image:
+      destination = models.appendingPathComponent(
+        ModelFiles.imageModelName(for: model.id), isDirectory: true)
+      try? fileManager.removeItem(at: destination)
+      do {
+        try ImageArchive.expand(partial, into: destination)
+      } catch {
+        // Half a folder is no model; the archive stays so trying again is only the unpacking.
+        try? fileManager.removeItem(at: destination)
+        throw error
+      }
+      try? fileManager.removeItem(at: partial)
+    }
     var values = URLResourceValues()
     values.isExcludedFromBackup = true
     try destination.setResourceValues(values)
 
-    var records = installedModels().filter { $0.fileName != model.fileName }
+    let installedName = destination.lastPathComponent
+    var records = installedModels().filter { $0.fileName != installedName }
     records.append(
       InstalledModel(
-        id: model.id, name: model.name, version: model.version, fileName: model.fileName,
-        pro: model.isPro))
+        id: model.id, name: model.name, version: model.version, fileName: installedName,
+        pro: model.isPro, kind: model.modelKind))
     try writeInstalled(records)
 
     discard()

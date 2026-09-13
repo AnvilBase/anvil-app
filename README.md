@@ -126,6 +126,7 @@ to the chat without waiting on gigabytes; the chat then says no model is install
 | Model | Size | Licence |
 | --- | --- | --- |
 | Anvil Model (`anvil-forge`) | 2.59 GB | [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0) |
+| Anvil Dream (`anvil-dream`, Pro, pictures) | about 1 GB | [MIT](https://huggingface.co/SimianLuo/LCM_Dreamshaper_v7) |
 
 A model is served as a list of 512 MB parts, because a file that size can't be hosted as a single
 asset. The app downloads them one at a time, checks each against its SHA-256, appends it to the file
@@ -172,6 +173,14 @@ instructions for new chats. **Settings › Memory** lists them, and lets you add
 them. They're stored in `Application Support/Memory` with complete file protection and aren't
 backed up.
 
+**Pictures.** With Anvil Pro and **Anvil Dream** installed, the model can make a picture with the
+`generate_image` tool: ask for a drawing, a painting or a photo of something and it appears in the
+reply, made on the phone in a few seconds. Anvil Dream is a Latent Consistency Model (LCM
+Dreamshaper v7) run through Core ML on the Neural Engine, four passes of the network for a 512×512
+image; the sampler is `Sources/Engine/LCMScheduler.swift` and the loop is `DreamEngine.swift`.
+Pictures are kept with the chat the way photos are, and open full screen the same way. Nothing
+about the prompt or the picture leaves the phone.
+
 **Current time.** The `get_current_time` tool reads the iPhone's clock for any time zone. It works
 offline and with web search off, so "what time is it in NYC?" gets an exact answer instead of a
 stale search snippet.
@@ -217,11 +226,15 @@ alternate app icons, a Face ID or passcode lock, and Talk mode — replies read 
 with the microphone open again when they finish. The paywall is the **Anvil Pro** row at the top of
 Settings.
 
-Pro also has its own model. **Anvil Core** is the catalog entry marked `pro`, a larger model with its
-refusals removed, offered in Settings › Models behind the Pro badge. It can be downloaded and switched
-to only while Pro is active; if the subscription lapses the chat moves to the free model, or back to
-the install screen if that is the only one on the phone. The install screen never offers it — the way
-in is the Anvil Model, and Pro is found in Settings.
+Pro also has its own models. **Anvil Core** is the catalog entry marked `pro`, a larger model with
+its refusals removed, offered in Settings › Models behind the Pro badge. It can be downloaded and
+switched to only while Pro is active; if the subscription lapses the chat moves to the free model, or
+back to the install screen if that is the only one on the phone. **Anvil Dream** is the entry marked
+`pro` and `"kind": "image"`: it makes pictures rather than text, is never the model the chat runs
+on, and works beside whichever one is — see [Pictures](#what-the-app-does). It arrives as an Apple
+Archive of Core ML models that the app unpacks into its own folder, and the chat gets the
+`generate_image` tool while it is installed and Pro is active. The install screen never offers
+either — the way in is the Anvil Model, and Pro is found in Settings.
 
 Whether Pro is active is read from the App Store's entitlements, in `Sources/Pro/ProAccess.swift`,
 and from nowhere else. The settings Pro unlocks are stored either way and honoured only while the App
@@ -287,6 +300,8 @@ Support/         per-app Info.plist and entitlements
 | `Chat/ChatArchive.swift` | Saves chats, photos, and totals as protected files |
 | `Chat/PrivateFiles.swift` | Complete file protection, excluded from backups |
 | `Engine/OnDeviceEngine.swift` | LiteRT-LM engine and conversation: load with fallbacks, stream, cancel, count |
+| `Engine/DreamEngine.swift`, `LCMScheduler.swift` | Anvil Dream: Core ML Stable Diffusion with the Latent Consistency sampler |
+| `Engine/ImageArchive.swift` | Unpacks an image model's Apple Archive on the phone |
 | `Engine/ModelLibrary.swift` | The models on the phone, which one is active, switching and deleting |
 | `Engine/ModelCatalog.swift` | The models anvilai.com publishes, and where to fetch their parts |
 | `Engine/ModelDownloader.swift` | Downloads a model part by part, checks each one, appends them into the file |
@@ -296,7 +311,7 @@ Support/         per-app Info.plist and entitlements
 | `Tools/ToolRegistry.swift` | Where tools are declared, and where the two apps diverge |
 | `Tools/ToolSession.swift` | Connects a running tool to the streaming reply |
 | `Tools/BraveSearch.swift` | Brave Search client |
-| `Tools/WebSearchTool.swift`, `ClockTool.swift`, `MemoryTool.swift` | The three tools |
+| `Tools/WebSearchTool.swift`, `ClockTool.swift`, `MemoryTool.swift`, `GenerateImageTool.swift` | The four tools |
 | `Memory/MemoryStore.swift` | Facts remembered across chats |
 | `Settings/AppSettings.swift` | Settings model and its protected JSON file |
 | `Settings/AppSecrets.swift` | Reads build-time keys from the bundle |

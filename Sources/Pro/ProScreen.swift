@@ -41,6 +41,7 @@ struct ProScreen: View {
 
   private static let features: [(symbol: String, title: String)] = [
     ("lock.open", "Anvil Core, the unrestricted model"),
+    ("paintbrush", "Anvil Dream, pictures from words"),
     ("text.quote", "Your own system prompt"),
     ("slider.horizontal.3", "Sampling controls"),
     ("paintpalette", "Themes"),
