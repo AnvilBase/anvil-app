@@ -166,8 +166,12 @@ final class ModelLibrary {
   }
 
   /// Settles on what is installed and which of it is active: the one chosen before if it is still
-  /// here, else the one already in use, else the default. Whichever it is, it is written down, so
-  /// the choice is stable from here on rather than being the first file in the folder each time.
+  /// here and can be used, else the one already in use, else the default. What is written down is
+  /// the choice, not the fallback: a Pro model chosen and then merely unusable for the moment —
+  /// the App Store not yet asked at launch, or Pro lapsed — stays the choice, and is what the chat
+  /// comes back to when Pro is confirmed. It used to be overwritten by the default on the first
+  /// refresh of every launch, before the App Store had answered, so a chosen model kept turning
+  /// back into Anvil Core. Only a file that is gone from the phone loses its place.
   private func apply(_ files: [ModelFile]) {
     installed = files
     let candidates = files.filter { $0.kind == .text && usable($0) }
@@ -182,11 +186,15 @@ final class ModelLibrary {
       candidates.first { $0.isRecommended }
       ?? candidates.first { !$0.isPro && $0.catalogID != nil }
       ?? first
+    let remembered = ModelFiles.activeFileName()
     let chosen =
-      candidates.first { $0.fileName == ModelFiles.activeFileName() }
+      candidates.first { $0.fileName == remembered }
       ?? candidates.first { $0.fileName == active?.fileName }
       ?? fallback
-    ModelFiles.setActiveFileName(chosen.fileName)
+    let rememberedStillHere = files.contains { $0.kind == .text && $0.fileName == remembered }
+    if chosen.fileName == remembered || !rememberedStillHere {
+      ModelFiles.setActiveFileName(chosen.fileName)
+    }
     setState(.ready(chosen))
   }
 
