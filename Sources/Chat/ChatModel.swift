@@ -84,6 +84,14 @@ final class ChatModel {
   /// Replies read aloud, and the microphone open again when they finish. Pro, and on.
   var talkModeOn: Bool { pro.isUnlocked && settings.values.talkMode }
 
+  /// Whether the loaded model can reason before it answers. Both of Anvil's text models can; a file
+  /// brought in by hand may not.
+  var canThink: Bool { modelDetails?.supportsThinking ?? false }
+
+  /// The model working through its answer before it writes it. Pro, switched on, and a model that
+  /// can — decided here so the composer's button and the conversation agree.
+  var thinkingOn: Bool { pro.isUnlocked && settings.values.thinkingEnabled && canThink }
+
   /// Whether a reply can come with a picture: Anvil Dream is on the phone, and Pro is active. The
   /// library only ever hands over a Pro model while Pro is active, but this is decided in one
   /// place, so it is asked again here.
@@ -211,6 +219,13 @@ final class ChatModel {
 
   func setWebSearch(_ enabled: Bool) {
     settings.values.webSearchEnabled = enabled
+    settings.save()
+  }
+
+  /// The choice is kept whether or not Pro is active, the way the other Pro settings are: it is
+  /// honoured by `thinkingOn` only while Pro is.
+  func setThinking(_ enabled: Bool) {
+    settings.values.thinkingEnabled = enabled
     settings.save()
   }
 
@@ -786,7 +801,7 @@ final class ChatModel {
     return ConversationOptions(
       systemPrompt: isPro ? AppSettings.prompt(for: openChat.systemPrompt) : AppSettings.defaultSystemPrompt,
       sampler: isPro && !values.useModelSamplerDefaults ? values.sampler : nil,
-      thinking: isPro && values.thinkingEnabled && (modelDetails?.supportsThinking ?? false),
+      thinking: thinkingOn,
       webSearch: webSearchOn,
       memoryEnabled: values.memoryEnabled,
       memories: values.memoryEnabled ? memory.promptItems : [],

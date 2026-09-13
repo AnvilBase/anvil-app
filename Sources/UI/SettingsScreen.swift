@@ -390,6 +390,19 @@ struct SettingsScreen: View {
         }
       }
       proGated("Sampling") { sampling }
+      proGated("Thinking") { thinking }
+    }
+  }
+
+  /// The model reasoning before it answers. The switch is kept even while the loaded model can't,
+  /// so it is already on when a model that can is loaded; the row says why it isn't doing anything.
+  @ViewBuilder
+  private var thinking: some View {
+    Toggle("Thinking", isOn: $settings.values.thinkingEnabled)
+    if settings.values.thinkingEnabled, chat.loadState == .ready, !chat.canThink {
+      Text("The model that's loaded can't think before it answers.")
+        .font(.footnote)
+        .foregroundStyle(.secondary)
     }
   }
 
@@ -415,8 +428,6 @@ struct SettingsScreen: View {
         Slider(value: $settings.values.sampler.topP, in: 0.05...1, step: 0.01)
       }
     }
-    Toggle("Thinking", isOn: $settings.values.thinkingEnabled)
-      .disabled(chat.modelDetails?.supportsThinking != true)
   }
 
   private var historySection: some View {

@@ -25,6 +25,9 @@ struct MessageRow: View {
   let onShowImage: () -> Void
 
   @State private var didCopy = false
+  /// The thinking panel is open while the thinking is all there is to read, and closes on its own
+  /// when the answer starts. Opened later by hand, it stays open.
+  @State private var thinkingExpanded = false
 
   private var isUser: Bool { message.role == .user }
 
@@ -150,17 +153,26 @@ struct MessageRow: View {
   }
 
   private var thinking: some View {
-    DisclosureGroup("Thinking") {
+    DisclosureGroup(isExpanded: $thinkingExpanded) {
       Text(message.thinking)
         .font(.subheadline)
         .foregroundStyle(.secondary)
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.top, 4)
+    } label: {
+      HStack(spacing: 8) {
+        if isStreaming, message.text.isEmpty { PixelThinking(size: 14) }
+        Text(isStreaming && message.text.isEmpty ? "Thinking…" : "Thinking")
+      }
     }
     .font(.subheadline)
     .padding(.horizontal, 14)
     .padding(.vertical, 10)
     .background(theme.fieldFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    .onAppear { if isStreaming, message.text.isEmpty { thinkingExpanded = true } }
+    .onChange(of: message.text.isEmpty) { _, empty in
+      if !empty, isStreaming { thinkingExpanded = false }
+    }
   }
 
   /// What the model is busy with before any words arrive. Thinking is the pixels alone — there is
