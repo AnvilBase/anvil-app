@@ -17,7 +17,8 @@ the difference will live behind a single compile-time flag — see
   newer, and an iPhone with enough memory for a 3–4 GB model. The simulator can build the app but
   can't usefully run a model.
 - **Dependency:** the LiteRT-LM Swift package, `0.17.x` — the API this code was written against.
-- **License:** MIT. See [LICENSE](LICENSE).
+- **License:** MIT for the code. See [LICENSE](LICENSE). The Anvil name, mark and icons are
+  trademarks and aren't licensed: build and change the app freely, but ship it under your own name.
 
 ## Quick start
 
