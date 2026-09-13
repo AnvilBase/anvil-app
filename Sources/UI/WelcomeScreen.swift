@@ -10,7 +10,9 @@ import SwiftUI
 struct WelcomeScreen: View {
   let onContinue: () -> Void
 
-  private var appName: String { AppFlavor.appName }
+  /// Anvil in both builds: this screen is the product introducing itself, and the development app
+  /// is the same product. Saying "Welcome to Anvil Dev" here made it read as a second app.
+  private var productName: String { AppFlavor.productName }
 
   var body: some View {
     ScrollView {
@@ -35,13 +37,12 @@ struct WelcomeScreen: View {
 
   private var title: some View {
     VStack(spacing: 26) {
-      // The mark itself, the same one the drawer carries, just larger — and the one place a light
-      // is run over it rather than it simply being worn. Nothing is coloured on this screen: the
-      // anvil and the name are the one shape you are meant to come away with.
-      AnvilWave(size: 68)
+      // The mark itself, the same one the drawer carries, just larger. Nothing is coloured on this
+      // screen: the anvil and the name are the one shape you are meant to come away with.
+      PixelAnvil(size: 68)
       VStack(spacing: 0) {
         Text("Welcome to")
-        Text(appName)
+        Text(productName)
       }
       .font(.largeTitle.bold())
       .multilineTextAlignment(.center)

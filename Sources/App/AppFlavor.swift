@@ -37,6 +37,13 @@ enum AppFlavor: String, Sendable {
     return name?.isEmpty == false ? name! : "Anvil"
   }()
 
+  /// What the product is called, whichever build this is.
+  ///
+  /// The development app is a build of Anvil, not a different product, so where the app introduces
+  /// itself — the welcome screen — it says Anvil in both. `appName` is for where the build genuinely
+  /// matters: the Home Screen, and anything telling you which of the two you are looking at.
+  static let productName = "Anvil"
+
   /// Marks stored items that must not be shared between the two apps.
   static let storageNamespace: String = Bundle.main.bundleIdentifier ?? "com.anvilbase.AnvilAI"
 }

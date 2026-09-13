@@ -69,8 +69,10 @@ struct AppSettings: Codable, Equatable, Sendable {
   var engine = EngineOptions()
   /// Days without activity before a chat is deleted; 0 keeps chats until deleted by hand.
   var historyRetentionDays = 3
-  /// On by default. When on (and online, with a key), the model can call the web search tool.
-  var webSearchEnabled = true
+  /// Off by default: the two things that leave the phone should both be asked for, and this is the
+  /// one you can ask for with a button. When on (and online, with a key), the model can call the
+  /// web search tool.
+  var webSearchEnabled = false
   var webSearchResultCount = 5
   /// Remember facts across chats (stored only on this iPhone).
   var memoryEnabled = true

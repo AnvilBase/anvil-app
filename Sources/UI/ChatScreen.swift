@@ -201,6 +201,8 @@ struct ChatScreen: View {
     }
     .padding()
     .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .overlay(alignment: .bottom) { momentaryNotice }
+    .animation(ChatStyle.confirmMotion, value: chat.momentaryNotice)
     .safeAreaInset(edge: .bottom, spacing: 0) { composer }
   }
 
@@ -217,6 +219,10 @@ struct ChatScreen: View {
     // is what keeps that swap from being a cut.
     .animation(ChatStyle.sendMotion, value: chat.messages.isEmpty)
     .sensoryFeedback(.impact(weight: .light), trigger: chat.replyStarted)
+    // Above the composer rather than over it: the inset is added after this, so the bottom of this
+    // view is the line the composer's glass starts at.
+    .overlay(alignment: .bottom) { momentaryNotice }
+    .animation(ChatStyle.confirmMotion, value: chat.momentaryNotice)
     .safeAreaInset(edge: .bottom, spacing: 0) { composer }
   }
 
@@ -225,6 +231,24 @@ struct ChatScreen: View {
       chat: chat,
       isInputFocused: $inputFocused,
       onShowPhoto: { fullScreenPhoto = FullScreenPhoto(image: $0) })
+  }
+
+  /// A line that appears over the conversation for a moment and then goes: pressing Send before the
+  /// model is ready is worth a word, and not worth an alert. Glass, because it floats over the
+  /// conversation the way the composer and the bar above it do.
+  @ViewBuilder
+  private var momentaryNotice: some View {
+    if let notice = chat.momentaryNotice {
+      Text(notice)
+        .font(.subheadline)
+        .multilineTextAlignment(.center)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 12)
+        .liquidGlass(in: Capsule())
+        .padding(.horizontal, 24)
+        .padding(.bottom, 12)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
   }
 
   @ViewBuilder
@@ -240,9 +264,9 @@ struct ChatScreen: View {
     }
   }
 
-  /// What you see before you've said anything: the mark, in glass, and nothing else. It is still a
-  /// scroll view, though there is nothing to scroll, so that dragging down here puts the keyboard
-  /// away exactly as it does over a conversation.
+  /// What you see before you've said anything: the mark, and a line for each of the buttons under
+  /// the field. It is still a scroll view, though there is nothing to scroll, so that dragging down
+  /// here puts the keyboard away exactly as it does over a conversation.
   private var emptyState: some View {
     GeometryReader { proxy in
       ScrollView {
@@ -250,17 +274,45 @@ struct ChatScreen: View {
       }
       .scrollBounceBehavior(.always)
       .scrollDismissesKeyboard(.interactively)
-      // The mark, in ice, turning over the empty page. It takes no touches of its own — a finger
-      // that lands on it goes straight through to the scroll view under it — so dragging anywhere
-      // on this screen still puts the keyboard away exactly as it always did.
+      // Laid over the page rather than in it, and taking no touches of its own — a finger that
+      // lands on it goes straight through to the scroll view under it — so dragging anywhere on
+      // this screen still puts the keyboard away.
       .overlay {
-        GlassAnvil()
+        emptyGuide
           .offset(y: -proxy.size.height * 0.06)
-          // It arrives with the empty screen rather than being there before it, and it leaves
-          // with the first message — the same spring the message itself rides up on.
-          .transition(.scale(scale: 0.86).combined(with: .opacity))
+          .allowsHitTesting(false)
+          // It leaves with the first message, the same way the message arrives.
+          .transition(.opacity)
       }
     }
+  }
+
+  /// The three buttons under the field, each with the one line it needs. In the order they sit in
+  /// the composer, and only the ones that are there: the globe goes with the connection, and so
+  /// does its line.
+  private var emptyGuide: some View {
+    VStack(spacing: 32) {
+      // The same grey as the lines under it: this is a guide, and nothing here should be louder
+      // than the composer it points at.
+      PixelAnvil(size: 56, color: .secondary)
+      VStack(alignment: .leading, spacing: 16) {
+        guideRow("plus", "Add a photo")
+        if !chat.isOffline { guideRow("globe", "Search the web") }
+        guideRow("mic.fill", "Speak to type")
+      }
+    }
+  }
+
+  private func guideRow(_ symbol: String, _ line: String) -> some View {
+    HStack(spacing: 14) {
+      Image(systemName: symbol)
+        .font(.system(size: 17, weight: .medium))
+        // A fixed column, so the three lines start together however wide their glyphs are.
+        .frame(width: 24)
+      Text(line)
+        .font(.subheadline)
+    }
+    .foregroundStyle(.secondary)
   }
 
   private var messageList: some View {

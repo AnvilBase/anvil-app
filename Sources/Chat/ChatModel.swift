@@ -49,6 +49,11 @@ final class ChatModel {
   /// Which run of dictation the message field currently belongs to. See `endDictation`.
   private var dictationSession = 0
   var alertMessage: String?
+  /// A line shown over the conversation for a moment and then taken away again. For a control
+  /// pressed before it can do anything, where an alert would be far too much for something that
+  /// sorts itself out on its own.
+  private(set) var momentaryNotice: String?
+  private var momentaryNoticeTask: Task<Void, Never>?
 
   let settings: SettingsStore
   let network = NetworkStatus()
@@ -106,16 +111,14 @@ final class ChatModel {
     // out of memory. Trying the same thing again would do the same thing again, and the app would
     // never stay up long enough to change a setting, so back something off first.
     var options = settings.values.engine
-    var memoryNotice: String?
     if let abandoned = LoadAttempt.abandoned(), abandoned == options {
       if let reduced = options.afterRunningOutOfMemory() {
-        let changes = reduced.differences(from: options)
+        // Backed off quietly. Saying "the model ran this iPhone out of memory, so image input is
+        // off" reads as the app having gone wrong on the one screen where nothing has: the model
+        // loads, and what changed is sitting in Settings › Model for anyone who looks.
         options = reduced
         settings.values.engine = reduced
         settings.save()
-        memoryNotice =
-          "The model ran this iPhone out of memory, so "
-          + changes.formatted(.list(type: .and)) + ". Change it back in Settings › Model."
       } else {
         LoadAttempt.succeeded()
         modelDetails = nil
@@ -134,7 +137,7 @@ final class ChatModel {
       guard loadedModel == model else { return }  // A newer import superseded this load.
       modelDetails = result.details
       loadedEngineOptions = options
-      notice = memoryNotice ?? result.notice
+      notice = result.notice
       if !result.details.supportsImages { pendingImage = nil }
       loadState = .ready
     } catch {
@@ -170,6 +173,30 @@ final class ChatModel {
   }
 
   // MARK: - Sending
+
+  /// What the send button calls. It is pressed before the model is ready more often than you would
+  /// think — the first load of a several-gigabyte model is slow — and a button that looks pressable
+  /// and then does nothing at all reads as broken. So it answers.
+  func sendOrSayWhyNot() {
+    guard !canSend else {
+      send()
+      return
+    }
+    // Generating and preparing an image both show what they are doing already; only waiting on the
+    // model looks like nothing happening.
+    guard loadState == .loading else { return }
+    showMomentarily("Loading the model. The first time takes a minute.")
+  }
+
+  private func showMomentarily(_ message: String) {
+    momentaryNoticeTask?.cancel()
+    momentaryNotice = message
+    momentaryNoticeTask = Task { [weak self] in
+      try? await Task.sleep(for: .seconds(3.5))
+      guard !Task.isCancelled else { return }
+      self?.momentaryNotice = nil
+    }
+  }
 
   func send() {
     guard canSend else { return }

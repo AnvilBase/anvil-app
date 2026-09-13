@@ -60,13 +60,4 @@ extension EngineOptions {
     }
     return nil
   }
-
-  /// What changed, in the words the setting uses, for telling the user why.
-  func differences(from original: EngineOptions) -> [String] {
-    var changes: [String] = []
-    if imageInput != original.imageInput, !imageInput { changes.append("image input is off") }
-    if contextSize != original.contextSize { changes.append("context is \(contextSize)") }
-    if backend != original.backend { changes.append("it's running on the \(backend.rawValue)") }
-    return changes
-  }
 }

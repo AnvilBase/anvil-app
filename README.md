@@ -162,7 +162,7 @@ backed up.
 offline and with web search off, so "what time is it in NYC?" gets an exact answer instead of a
 stale search snippet.
 
-**Web search.** Off unless the build has a Brave Search key; on by default when it does. The globe
+**Web search.** Off by default, and unavailable at all unless the build has a Brave Search key. The globe
 button next to the message field toggles it. The model decides when to search, and the reply shows
 the queries it ran plus a numbered **Sources** list matching its `[1]`, `[2]` citations. The model
 receives Brave's info box and top two direct answers when available, then the web results, each with

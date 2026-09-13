@@ -192,6 +192,9 @@ struct ModelSetupScreen: View {
         }
       } else {
         ProgressView(value: downloader.fraction)
+          // The same ink Download is filled with, rather than the accent: on this screen the one
+          // thing you started is the one thing that should be showing its progress in it.
+          .tint(ChatStyle.sendFill)
         HStack {
           Text(transferred)
           Spacer()
@@ -200,10 +203,6 @@ struct ModelSetupScreen: View {
         .font(.subheadline)
         .foregroundStyle(.secondary)
         .monospacedDigit()
-
-        Text(phaseDescription)
-          .font(.footnote)
-          .foregroundStyle(.secondary)
 
         Button("Cancel", role: .destructive) { Task { await library.cancelInstall() } }
           .buttonStyle(.bordered)
@@ -216,21 +215,6 @@ struct ModelSetupScreen: View {
   private var transferred: String {
     let format = { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) }
     return "\(format(downloader.receivedBytes)) of \(format(downloader.totalBytes))"
-  }
-
-  private var phaseDescription: String {
-    switch downloader.phase {
-    case .downloading:
-      // Several parts are in flight at once, so what's worth reporting is how many are safely in
-      // the file, not which one a single connection happens to be on.
-      "\(downloader.partsCompleted) of \(downloader.partCount) parts saved"
-    case .checking:
-      "Checking part \(downloader.partsCompleted + 1) of \(downloader.partCount)…"
-    case .installing:
-      "Finishing up…"
-    default:
-      ""
-    }
   }
 
   // MARK: - When installing fails

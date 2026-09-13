@@ -289,7 +289,7 @@ struct Composer: View {
     } else {
       micButton
       if hasSomethingToSend {
-        circleButton("Send", systemImage: "arrow.up", disabled: !chat.canSend) { chat.send() }
+        circleButton("Send", systemImage: "arrow.up", dimmed: !chat.canSend, action: chat.sendOrSayWhyNot)
           .transition(.scale.combined(with: .opacity))
       }
     }
@@ -321,7 +321,7 @@ struct Composer: View {
 
   private func circleButton(
     _ title: String, systemImage: String, tint: Color? = nil, disabled: Bool = false,
-    action: @escaping () -> Void
+    dimmed: Bool = false, action: @escaping () -> Void
   ) -> some View {
     Button(action: action) {
       Image(systemName: systemImage)
@@ -331,7 +331,9 @@ struct Composer: View {
         .background(tint ?? ChatStyle.sendFill, in: Circle())
         .frame(width: ChatStyle.inlineControl, height: ChatStyle.inlineControl)
         .contentShape(Circle())
-        .opacity(disabled ? 0.35 : 1)
+        // `dimmed` looks like `disabled` and isn't: Send waits for the model rather than dying
+        // with it, and a press while it waits is how you find out what it is waiting for.
+        .opacity(disabled || dimmed ? 0.35 : 1)
     }
     .buttonStyle(.plain)
     .disabled(disabled)
