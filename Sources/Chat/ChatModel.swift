@@ -915,11 +915,11 @@ final class ChatModel {
     if voiceModeOn {
       // Read first, listen after: the microphone stays shut while the voice is going, so the
       // phone never takes down its own reply.
-      await speechOutput.speak(Self.spokenForm(of: text))
+      await speechOutput.speak(Self.spokenForm(of: text), voice: settings.values.voiceIdentifier)
       if voiceModeOn { listenInVoiceMode() }
       return
     }
-    await speechOutput.speak(Self.spokenForm(of: text))
+    await speechOutput.speak(Self.spokenForm(of: text), voice: settings.values.voiceIdentifier)
     guard talkModeOn, loadState == .ready, !isGenerating, !speechInput.isActive,
       draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     else { return }

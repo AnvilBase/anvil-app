@@ -242,6 +242,12 @@ alternate app icons, a passcode lock, and Respond with audio — replies read al
 with the microphone open again when they finish. The paywall is the **Anvil Pro** row at the top of
 Settings.
 
+Replies are read with the voices iOS ships. **Settings › Voice › Voice** lists the ones installed for
+your language, best first, and plays each as you pick it; left on Automatic, the app uses the best
+one there. The voice installed by default is the compact one. Apple's premium voices sound close to
+Siri and are free, but have to be downloaded once in the Settings app under Accessibility › Spoken
+Content › Voices; the picker says so.
+
 Pro also has its own models. **Anvil Raw** is the catalog entry marked `pro`, a larger model with
 its refusals removed, offered in Settings › Models behind the Pro badge. It can be downloaded and
 switched to only while Pro is active; if the subscription lapses the chat moves back to Anvil Core,

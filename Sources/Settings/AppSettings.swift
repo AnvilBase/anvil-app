@@ -116,6 +116,9 @@ struct AppSettings: Codable, Equatable, Sendable {
   var memoryEnabled = true
   /// Send a dictated message automatically when you pause.
   var autoSendVoice = true
+  /// The voice replies are read in: an `AVSpeechSynthesisVoice` identifier, or empty for the
+  /// best one installed (see `SpeechVoices`).
+  var voiceIdentifier = SpeechVoices.automatic
   /// Light, dark, or whatever the phone is set to.
   var appearance = AppearancePreference.system
   /// Whether the welcome screen has been shown. It is shown once, on the first launch.
@@ -164,6 +167,7 @@ struct AppSettings: Codable, Equatable, Sendable {
     webSearchResultCount = try value(.webSearchResultCount, defaults.webSearchResultCount)
     memoryEnabled = try value(.memoryEnabled, defaults.memoryEnabled)
     autoSendVoice = try value(.autoSendVoice, defaults.autoSendVoice)
+    voiceIdentifier = try value(.voiceIdentifier, defaults.voiceIdentifier)
     appearance = try value(.appearance, defaults.appearance)
     hasSeenWelcome = try value(.hasSeenWelcome, defaults.hasSeenWelcome)
     theme = try value(.theme, defaults.theme)

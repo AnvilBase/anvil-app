@@ -5,7 +5,8 @@ import Observation
 /// Reads a reply aloud, on this iPhone, with the voices iOS ships.
 ///
 /// `AVSpeechSynthesizer` runs on the device — nothing is sent anywhere to be spoken — which is the
-/// only kind of voice this app could have. It speaks one reply at a time and stops the moment it
+/// only kind of voice this app could have. How natural it sounds is down to which of iOS's voices
+/// is used, which is `SpeechVoices`' business. It speaks one reply at a time and stops the moment it
 /// is asked to, so the person talking is never talked over.
 @MainActor
 @Observable
@@ -31,14 +32,12 @@ final class SpeechOutput: NSObject, AVSpeechSynthesizerDelegate {
   }
 
   /// Speaks the text and returns when it has finished — or straight away if it was stopped.
-  func speak(_ text: String) async {
+  /// The voice is the one chosen in Settings, or, left automatic, the best one installed for the
+  /// phone's language — see `SpeechVoices`.
+  func speak(_ text: String, voice: String = SpeechVoices.automatic) async {
     stop()
     let utterance = AVSpeechUtterance(string: text)
-    // The user's first preferred language, as the BCP-47 tag the synthesiser wants ("en-US",
-    // not the locale's "en_US"), and English only if there is no voice for it.
-    utterance.voice =
-      Locale.preferredLanguages.first.flatMap { AVSpeechSynthesisVoice(language: $0) }
-      ?? AVSpeechSynthesisVoice(language: "en-US")
+    utterance.voice = SpeechVoices.voice(for: voice)
     utterance.rate = AVSpeechUtteranceDefaultSpeechRate
     if !sharesAudioSession {
       // Playback rather than record, and mixed rather than exclusive, so speaking a reply doesn't

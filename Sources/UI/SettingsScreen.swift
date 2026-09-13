@@ -416,11 +416,21 @@ struct SettingsScreen: View {
 
   private var voiceSection: some View {
     Section("Voice") {
+      NavigationLink {
+        VoicePickerScreen(settings: settings, speech: chat.speechOutput)
+      } label: {
+        LabeledContent("Voice", value: currentVoiceName)
+      }
       Toggle("Send when you stop talking", isOn: $settings.values.autoSendVoice)
       proGated("Respond with audio") {
         Toggle("Respond with audio", isOn: $settings.values.talkMode)
       }
     }
+  }
+
+  /// The voice replies are read in, by name — what "Automatic" resolved to as much as a choice.
+  private var currentVoiceName: String {
+    SpeechVoices.voice(for: settings.values.voiceIdentifier)?.name ?? "None"
   }
 
   private var webSearchSection: some View {
