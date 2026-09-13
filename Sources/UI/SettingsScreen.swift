@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Everything you can change, in the order it matters: Pro, which model is loaded, what it is told,
 /// what it remembers, how you talk to it, what it can reach, how long chats are kept, how it looks,
-/// and whether it locks. Then where to find people, and what the app is.
+/// and whether it locks. Then where to find people, how to tell us, and what the app is.
 ///
 /// Short on purpose. Each section is its controls and nothing under them: a setting whose name
 /// needs a paragraph is a setting with the wrong name. What Anvil Pro adds sits in the section it
@@ -16,7 +16,10 @@ struct SettingsScreen: View {
   @Environment(ProAccess.self) private var pro
   @Environment(\.theme) private var theme
   @Environment(\.dismiss) private var dismiss
+  @Environment(\.openURL) private var openURL
   @State private var confirmingDeleteAll = false
+  /// Shown when a mail row finds no mail app to hand its message to.
+  @State private var showingNoMailApp = false
   /// What anvilai.com publishes, for the models that aren't on the phone yet.
   @State private var catalog: [CatalogModel] = []
 
@@ -39,6 +42,7 @@ struct SettingsScreen: View {
         appearanceSection
         if AppFlavor.isDevelopment, !showsDevelopmentFeatures { backToDevelopmentSection }
         communitySection
+        feedbackSection
         aboutSection
       }
       .navigationTitle("Settings")
@@ -56,6 +60,14 @@ struct SettingsScreen: View {
         Button("Delete all chats", role: .destructive) { chat.deleteAllChats() }
       } message: {
         Text("This can't be undone.")
+      }
+      .alert("No mail app", isPresented: $showingNoMailApp) {
+        #if os(iOS)
+          Button("Copy address") { UIPasteboard.general.string = AppLinks.supportEmail }
+        #endif
+        Button("OK", role: .cancel) {}
+      } message: {
+        Text("Write to \(AppLinks.supportEmail) from wherever you do your mail.")
       }
     }
   }
@@ -345,6 +357,14 @@ struct SettingsScreen: View {
           Text(Self.retentionLabel(days)).tag(days)
         }
       }
+      // Every chat as one file, handed to the share sheet: the way to keep them past the retention
+      // period, or to take them somewhere else. The file is only written once a destination is
+      // chosen; see ChatExport.
+      ShareLink(item: ChatExport(chats: chat.savedChats), preview: SharePreview("Anvil chats")) {
+        Label("Export chats", systemImage: "square.and.arrow.up")
+          .foregroundStyle(Color.primary)
+      }
+      .disabled(chat.savedChats.isEmpty)
       Button("Delete all chats", role: .destructive) { confirmingDeleteAll = true }
         .disabled(chat.savedChats.isEmpty)
     }
@@ -516,6 +536,52 @@ struct SettingsScreen: View {
       link("Discord", to: AppLinks.discord)
       link("X", to: AppLinks.x)
       link("Instagram", to: AppLinks.instagram)
+    }
+  }
+
+  /// How to tell us. A rating goes to the App Store by way of the site; feedback and a bug report
+  /// each start a mail, and the bug report arrives with the lines that make one answerable — what
+  /// happened, and on which phone, iOS, build and model — already written, so the reply is never
+  /// a question about those.
+  private var feedbackSection: some View {
+    Section("Feedback") {
+      link("Rate Anvil", to: AppLinks.rate)
+      mailRow("Send feedback", subject: "Anvil feedback", body: "\n\n\n\(diagnostics)")
+      mailRow("Report a bug", subject: "Anvil bug", body: bugReportBody)
+    }
+  }
+
+  /// The questions a bug report answers, with room under each, and the diagnostics line last.
+  private var bugReportBody: String {
+    "What happened:\n\n\nWhat you expected:\n\n\nHow to make it happen again:\n1. \n\n\n"
+      + diagnostics
+  }
+
+  /// One line, for the foot of a mail: the build, the phone and its iOS, the model in use, and
+  /// whether Pro is active. Everything a bug report gets asked for, and nothing about the chats.
+  private var diagnostics: String {
+    let model = library.active?.displayName ?? "no model"
+    return "Sent from \(AppFlavor.appName) \(AppFlavor.version) on \(DeviceInfo.model), "
+      + "iOS \(DeviceInfo.systemVersion), \(model), Pro \(pro.isUnlocked ? "on" : "off")"
+  }
+
+  /// A row that opens a mail to us, drawn like the link rows: it leaves the app the same way. If
+  /// nothing on the phone takes mail, an alert gives the address instead.
+  private func mailRow(_ title: String, subject: String, body: String) -> some View {
+    Button {
+      guard let url = AppLinks.mail(subject: subject, body: body) else { return }
+      openURL(url) { accepted in
+        if !accepted { showingNoMailApp = true }
+      }
+    } label: {
+      HStack {
+        Text(title)
+          .foregroundStyle(Color.primary)
+        Spacer()
+        Image(systemName: "arrow.up.right")
+          .font(.footnote.weight(.semibold))
+          .foregroundStyle(Color.secondary)
+      }
     }
   }
 

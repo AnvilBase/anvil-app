@@ -17,4 +17,22 @@ enum AppLinks {
   static let privacy = URL(string: "https://github.com/AnvilBase/anvil-app/blob/main/PRIVACY.md")!
   /// The app's own licence. Model licences are shown with each model, in the catalog.
   static let licenses = URL(string: "https://github.com/AnvilBase/anvil-app/blob/main/LICENSE")!
+
+  /// Where a rating goes. Through the site like the community links: the App Store page only
+  /// exists once the app is listed, and its address is a redirect there rather than an ID here.
+  static let rate = URL(string: "https://www.anvilai.com/rate")!
+  /// The inbox feedback and bug reports are addressed to — the one the site's footer gives.
+  static let supportEmail = "hello@anvilai.app"
+
+  /// A mail to `supportEmail`, ready to send, with the subject and body filled in. Nil only if the
+  /// text can't be put in a URL, which for text this app writes it always can.
+  static func mail(subject: String, body: String) -> URL? {
+    // RFC 6068: the query is percent-encoded, and "+" is a plus, not a space, so it is encoded too
+    // rather than left to whichever reading the mail app takes.
+    let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-._~"))
+    guard let subject = subject.addingPercentEncoding(withAllowedCharacters: allowed),
+      let body = body.addingPercentEncoding(withAllowedCharacters: allowed)
+    else { return nil }
+    return URL(string: "mailto:\(supportEmail)?subject=\(subject)&body=\(body)")
+  }
 }

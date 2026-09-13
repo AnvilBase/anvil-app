@@ -23,7 +23,9 @@ read while the phone is locked — not even by the app itself. Nothing personal 
 Finder backups.
 
 Chats are deleted automatically after the retention period in **Settings › Chat history** (three days
-by default), and **Delete all chats** removes them immediately.
+by default), and **Delete all chats** removes them immediately. **Export chats** writes every chat to
+one Markdown file and hands it to the share sheet; where it goes from there — Files, AirDrop, another
+app — is your choice, and the app keeps no copy beyond the temporary file iOS clears itself.
 
 ## What can leave the phone
 
@@ -68,6 +70,9 @@ Two things are worth knowing because they aren't the app:
 - The photo picker runs in a separate system process. If a photo lives only in iCloud, iOS itself may
   download it; the app doesn't.
 - Tapping a source opens it in Safari, outside the app.
+- **Settings › Feedback** starts a mail in your mail app. A bug report comes with one line naming the
+  app version, the phone model, the iOS version, the model in use and whether Pro is on — nothing
+  from your chats — and you see all of it before you send it.
 
 ## Microphone, speech, and camera
 
