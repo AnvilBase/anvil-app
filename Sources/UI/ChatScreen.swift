@@ -53,19 +53,21 @@ struct ChatScreen: View {
         content
           // The colour runs to the screen edges; the content itself stays inside the safe area.
           .background(theme.page.ignoresSafeArea())
-          .safeAreaInset(edge: .top, spacing: 0) { topBar.padding(.top, missing.top) }
           // Voice mode is a small card that comes out from under its button, top right, over
-          // the conversation; the chat and the composer go on as they are around it.
+          // the conversation; the chat and the composer go on as they are around it. Laid over
+          // the content before the bar is added above, so it starts below the bar — under its
+          // button, not under the notch — and can be dragged anywhere from there.
           .overlay(alignment: .topTrailing) {
             if chat.voiceModeOn {
               VoiceModeView(chat: chat)
-                .padding(.top, 10)
+                .padding(.top, 8)
                 .padding(.trailing, 14 + ChatStyle.control + 10)
                 .transition(
                   .scale(scale: 0.3, anchor: .topTrailing).combined(with: .opacity))
             }
           }
           .animation(.spring(duration: 0.32, bounce: 0.18), value: chat.voiceModeOn)
+          .safeAreaInset(edge: .top, spacing: 0) { topBar.padding(.top, missing.top) }
           // The composer adds itself below this, so it clears the home indicator without the
           // keyboard, and sits straight on the keyboard when there is one.
           .safeAreaInset(edge: .bottom, spacing: 0) {

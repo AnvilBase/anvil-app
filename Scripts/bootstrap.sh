@@ -20,10 +20,16 @@ fi
 # it the app builds and runs on a short built-in prompt.
 prompt_source="$root/../anvil-prompt/prompt.txt"
 prompt_target="$root/Sources/Prompt/DefaultPrompt.txt"
+voice_source="$root/../anvil-prompt/voice-prompt.txt"
+voice_target="$root/Sources/Prompt/VoicePrompt.txt"
 if [[ -f "$prompt_source" ]]; then
   mkdir -p "$(dirname "$prompt_target")"
   cp "$prompt_source" "$prompt_target"
   echo "Copied Anvil's system prompt into Sources/Prompt/DefaultPrompt.txt."
+  if [[ -f "$voice_source" ]]; then
+    cp "$voice_source" "$voice_target"
+    echo "Copied Anvil's voice-mode prompt into Sources/Prompt/VoicePrompt.txt."
+  fi
 else
   echo "No ../anvil-prompt checkout; the app will use its built-in default prompt."
 fi

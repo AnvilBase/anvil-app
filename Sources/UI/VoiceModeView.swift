@@ -9,6 +9,10 @@ struct VoiceModeView: View {
 
   @Environment(\.theme) private var theme
 
+  /// Where the card has been dragged to, from where it opened. Kept while the card is up.
+  @State private var placed = CGSize.zero
+  @GestureState private var dragging = CGSize.zero
+
   private static let circle: CGFloat = 64
 
   var body: some View {
@@ -22,6 +26,18 @@ struct VoiceModeView: View {
     .overlay(
       RoundedRectangle(cornerRadius: 26, style: .continuous)
         .strokeBorder(theme.hairline, lineWidth: 0.5))
+    .offset(x: placed.width + dragging.width, y: placed.height + dragging.height)
+    // The card goes where it is put. A drag from anywhere on it, the circle included, moves it;
+    // a tap is still a tap, since a drag has to travel a little before it counts as one.
+    .highPriorityGesture(
+      DragGesture(minimumDistance: 6)
+        .updating($dragging) { value, state, _ in state = value.translation }
+        .onEnded { value in
+          placed.width += value.translation.width
+          placed.height += value.translation.height
+        }
+    )
+    .animation(.interactiveSpring(duration: 0.2), value: dragging)
     .accessibilityElement(children: .contain)
   }
 

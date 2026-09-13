@@ -67,6 +67,22 @@ struct AppSettings: Codable, Equatable, Sendable {
       + "iPhone. Answer clearly and concisely."
   }()
 
+  /// The prompt for voice mode, where replies are read aloud and answered by speaking: the same
+  /// Anvil, keeping to a sentence or three. From `Sources/Prompt/VoicePrompt.txt`, which the
+  /// bootstrap copies in beside the main prompt, with a short built-in stand-in without it.
+  static let voiceSystemPrompt: String = {
+    if let url = Bundle.main.url(forResource: "VoicePrompt", withExtension: "txt"),
+      let text = try? String(contentsOf: url, encoding: .utf8)
+    {
+      let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+      if !trimmed.isEmpty { return trimmed }
+    }
+    return "You are \(AppFlavor.productName), a helpful assistant running privately on the user's "
+      + "iPhone. You are talking with the user out loud: your reply is read to them by a voice. "
+      + "Keep every reply to one to three plain sentences, the answer first, with no markdown, "
+      + "lists or code."
+  }()
+
   /// The prompt a chat runs on, given what was set for it: the custom prompt when there is one,
   /// and Anvil's own when the setting is empty. Empty is how "the default" is spelled everywhere
   /// the prompt is stored — the settings file, a chat — so the proprietary text is never written

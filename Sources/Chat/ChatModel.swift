@@ -1057,14 +1057,23 @@ final class ChatModel {
   private func conversationOptions() -> ConversationOptions {
     let values = settings.values
     let isPro = pro.isUnlocked
+    let custom = openChat.systemPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+    // Voice mode runs on its own prompt — the same Anvil, answering in a sentence or three — in
+    // place of the default. A prompt of the subscriber's own is kept, and told about the voice.
+    let systemPrompt: String
+    if voiceModeOn, !(isPro && !custom.isEmpty) {
+      systemPrompt = AppSettings.voiceSystemPrompt
+    } else {
+      systemPrompt = isPro ? AppSettings.prompt(for: openChat.systemPrompt) : AppSettings.defaultSystemPrompt
+    }
     return ConversationOptions(
-      systemPrompt: isPro ? AppSettings.prompt(for: openChat.systemPrompt) : AppSettings.defaultSystemPrompt,
+      systemPrompt: systemPrompt,
       sampler: isPro && !values.useModelSamplerDefaults ? values.sampler : nil,
       webSearch: webSearchOn,
       memoryEnabled: values.memoryEnabled,
       memories: values.memoryEnabled ? memory.promptItems : [],
       imageGeneration: canGenerateImages,
-      spokenReplies: talkModeOn)
+      spokenReplies: talkModeOn || voiceModeOn)
   }
 
   private func updateMessage(_ id: ChatMessage.ID, _ change: (inout ChatMessage) -> Void) {

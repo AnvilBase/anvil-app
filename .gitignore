@@ -29,3 +29,4 @@ build/
 # Anvil's own system prompt, copied in by Scripts/bootstrap.sh from the private AnvilBase/anvil-prompt
 # repository. Proprietary, so it never lands here; a build without it uses a short built-in default.
 Sources/Prompt/DefaultPrompt.txt
+Sources/Prompt/VoicePrompt.txt
