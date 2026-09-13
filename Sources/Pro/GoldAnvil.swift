@@ -8,9 +8,11 @@ import SwiftUI
 /// along its upper edges, shade along its lower — and every few seconds a broad, soft band of
 /// light crosses the face from its bottom-left corner to its top-right, the way a sheen moves
 /// over metal as it tilts. The band is wider than the mark and fades to nothing well outside it,
-/// so what shows is light passing over the gold and never the band's own edge. Drawn, not
-/// modelled: a pixel mark extruded is still a pixel mark. Reduce Motion gets the gold and no
-/// sheen.
+/// so what shows is light passing over the gold and never the band's own edge. Between
+/// crossings, three small glints — four-pointed, the shape a highlight takes through a lens —
+/// flash at the corners of the face, each on its own beat, so the mark is never quite still.
+/// Drawn, not modelled: a pixel mark extruded is still a pixel mark. Reduce Motion gets the gold
+/// and neither the sheen nor the glints.
 struct GoldAnvil: View {
   var size: CGFloat = 56
 
@@ -50,6 +52,29 @@ struct GoldAnvil: View {
     ],
     startPoint: .bottomLeading, endPoint: .topTrailing)
 
+  /// A glint: where it sits on the face, in the face's own unit square (a little past an edge is
+  /// fine — a glint overhangs), how often it flashes, when in that cycle, and how big beside the
+  /// largest.
+  private struct Glint {
+    var x: CGFloat
+    var y: CGFloat
+    var period: Double
+    var offset: Double
+    var scale: CGFloat
+  }
+
+  /// Three, on the corners the light would catch: two along the top edge, one on the base. Their
+  /// periods share no factor, so the same two are rarely lit together and the pattern never
+  /// settles into a beat.
+  private static let glints = [
+    Glint(x: 0.13, y: 0.11, period: 4.1, offset: 0.0, scale: 1),
+    Glint(x: 0.88, y: 0.26, period: 5.3, offset: 2.3, scale: 0.78),
+    Glint(x: 0.83, y: 0.9, period: 6.7, offset: 4.1, scale: 0.66),
+  ]
+
+  /// How long one flash lasts, start to end.
+  private static let flash = 0.85
+
   var body: some View {
     if reduceMotion {
       mark(at: nil)
@@ -70,7 +95,37 @@ struct GoldAnvil: View {
     return 0.5 - cos(u * .pi) / 2
   }
 
-  /// The block, and the sheen where it stands at `time` — or, with no time, no sheen.
+  /// How far through its flash a glint is at `time`, 0 to 1 — or nil, when it is dark.
+  private static func flash(of glint: Glint, at time: Double) -> Double? {
+    let t = (time + glint.offset).truncatingRemainder(dividingBy: glint.period)
+    return t < flash ? t / flash : nil
+  }
+
+  /// The glints that are lit at `time`, over the face: each grows from nothing and fades away
+  /// again, turning a little as it goes, brightest and largest in the middle of its flash.
+  private func glints(at time: Double, faceSize: CGFloat, inset: CGFloat) -> some View {
+    ZStack {
+      ForEach(Array(Self.glints.enumerated()), id: \.offset) { _, glint in
+        if let u = Self.flash(of: glint, at: time) {
+          let intensity = sin(u * .pi)
+          let span = faceSize * 0.24 * glint.scale
+          // Soft-edged and never fully opaque: a glint is light on the surface, seen through
+          // the eye's own blur, not a white shape laid on top of the gold.
+          GlintShape()
+            .fill(Color(red: 1, green: 0.98, blue: 0.9))
+            .frame(width: span, height: span)
+            .scaleEffect(0.25 + 0.75 * intensity)
+            .rotationEffect(.degrees(-24 + 48 * u))
+            .blur(radius: span * 0.16)
+            .opacity(0.65 * intensity)
+            .shadow(color: .white.opacity(0.35 * intensity), radius: span * 0.3)
+            .position(x: inset + glint.x * faceSize, y: glint.y * faceSize)
+        }
+      }
+    }
+  }
+
+  /// The block, and the sheen and glints where they stand at `time` — or, with no time, neither.
   private func mark(at time: Double?) -> some View {
     // The face takes the top of the frame; the depth below it is the body.
     let depth = max(2, (size * 0.11).rounded())
@@ -110,7 +165,41 @@ struct GoldAnvil: View {
         .mask(AnvilShape().frame(width: faceSize, height: faceSize))
     }
     .frame(width: size, height: size, alignment: .top)
-    .shadow(color: .black.opacity(0.35), radius: size * 0.08, y: size * 0.05)
+    // A light shadow, enough to lift the block off the page and no more.
+    .shadow(color: .black.opacity(0.16), radius: size * 0.05, y: size * 0.03)
+    .overlay {
+      // Over the block rather than inside its mask: a glint sits on a corner and past it.
+      if let time {
+        glints(at: time, faceSize: faceSize, inset: depth / 2)
+      }
+    }
     .accessibilityHidden(true)
+  }
+}
+
+/// A four-pointed star with its sides drawn in toward the centre: the shape a point of light
+/// takes through a lens, and the one everything means by a sparkle.
+struct GlintShape: Shape {
+  func path(in rect: CGRect) -> Path {
+    let center = CGPoint(x: rect.midX, y: rect.midY)
+    let tips = [
+      CGPoint(x: rect.midX, y: rect.minY),
+      CGPoint(x: rect.maxX, y: rect.midY),
+      CGPoint(x: rect.midX, y: rect.maxY),
+      CGPoint(x: rect.minX, y: rect.midY),
+    ]
+    var path = Path()
+    path.move(to: tips[0])
+    for index in 0..<tips.count {
+      let next = tips[(index + 1) % tips.count]
+      // The control point sits just off centre toward the two tips, so the arms are slender but
+      // not knife-thin.
+      let control = CGPoint(
+        x: center.x + (tips[index].x + next.x - 2 * center.x) * 0.08,
+        y: center.y + (tips[index].y + next.y - 2 * center.y) * 0.08)
+      path.addQuadCurve(to: next, control: control)
+    }
+    path.closeSubpath()
+    return path
   }
 }
