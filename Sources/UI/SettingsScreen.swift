@@ -769,8 +769,8 @@ struct SettingsScreen: View {
   private var communitySection: some View {
     Section("Community") {
       link("Discord", image: "Discord", to: AppLinks.discord)
-      link("X", systemImage: "at", to: AppLinks.x)
-      link("Instagram", systemImage: "camera", to: AppLinks.instagram)
+      link("X", image: "X", to: AppLinks.x)
+      link("Instagram", image: "Instagram", to: AppLinks.instagram)
     }
   }
 
@@ -844,8 +844,10 @@ struct SettingsScreen: View {
     link(to: url) { Label(title, systemImage: systemImage) }
   }
 
-  /// The same row with a mark of our own in front — Discord's, from the catalog — drawn as a
-  /// template so it takes the row's ink the way a symbol does, and sized to sit where one sits.
+  /// The same row with a mark of our own in front — Discord's, X's or Instagram's, from the
+  /// catalog — drawn as a template so it takes the row's ink the way a symbol does. A shade
+  /// larger than a symbol: these marks carry their whitespace inside their box, so at a symbol's
+  /// size they read smaller than the symbols in the rows around them.
   private func link(_ title: String, image: String, to url: URL) -> some View {
     link(to: url) {
       Label {
@@ -855,10 +857,13 @@ struct SettingsScreen: View {
           .renderingMode(.template)
           .resizable()
           .scaledToFit()
-          .frame(width: 20, height: 20)
+          .frame(width: Self.markSize, height: Self.markSize)
       }
     }
   }
+
+  /// The side of the box a community mark is drawn in.
+  private static let markSize: CGFloat = 24
 
   private func link<L: View>(to url: URL, @ViewBuilder label: () -> L) -> some View {
     Link(destination: url) {
