@@ -110,10 +110,16 @@ struct ModelSetupScreen: View {
   private func card(for model: CatalogModel) -> some View {
     VStack(alignment: .leading, spacing: 16) {
       HStack(alignment: .firstTextBaseline, spacing: 10) {
-        PixelAnvil(size: markSize)
-          // Sat on the text's baseline rather than hung off the top of the row, so the mark and the
-          // name read as one line however large the type is.
-          .alignmentGuide(.firstTextBaseline) { $0[.bottom] }
+        Group {
+          if let tint = markTint(for: model) {
+            PixelAnvil(size: markSize, color: tint)
+          } else {
+            PixelAnvil(size: markSize)
+          }
+        }
+        // Sat on the text's baseline rather than hung off the top of the row, so the mark and the
+        // name read as one line however large the type is.
+        .alignmentGuide(.firstTextBaseline) { $0[.bottom] }
         Text(model.name)
           .font(.title2.weight(.semibold))
           .lineLimit(1)
@@ -127,7 +133,7 @@ struct ModelSetupScreen: View {
         }
       }
 
-      Text(model.summary)
+      Text(blurb(for: model))
         .font(.subheadline)
         .foregroundStyle(.secondary)
 
@@ -141,12 +147,6 @@ struct ModelSetupScreen: View {
           if !model.isComingSoon { Divider().frame(height: 32) }
           stat("Parameters", parameters)
         }
-      }
-
-      if let basedOn = model.basedOn {
-        Text("Based on \(basedOn)")
-          .font(.footnote)
-          .foregroundStyle(.tertiary)
       }
 
       action(for: model)
@@ -242,6 +242,23 @@ struct ModelSetupScreen: View {
       }
       .buttonStyle(.plain)
     }
+  }
+
+  /// What a card says under the name. The Pro models say the one thing that sets each apart —
+  /// the words the Pro page uses — rather than the catalog's sentence: Anvil Raw is unrestricted,
+  /// Anvil Dream makes pictures from words. The free model keeps the catalog's summary.
+  private func blurb(for model: CatalogModel) -> String {
+    if model.isImage { return "Pictures from words" }
+    if model.isPro { return "Unrestricted." }
+    return model.summary
+  }
+
+  /// The mark's colour on a Pro card: red for Anvil Raw, purple for Anvil Dream — each the colour
+  /// of what it is — and the mark's own grey for the free model.
+  private func markTint(for model: CatalogModel) -> Color? {
+    if model.isImage { return .purple }
+    if model.isPro { return .red }
+    return nil
   }
 
   /// The small outline that marks a card — Recommended on Anvil Core, Pro on the others — as it
