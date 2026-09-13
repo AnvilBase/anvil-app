@@ -83,17 +83,12 @@ final class ModelDownloader {
     }
   }
 
-  /// Throws away a half-finished download of `model`. Only for someone cancelling on purpose: a
-  /// failure leaves the parts in place, so trying again picks up where it stopped. This download's
-  /// transfers alone are cancelled; another model's carry on.
-  func discard(_ model: CatalogModel) {
+  /// Cuts this download's transfers now — another model's carry on — so `run` returns rather than
+  /// waiting for the part in hand to land. What has been fetched stays on disk: the library throws
+  /// it away once `run` has returned, or a resume picks it up.
+  func stop() {
     cancelInFlight()
-    ModelDownloadFiles.discard(model)
     phase = .idle
-    self.model = nil
-    receivedBytes = 0
-    appendedBytes = 0
-    partsCompleted = 0
   }
 
   private func cancelInFlight() {

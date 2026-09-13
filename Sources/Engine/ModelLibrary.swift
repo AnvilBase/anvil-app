@@ -120,16 +120,24 @@ final class ModelLibrary {
   }
 
   /// Stops the download of `model` and throws away what it had. For someone cancelling on purpose.
+  ///
+  /// The row goes back to what it was before anything is waited for: the downloader leaves the
+  /// list, and its transfers are cut, in the same turn as the press. It used to cancel the task
+  /// and wait for it, and the task was waiting on the part in hand — hundreds of megabytes that
+  /// cancelling the task didn't reach — so Cancel looked ignored until that part had landed.
+  /// The files are thrown away once the task has actually stopped, so nothing it was still
+  /// writing comes back as a download to resume.
   func cancelInstall(_ model: CatalogModel) async {
-    installTasks[model.id]?.cancel()
-    _ = await installTasks[model.id]?.value
-    installTasks[model.id] = nil
-    if let downloader = downloads[model.id] {
-      downloader.discard(model)
-    } else {
-      ModelDownloadFiles.discard(model)
-    }
+    let task = installTasks[model.id]
+    let downloader = downloads[model.id]
+    task?.cancel()
     downloads[model.id] = nil
+    downloader?.stop()
+    _ = await task?.value
+    if installTasks[model.id] == task { installTasks[model.id] = nil }
+    // Unless Download was pressed again in the meantime: then the parts on disk are the new
+    // download's, and it is appending to them.
+    if downloads[model.id] == nil { ModelDownloadFiles.discard(model) }
   }
 
   func refresh() async {
