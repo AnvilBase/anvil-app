@@ -163,6 +163,12 @@ private struct RootView: View {
     .onChange(of: chat.settings.appIcon) { _, icon in
       icon.apply()
     }
+    // The welcome coming back means everything was reset — see the developer screen — and Skip
+    // was part of everything: without this the chat came straight back after the welcome, over a
+    // model that wasn't there, and the model screen never showed.
+    .onChange(of: chat.settings.hasSeenWelcome) { _, seen in
+      if !seen { skippedModelSetup = false }
+    }
     // A sheet is its own presentation, which `preferredColorScheme` on the root does not reach:
     // Settings stayed as it was while the chat behind it changed, and caught up only when reopened.
     // The window is told as well, and so is every presentation up in it, at once.

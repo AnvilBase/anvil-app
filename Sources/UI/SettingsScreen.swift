@@ -22,6 +22,8 @@ struct SettingsScreen: View {
   @State private var confirmingDeleteAll = false
   /// The passcode being set or changed, while its sheet is up.
   @State private var passcodeSheet: PasscodeSheet.Mode?
+  /// The Pro page, pushed when a theme or an icon that needs Pro is chosen without it.
+  @State private var showingProForChoice = false
   /// What anvilai.com publishes, for the models that aren't on the phone yet.
   @State private var catalog: [CatalogModel] = []
 
@@ -84,6 +86,7 @@ struct SettingsScreen: View {
           settings.save()
         }
       }
+      .navigationDestination(isPresented: $showingProForChoice) { ProScreen() }
     }
   }
 
@@ -569,8 +572,11 @@ struct SettingsScreen: View {
       .padding(.vertical, 4)
       .accessibilityLabel("Appearance")
 
-      proGated("Theme") { themeChooser }
-      proGated("App icon") { iconChooser }
+      // Seen by everyone, and set only with Pro: without it the row carries the Pro mark, and a
+      // theme or icon that needs Pro leads to the Pro page rather than taking. What is on offer
+      // is worth looking at before paying for it.
+      themeChooser
+      iconChooser
     }
   }
 
@@ -579,12 +585,12 @@ struct SettingsScreen: View {
   /// The themes, each as a small page — its colour, a bubble, the one filled button — so what is
   /// being chosen is seen rather than named. Tap to choose; the one in use is the one in colour.
   private var themeChooser: some View {
-    chooserRow("Theme") {
+    chooserRow("Theme", locked: !pro.isUnlocked) {
       ForEach(AppTheme.allCases) { choice in
         let palette = choice.palette
         swatch(
           label: choice.label, selected: settings.theme == choice,
-          action: { settings.theme = choice }
+          action: { choose(choice.isFree) { settings.theme = choice } }
         ) {
           RoundedRectangle(cornerRadius: 12, style: .continuous)
             .fill(palette.page)
@@ -606,20 +612,20 @@ struct SettingsScreen: View {
     }
   }
 
-  /// The icons, as the icons: the mark on its tile in each of its colours. Pro's is the gold
-  /// block, on the same black as the rest.
+  /// The icons, as the icons: the mark on its tile in each of its colours. Pro's is the mark in
+  /// gold, flat, on the same black as the rest; the modelled block is the Pro page's alone.
   private var iconChooser: some View {
-    chooserRow("App icon") {
+    chooserRow("App icon", locked: !pro.isUnlocked) {
       ForEach(AppIconChoice.allCases) { choice in
         swatch(
           label: choice.label, selected: settings.appIcon == choice,
-          action: { settings.appIcon = choice }
+          action: { choose(choice == .anvil) { settings.appIcon = choice } }
         ) {
           RoundedRectangle(cornerRadius: 13, style: .continuous)
             .fill(choice.colors.background)
             .overlay {
               if choice == .pro {
-                GoldBlock(size: 38)
+                GoldAnvil(size: 32)
               } else {
                 PixelAnvil(size: 30, color: choice.colors.mark)
               }
@@ -640,12 +646,25 @@ struct SettingsScreen: View {
   /// rather than stopping at its margins, so nothing is cut off square where the margin would be:
   /// a swatch slides in and out through a short fade at either edge instead, and the first one
   /// starts where the row's text does.
+  /// Takes a choice: the free one always, the rest only with Pro — without it the Pro page comes
+  /// up instead, with the choice one purchase away.
+  private func choose(_ free: Bool, _ set: () -> Void) {
+    if free || pro.isUnlocked {
+      set()
+    } else {
+      showingProForChoice = true
+    }
+  }
+
   private func chooserRow<Content: View>(
-    _ title: String, @ViewBuilder content: () -> Content
+    _ title: String, locked: Bool = false, @ViewBuilder content: () -> Content
   ) -> some View {
     VStack(alignment: .leading, spacing: 10) {
-      Text(title)
-        .padding(.horizontal, Self.rowInset)
+      HStack(spacing: 8) {
+        Text(title)
+        if locked { proBadge }
+      }
+      .padding(.horizontal, Self.rowInset)
       ScrollView(.horizontal) {
         HStack(spacing: 14) { content() }
           .padding(.vertical, 2)

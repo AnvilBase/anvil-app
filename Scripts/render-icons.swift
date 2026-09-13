@@ -6,8 +6,8 @@
 // with — 76-point cells starting at (246, 246) on a 1024 canvas — so switching icons changes the
 // colour and nothing else. Both apps carry the same icons the same way round — the white mark on
 // black, and Inverse the other way — since the name under the icon is what tells them apart. Pro's
-// mark is the gold block from the design, the picture the Pro page shows, on the same black as the
-// others: no ground of its own, just the gold.
+// is the same mark in gold, flat, the way `GoldAnvil` draws it in the app: the modelled gold block
+// belongs to the Pro page alone.
 
 import CoreGraphics
 import Foundation
@@ -23,7 +23,7 @@ struct Icon {
   let set: String
   let background: (CGFloat, CGFloat, CGFloat)
   let mark: (CGFloat, CGFloat, CGFloat)
-  /// Anvil Pro's icon: the gold block picture, `ProMark` in the catalog, in place of the mark.
+  /// Anvil Pro's icon: the mark with a gold face, the way `GoldAnvil` draws it in the app.
   var gold = false
 }
 
@@ -53,21 +53,31 @@ func markPath() -> CGPath {
   return path
 }
 
-/// The gold block: the rendered picture the Pro page shows, its background already cut away, drawn
-/// over the black at the size and place the mark has on every other icon — a little larger, since
-/// the block is modelled and its bevel wants the room — so the icons read as one set.
-func renderGold(in context: CGContext, root: URL) throws {
-  let picture = root.appendingPathComponent("Apps/AnvilAI/Assets.xcassets/ProMark.imageset/promark.png")
-  guard let source = CGImageSourceCreateWithURL(picture as CFURL, nil),
-    let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
-  else { throw NSError(domain: "render-icons", code: 4) }
-  let side = CGFloat(cell * 7) * 1.24
-  let origin = (CGFloat(canvas) - side) / 2
-  context.interpolationQuality = .high
-  context.draw(image, in: CGRect(x: origin, y: origin, width: side, height: side))
+/// The gold mark: the same cells as every other icon, their face a diagonal gold gradient — the
+/// stops `GoldAnvil` uses — and nothing else. Flat: a pixel mark stays a pixel mark.
+func renderGold(in context: CGContext) {
+  let space = CGColorSpaceCreateDeviceRGB()
+  context.saveGState()
+  context.addPath(markPath())
+  context.clip()
+  let gold = CGGradient(
+    colorsSpace: space,
+    colors: [
+      CGColor(red: 1.00, green: 0.94, blue: 0.66, alpha: 1),
+      CGColor(red: 0.98, green: 0.80, blue: 0.30, alpha: 1),
+      CGColor(red: 0.76, green: 0.53, blue: 0.10, alpha: 1),
+      CGColor(red: 0.96, green: 0.79, blue: 0.36, alpha: 1),
+    ] as CFArray,
+    locations: [0, 0.42, 0.78, 1])!
+  let top = CGFloat(canvas - origin)
+  let bottom = CGFloat(canvas - origin - cell * 7)
+  context.drawLinearGradient(
+    gold, start: CGPoint(x: CGFloat(origin), y: top),
+    end: CGPoint(x: CGFloat(origin + cell * 7), y: bottom), options: [])
+  context.restoreGState()
 }
 
-func render(_ icon: Icon, to url: URL, root: URL) throws {
+func render(_ icon: Icon, to url: URL) throws {
   let space = CGColorSpaceCreateDeviceRGB()
   guard
     let context = CGContext(
@@ -77,7 +87,7 @@ func render(_ icon: Icon, to url: URL, root: URL) throws {
   context.setFillColor(red: icon.background.0, green: icon.background.1, blue: icon.background.2, alpha: 1)
   context.fill(CGRect(x: 0, y: 0, width: canvas, height: canvas))
   if icon.gold {
-    try renderGold(in: context, root: root)
+    renderGold(in: context)
   } else {
     context.setFillColor(red: icon.mark.0, green: icon.mark.1, blue: icon.mark.2, alpha: 1)
     context.addPath(markPath())
@@ -96,7 +106,7 @@ for app in ["AnvilAI", "AnvilAIDev"] {
   for icon in alternates {
     let set = catalog.appendingPathComponent("\(icon.set).appiconset")
     try FileManager.default.createDirectory(at: set, withIntermediateDirectories: true)
-    try render(icon, to: set.appendingPathComponent("\(icon.set).png"), root: root)
+    try render(icon, to: set.appendingPathComponent("\(icon.set).png"))
     let contents = """
       {
         "images" : [
