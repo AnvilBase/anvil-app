@@ -13,8 +13,23 @@ struct WebSource: Codable, Hashable, Sendable {
 }
 
 struct WebSearchConfig: Sendable {
-  let apiKey: String
+  /// Who is asked. The app is open source, so it carries no key of its own: searches go to
+  /// anvilai.com, which holds one and passes Brave's answer back unchanged. A key compiled into a
+  /// build — a developer's own, in `Config/Local.xcconfig` — sends the same request to Brave
+  /// directly.
+  enum Route: Sendable {
+    case anvil
+    case brave(apiKey: String)
+  }
+
+  let route: Route
   let resultCount: Int
+
+  /// Brave directly when the build has a key, anvilai.com otherwise.
+  init(apiKey: String, resultCount: Int) {
+    route = apiKey.isEmpty ? .anvil : .brave(apiKey: apiKey)
+    self.resultCount = resultCount
+  }
 }
 
 enum WebSearchError: LocalizedError {
@@ -25,19 +40,24 @@ enum WebSearchError: LocalizedError {
     case .http(401), .http(403), .http(422):
       "Brave rejected the API key this build was compiled with."
     case .http(429):
-      "Brave Search's rate or usage limit was reached. Try again later."
+      "Web search's rate or usage limit was reached. Try again later."
+    case .http(503):
+      "Web search isn't set up on the server this build uses."
     case .http(let code):
-      "Brave Search returned an error (HTTP \(code))."
+      "Web search returned an error (HTTP \(code))."
     }
   }
 }
 
-/// Brave Search API client.
+/// Brave Search client.
 ///
 /// One of the app's three pieces of networking, and it runs only when web search is on and the model
-/// asks for a search. What leaves the phone is the query the model wrote, and nothing else.
+/// asks for a search. What leaves the phone is the query the model wrote, and nothing else — by way
+/// of anvilai.com, or straight to Brave when the build carries its own key. Either way the body that
+/// comes back is Brave's, so there is one parser.
 enum BraveSearch {
-  private static let endpoint = URL(string: "https://api.search.brave.com/res/v1/web/search")!
+  private static let braveEndpoint = URL(string: "https://api.search.brave.com/res/v1/web/search")!
+  private static let anvilEndpoint = AnvilServer.url("/api/search")
   /// Longest snippet given to the model per result, to leave room in the context for the chat.
   private static let maxSnippetLength = 500
   /// Brave can return many direct answers; the first couple are the relevant ones.
@@ -55,16 +75,7 @@ enum BraveSearch {
 
   /// Returns Brave's info box and direct answers, when it has them, ahead of the web results.
   static func search(_ query: String, config: WebSearchConfig) async throws -> [WebSource] {
-    var components = URLComponents(url: endpoint, resolvingAgainstBaseURL: false)!
-    components.queryItems = [
-      URLQueryItem(name: "q", value: query),
-      URLQueryItem(name: "count", value: String(config.resultCount)),
-      URLQueryItem(name: "extra_snippets", value: "true"),
-    ]
-    var request = URLRequest(url: components.url!)
-    request.setValue(config.apiKey, forHTTPHeaderField: "X-Subscription-Token")
-    request.setValue("application/json", forHTTPHeaderField: "Accept")
-
+    let request = try request(for: query, config: config)
     let (data, response) = try await session.data(for: request)
     let status = (response as? HTTPURLResponse)?.statusCode ?? 0
     guard status == 200 else { throw WebSearchError.http(status) }
@@ -94,6 +105,31 @@ enum BraveSearch {
       return source(title: result.title, url: url, text: text, kind: nil, age: result.age)
     }
     return infoboxSources + answerSources + webSources
+  }
+
+  /// The relay takes the query in a POST body rather than the URL, so it never lands in a request
+  /// log; Brave takes it the way Brave takes it.
+  private static func request(for query: String, config: WebSearchConfig) throws -> URLRequest {
+    var request: URLRequest
+    switch config.route {
+    case .anvil:
+      request = URLRequest(url: anvilEndpoint)
+      request.httpMethod = "POST"
+      request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+      request.httpBody = try JSONSerialization.data(
+        withJSONObject: ["q": query, "count": config.resultCount])
+    case .brave(let apiKey):
+      var components = URLComponents(url: braveEndpoint, resolvingAgainstBaseURL: false)!
+      components.queryItems = [
+        URLQueryItem(name: "q", value: query),
+        URLQueryItem(name: "count", value: String(config.resultCount)),
+        URLQueryItem(name: "extra_snippets", value: "true"),
+      ]
+      request = URLRequest(url: components.url!)
+      request.setValue(apiKey, forHTTPHeaderField: "X-Subscription-Token")
+    }
+    request.setValue("application/json", forHTTPHeaderField: "Accept")
+    return request
   }
 
   private static func source(

@@ -85,11 +85,13 @@ codebases.
 
 ## Secrets and configuration
 
-Nothing secret is in source. `Config/Local.xcconfig` (git-ignored) sets build settings; the Brave key
-travels into the app's `Info.plist` through `$(ANVIL_BRAVE_API_KEY)` and `AppSecrets` reads it from
-the bundle. A missing key isn't an error — web search disables itself and says why. New configuration
-should follow the same route: an `ANVIL_*` build setting, an `Info.plist` key, a typed accessor.
-`ANVIL_MODELS_HOST` → `ModelCatalogHost` → `ModelCatalog.endpoint` is the second example. Note that an
+Nothing secret is in source, and nothing secret is in a build either: web search goes through
+`anvilai.com/api/search`, which holds Anvil's Brave key. `Config/Local.xcconfig` (git-ignored) sets
+build settings; a developer's own Brave key travels into the app's `Info.plist` through
+`$(ANVIL_BRAVE_API_KEY)`, `AppSecrets` reads it from the bundle, and `WebSearchConfig` then routes
+searches to Brave directly. New configuration should follow the same route: an `ANVIL_*` build
+setting, an `Info.plist` key, a typed accessor. `ANVIL_HOST` → `AnvilHost` → `AnvilServer.host` is the
+second example. Note that an
 xcconfig reads `//` as the start of a comment, which is why that setting is a host and not a URL.
 
 The system prompt is the one piece of configuration that is a file rather than a setting: it is
@@ -120,7 +122,7 @@ screen is: the public app doesn't compile it.
 
 ## Getting a model onto the phone
 
-`ModelCatalog` reads the list at `https://$(ANVIL_MODELS_HOST)/api/models`; `ModelDownloader` walks a
+`ModelCatalog` reads the list at `https://$(ANVIL_HOST)/api/models`; `ModelDownloader` walks a
 model's parts, and `ModelDownloadSession` moves the bytes. `ModelLibrary` owns that path and is the
 only thing the root scene knows about — a model is a model to everything downstream.
 

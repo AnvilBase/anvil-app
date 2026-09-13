@@ -38,8 +38,8 @@ open AnvilAI.xcodeproj
    [Signing](#signing-and-bundle-identifiers).
 4. Run on your iPhone (⌘R), then [install a model](#install-a-model).
 
-The app builds and runs with no configuration. Everything personal — your signing team, your bundle
-prefix, your Brave Search key — goes in `Config/Local.xcconfig`, which git ignores.
+The app builds and runs with no configuration, web search included. Everything personal — your
+signing team, your bundle prefix — goes in `Config/Local.xcconfig`, which git ignores.
 
 ### Configuration
 
@@ -50,14 +50,16 @@ prefix, your Brave Search key — goes in `Config/Local.xcconfig`, which git ign
 | --- | --- |
 | `DEVELOPMENT_TEAM` | Your Apple Developer team, so you don't have to pick it in Xcode each time. |
 | `ANVIL_BUNDLE_PREFIX` | Reverse-DNS prefix for both apps. Change it if `com.anvilbase` is taken for you. |
-| `ANVIL_BRAVE_API_KEY` | Turns on web search. Without it the feature is simply unavailable. |
+| `ANVIL_BRAVE_API_KEY` | Optional. Your own Brave Search key, to call Brave directly instead of through anvilai.com. |
 | `ANVIL_ENTITLEMENTS` | Set it empty to build without the increased-memory-limit capability. |
-| `ANVIL_MODELS_HOST` | Where the app downloads models from. Defaults to `www.anvilai.com`. |
+| `ANVIL_HOST` | Where the app reads models and sends searches. Defaults to `www.anvilai.com`. |
 
-There is no `Secrets.swift` and no key anywhere in the source. The key travels from
-`Config/Local.xcconfig` into the app's `Info.plist` at build time, and `AppSecrets` reads it back
-from the bundle at runtime. Anyone with a copy of a build can still extract a key compiled into it,
-so don't share builds that carry yours, and set a monthly limit in the
+There is no `Secrets.swift` and no key anywhere in the source or in a build. Web search sends the
+model's query to `anvilai.com/api/search`, which holds Anvil's Brave key and returns Brave's answer,
+so a build from a fresh clone can search. If you set your own key, it travels from
+`Config/Local.xcconfig` into the app's `Info.plist` at build time, `AppSecrets` reads it back from
+the bundle, and searches go to Brave directly. Anyone with a copy of a build can extract a key
+compiled into it, so don't share builds that carry yours, and set a monthly limit in the
 [Brave dashboard](https://api-dashboard.search.brave.com).
 
 ### Anvil's system prompt
@@ -143,7 +145,7 @@ the part in flight; reopening the screen offers to carry on. The transfer runs i
 Downloads are Wi-Fi only unless you turn on **Download over cellular** on that screen. The catalog and
 the model files are published from
 [AnvilBase/anvil-models](https://github.com/AnvilBase/anvil-models), which also holds the script that
-publishes them — point `ANVIL_MODELS_HOST` (see [Configuration](#configuration)) at your own
+publishes them — point `ANVIL_HOST` (see [Configuration](#configuration)) at your own
 deployment to serve your own.
 
 Models you download sit side by side. **Settings › Models** lists them with a mark against the one in
@@ -200,8 +202,7 @@ about the prompt or the picture leaves the phone.
 offline and with web search off, so "what time is it in NYC?" gets an exact answer instead of a
 stale search snippet.
 
-**Web search.** Off by default, and unavailable at all unless the build has a Brave Search key. The globe
-button next to the message field toggles it. The model decides when to search, and the reply shows
+**Web search.** Off by default. The globe button next to the message field toggles it. The model decides when to search, and the reply shows
 the queries it ran plus a numbered **Sources** list matching its `[1]`, `[2]` citations. The model
 receives Brave's info box and top two direct answers when available, then the web results, each with
 a snippet and how recent it is. Only the queries the model writes leave the phone — they can include
@@ -360,8 +361,9 @@ More detail in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 The app has two pieces of networking, both on a `URLSession` with no cookies or cache:
 
-- `BraveSearch` in `Sources/Tools/BraveSearch.swift` calls `api.search.brave.com`, only when web
-  search is on and the model calls the tool.
+- `BraveSearch` in `Sources/Tools/BraveSearch.swift` sends the model's query to `anvilai.com`, which
+  asks Brave with its own key and passes the answer back — or to `api.search.brave.com` directly when
+  the build has a key of its own. Only when web search is on and the model calls the tool.
 - `ModelCatalog` and `ModelDownloadSession` in `Sources/Engine/` call `anvilai.com` to list and
   download models, only from the model screen, and never once a model is installed. Neither request
   carries anything about you or your chats.
@@ -374,7 +376,8 @@ them, or automatically after a retention period if you set one.
 
 To check: with web search off, chat in airplane mode, then look at **Settings › Privacy & Security ›
 App Privacy Report**. There should be no network activity for the app once a model is installed. With
-web search on, the only domain should be `api.search.brave.com`. See [PRIVACY.md](PRIVACY.md).
+web search on, the only domain should be `www.anvilai.com` (`api.search.brave.com` if you built with
+your own key). See [PRIVACY.md](PRIVACY.md).
 
 ## Contributing
 

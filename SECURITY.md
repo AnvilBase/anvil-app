@@ -36,8 +36,9 @@ This is a client-side iPhone app with no backend, so the interesting surface is 
 
 **Out of scope**
 
-- A Brave Search API key extracted from a build you already have. Keys compiled into an app can always
-  be read out of it; that's why they belong in an untracked config file with a spending limit.
+- A Brave Search API key extracted from a build you made with your own key. Keys compiled into an app
+  can always be read out of it; that's why the public app carries none, and why yours belongs in an
+  untracked config file with a spending limit.
 - Vulnerabilities in LiteRT-LM, llama.cpp, Tailscale, or iOS itself — please report those upstream. We
   do want to hear about it if this app uses them in a way that makes a known issue worse.
 - Anything requiring an unlocked, jailbroken, or physically-attached-and-trusted device.

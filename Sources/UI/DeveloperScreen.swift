@@ -28,7 +28,9 @@ struct DeveloperScreen: View {
         LabeledContent("App name", value: AppFlavor.appName)
         LabeledContent("Bundle identifier", value: AppFlavor.storageNamespace)
         LabeledContent("Version", value: AppFlavor.version)
-        LabeledContent("Brave Search key", value: AppSecrets.hasBraveSearchKey ? "Present" : "None")
+        LabeledContent(
+          "Web search",
+          value: AppSecrets.hasBraveSearchKey ? "Brave directly, key in build" : "Through \(AnvilServer.host)")
       } header: {
         Text("Build")
       } footer: {

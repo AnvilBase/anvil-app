@@ -13,8 +13,8 @@
 	<!-- Empty unless you put a key in Config/Local.xcconfig. Web search is off without one. -->
 	<key>BraveSearchAPIKey</key>
 	<string>$(ANVIL_BRAVE_API_KEY)</string>
-	<!-- Where the app downloads models from. See ANVIL_MODELS_HOST in Config/Shared.xcconfig. -->
-	<key>ModelCatalogHost</key>
-	<string>$(ANVIL_MODELS_HOST)</string>
+	<!-- Where anvilai.com is: models and web search. See ANVIL_HOST in Config/Shared.xcconfig. -->
+	<key>AnvilHost</key>
+	<string>$(ANVIL_HOST)</string>
 </dict>
 </plist>

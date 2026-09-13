@@ -336,15 +336,6 @@ struct Composer: View {
   /// everything beside it.
   private var webSearchButton: some View {
     Button {
-      guard chat.hasSearchKey else {
-        // Opening Settings here looked like the button was mis-wired, because Settings can't fix it
-        // either: the key is compiled in, so the only remedy is a rebuild. Say that instead.
-        chat.alertMessage =
-          "Web search needs a Brave Search API key, and this build has none. Put one in "
-          + "Config/Local.xcconfig as ANVIL_BRAVE_API_KEY and build again. Everything else works "
-          + "without it."
-        return
-      }
       chat.setWebSearch(!chat.webSearchOn)
     } label: {
       Image(systemName: "globe")
@@ -366,22 +357,14 @@ struct Composer: View {
     .transition(.opacity.combined(with: .scale(scale: 0.7)))
     .accessibilityLabel("Web search")
     .accessibilityValue(chat.webSearchOn ? "On" : "Off")
-    .accessibilityHint(webSearchHint)
     .disabled(chat.isGenerating || chat.loadState != .ready)
   }
 
-  /// Full strength either way — the wash behind it is what says it's on — and faded when the
-  /// build carries no key, so a globe that can't be switched on doesn't look like one that can.
-  /// Faded too while no model is loaded, the same as the plus beside it: two buttons that are
-  /// waiting for the same thing should look like it together.
+  /// Full strength either way — the wash behind it is what says it's on — and faded while no model
+  /// is loaded, the same as the plus beside it: two buttons that are waiting for the same thing
+  /// should look like it together.
   private var webSearchGlyph: AnyShapeStyle {
-    chat.hasSearchKey && chat.loadState == .ready
-      ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary)
-  }
-
-  /// Nothing to say about being offline: the button isn't there to be asked about then.
-  private var webSearchHint: String {
-    chat.hasSearchKey ? "" : "This build has no Brave Search API key"
+    chat.loadState == .ready ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary)
   }
 
   /// The filled circle on the right: Stop while a reply is coming, a stop square while it's

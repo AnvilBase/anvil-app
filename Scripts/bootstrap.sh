@@ -37,7 +37,7 @@ Next:
   4. Run on an iPhone, then download a model from the first screen. See the README.
 
 Optional, in Config/Local.xcconfig:
-  ANVIL_BRAVE_API_KEY   turns on web search
+  ANVIL_BRAVE_API_KEY   your own Brave key, to search without going through anvilai.com
   ANVIL_BUNDLE_PREFIX   a bundle identifier that's unique to you
   ANVIL_ENTITLEMENTS=   (empty) to build without the increased-memory-limit capability
 MESSAGE

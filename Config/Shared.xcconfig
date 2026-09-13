@@ -21,14 +21,16 @@ MARKETING_VERSION = 0.1.0
 // Apple ID, which needs a bundle identifier nobody else has claimed.
 ANVIL_BUNDLE_PREFIX = com.anvilbase
 
-// Brave Search key, read at runtime from the bundle (see AppSecrets.swift). Empty here on purpose:
-// web search simply stays off until you add a key in Config/Local.xcconfig.
+// Brave Search key, read at runtime from the bundle (see AppSecrets.swift). Empty here on purpose,
+// and not needed: web search goes through https://$(ANVIL_HOST)/api/search, which holds the key. A
+// key set in Config/Local.xcconfig makes the app call Brave directly instead.
 ANVIL_BRAVE_API_KEY =
 
-// Where the app looks for downloadable models: https://$(ANVIL_MODELS_HOST)/api/models. Point it at
-// your own deployment to publish your own catalog. The host only, because an xcconfig reads // as
-// the start of a comment.
-ANVIL_MODELS_HOST = www.anvilai.com
+// Where anvilai.com is: the app reads its model catalog from https://$(ANVIL_HOST)/api/models and
+// sends web searches to https://$(ANVIL_HOST)/api/search. Point it at your own deployment of
+// https://github.com/AnvilBase/anvil-site. The host only, because an xcconfig reads // as the start
+// of a comment.
+ANVIL_HOST = www.anvilai.com
 
 // The icon lives in each app's own Assets.xcassets, so the two builds can look different on the
 // Home Screen: the public app is the white anvil on black, the development app its inverse.

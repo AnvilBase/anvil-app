@@ -8,16 +8,17 @@
 // Bundle identifiers must be unique to you when signing with a free Apple ID.
 // ANVIL_BUNDLE_PREFIX = com.yourname
 
-// Brave Search API key for web search (https://api-dashboard.search.brave.com). The app builds and
-// runs without one; web search stays off. Anyone with a copy of a build can extract a key compiled
-// into it, so don't share builds that carry yours, and set a monthly limit in Brave's dashboard.
+// Optional. Web search works without a key: queries go through anvilai.com, which holds Anvil's own
+// Brave Search key. Put your own here (https://api-dashboard.search.brave.com) to call Brave directly
+// instead. Anyone with a copy of a build can extract a key compiled into it, so don't share builds
+// that carry yours, and set a monthly limit in Brave's dashboard.
 // ANVIL_BRAVE_API_KEY = your-key-here
 
 // Free Apple IDs can't sign the increased-memory-limit capability. Uncomment to build without it,
 // then lower Settings › Model › Context size if iOS closes the app while the model loads.
 // ANVIL_ENTITLEMENTS =
 
-// Where the app downloads models from, as a host (an xcconfig reads // as a comment, so it can't be
-// a full URL). It must serve the same JSON as https://www.anvilai.com/api/models — see
-// https://github.com/AnvilBase/anvil-models. Leave it alone to use Anvil's.
-// ANVIL_MODELS_HOST = models.example.com
+// Where anvilai.com is, as a host (an xcconfig reads // as a comment, so it can't be a full URL).
+// The app reads models from /api/models and searches through /api/search there, the same routes
+// https://github.com/AnvilBase/anvil-site serves. Leave it alone to use Anvil's.
+// ANVIL_HOST = anvil.example.com

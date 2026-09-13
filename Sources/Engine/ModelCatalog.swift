@@ -68,19 +68,9 @@ struct CatalogPart: Codable, Hashable, Sendable {
 /// This is the only request the app makes to anvilai.com, and only from the model screen. The URLs
 /// it hands back are on anvilai.com too, so the app never depends on where the files are kept.
 enum ModelCatalog {
-  private static let fallbackHost = "www.anvilai.com"
-
-  /// Where the catalog lives. The host comes from `ANVIL_MODELS_HOST` in `Config/Shared.xcconfig`
-  /// by way of the bundle, so a fork can point the app at its own deployment without touching any
-  /// Swift. It is the host alone because an xcconfig treats `//` as the start of a comment.
-  static let endpoint: URL = {
-    let configured = (Bundle.main.infoDictionary?["ModelCatalogHost"] as? String)?
-      .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-    // An unset build setting can reach the bundle as the literal "$(ANVIL_MODELS_HOST)".
-    let host = configured.isEmpty || configured.hasPrefix("$(") ? fallbackHost : configured
-    return URL(string: "https://\(host)/api/models")
-      ?? URL(string: "https://\(fallbackHost)/api/models")!
-  }()
+  /// Where the catalog lives: on the host `AnvilServer` resolves, so a fork points the whole app at
+  /// its own deployment with one setting.
+  static let endpoint = AnvilServer.url("/api/models")
 
   private struct Response: Decodable {
     let schemaVersion: Int?

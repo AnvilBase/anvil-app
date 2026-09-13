@@ -14,7 +14,7 @@ open AnvilAI.xcodeproj
 ```
 
 The [README](README.md) covers package resolution, signing with a free Apple ID, and importing a
-model. You don't need a Brave Search key unless you're working on web search.
+model. Web search works from a fresh clone; you don't need a Brave Search key of your own.
 
 Pick the **AnvilAIDev** scheme while developing. It installs alongside the public app, so you can keep
 a working copy on your phone while you break things, and it has **Settings › Developer**.
