@@ -22,6 +22,22 @@ struct ReplyStats: Codable, Hashable, Sendable {
   var wasStopped: Bool
 }
 
+/// A file sent with a message: what it was called, and the text read out of it. The text goes
+/// to the model ahead of the message; the bubble shows only the name.
+struct FileAttachment: Codable, Hashable, Sendable {
+  var name: String
+  var text: String
+  /// The file was longer than a message can carry, and the end was left off.
+  var isTruncated = false
+
+  /// How the model is handed the file: named, fenced, and followed by whatever was typed.
+  func prompt(before typed: String) -> String {
+    let note = isTruncated ? " (the beginning; the file is longer)" : ""
+    let ask = typed.isEmpty ? "Summarize this file." : typed
+    return "Attached file \"\(name)\"\(note):\n```\n\(text)\n```\n\n\(ask)"
+  }
+}
+
 struct ChatMessage: Identifiable, Codable, Sendable {
   enum Role: String, Codable, Sendable {
     case user
@@ -33,6 +49,8 @@ struct ChatMessage: Identifiable, Codable, Sendable {
   var text: String
   /// The photo is stored next to the chat as `<id>.jpg`. For a reply, the picture Anvil Dream made.
   var hasImage = false
+  /// A file sent with the message. Missing from chats saved before files could be attached.
+  var attachment: FileAttachment?
   /// What a reply's picture was made from, once Anvil Dream has been asked for one.
   var imagePrompt: String?
   var isError = false
@@ -44,6 +62,11 @@ struct ChatMessage: Identifiable, Codable, Sendable {
   var sources: [WebSource]?
   /// Facts the model saved to memory while writing this reply.
   var savedMemories: [String]?
+
+  /// What the model is given for this message: the text, with the attached file ahead of it.
+  var promptText: String {
+    attachment.map { $0.prompt(before: text) } ?? text
+  }
 }
 
 struct Chat: Identifiable, Codable, Sendable {

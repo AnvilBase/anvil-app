@@ -49,6 +49,7 @@ struct MessageRow: View {
       Spacer(minLength: 44)
       VStack(alignment: .trailing, spacing: 6) {
         if image != nil { photo }
+        if let file = message.attachment { attachmentCard(file) }
         if !message.text.isEmpty {
           Text(message.text)
             .padding(.horizontal, 18)
@@ -62,6 +63,22 @@ struct MessageRow: View {
         }
       }
     }
+  }
+
+  /// The file that went with the message: its name on a card of the bubble's own colour, above
+  /// the words. The contents went to the model, not into the chat.
+  private func attachmentCard(_ file: FileAttachment) -> some View {
+    Label {
+      Text(file.name)
+        .lineLimit(1)
+    } icon: {
+      Image(systemName: "doc.text")
+    }
+    .font(.subheadline.weight(.medium))
+    .padding(.horizontal, 14)
+    .padding(.vertical, 10)
+    .background(theme.userBubble, in: bubbleShape)
+    .accessibilityLabel("Attached file \(file.name)")
   }
 
   private var bubbleShape: RoundedRectangle {

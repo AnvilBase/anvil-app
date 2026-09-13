@@ -28,6 +28,8 @@ final class ChatModel {
   private(set) var chatNotice: String?
   private(set) var pendingImage: PreparedImage?
   private(set) var isPreparingImage = false
+  /// A file waiting to go with the next message.
+  private(set) var pendingFile: FileAttachment?
   /// Decoded photos for the open chat, keyed by message ID.
   private(set) var images: [ChatMessage.ID: CGImage] = [:]
   private(set) var modelDetails: ModelDetails?
@@ -116,7 +118,8 @@ final class ChatModel {
 
   var canSend: Bool {
     loadState == .ready && !isGenerating && !isPreparingImage
-      && (!draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || pendingImage != nil)
+      && (!draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || pendingImage != nil
+        || pendingFile != nil)
   }
 
   /// True when engine settings have changed since the model was loaded.
@@ -278,8 +281,10 @@ final class ChatModel {
     endDictation()
     let typed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
     let image = pendingImage
+    let file = pendingFile
     draft = ""
     pendingImage = nil
+    pendingFile = nil
 
     var removedImageIDs: [ChatMessage.ID] = []
     if let editingMessageID {
@@ -294,7 +299,7 @@ final class ChatModel {
         typed, description: ImageRequest.followUpDescription(typed, after: previous),
         removedImageIDs: removedImageIDs)
     } else {
-      submit(typed, image: image, removedImageIDs: removedImageIDs)
+      submit(typed, image: image, file: file, removedImageIDs: removedImageIDs)
     }
   }
 
@@ -408,6 +413,8 @@ final class ChatModel {
     editingMessageID = id
     draft = message.text
     pendingImage = nil
+    // The file goes again with the edited words, unless it is taken off.
+    pendingFile = message.attachment
 
     guard message.hasImage, let preview = images[id] else { return }
     isPreparingImage = true
@@ -425,6 +432,7 @@ final class ChatModel {
     editingMessageID = nil
     draft = ""
     pendingImage = nil
+    pendingFile = nil
   }
 
   /// True for the message being edited and every message after it, which sending will replace.
@@ -556,6 +564,21 @@ final class ChatModel {
     }
   }
 
+  // MARK: - Files
+
+  /// Reads a picked file into the next message. Off the main thread: a PDF can take a moment.
+  func attachFile(_ url: URL) async {
+    do {
+      pendingFile = try await Task.detached(priority: .userInitiated) { try FileReading.read(url) }.value
+    } catch {
+      alertMessage = error.localizedDescription
+    }
+  }
+
+  func removePendingFile() {
+    pendingFile = nil
+  }
+
   func removePendingImage() {
     pendingImage = nil
   }
@@ -634,15 +657,18 @@ final class ChatModel {
   }
 
   /// Adds your message and streams the reply to it.
-  private func submit(_ typed: String, image: PreparedImage?, removedImageIDs: [ChatMessage.ID]) {
+  private func submit(
+    _ typed: String, image: PreparedImage?, file: FileAttachment? = nil,
+    removedImageIDs: [ChatMessage.ID]
+  ) {
     if openChat.messages.isEmpty {
       // An empty chat picks up the latest system prompt from Settings.
       openChat.systemPrompt = settings.values.systemPrompt
-      openChat.title = Self.title(for: typed)
+      openChat.title = Self.title(for: typed.isEmpty ? (file?.name ?? "") : typed)
     }
 
     let history = openChat.messages
-    let user = ChatMessage(role: .user, text: typed, hasImage: image != nil)
+    let user = ChatMessage(role: .user, text: typed, hasImage: image != nil, attachment: file)
     let reply = ChatMessage(role: .assistant, text: "")
     if let image { images[user.id] = image.preview }
     openChat.messages.append(contentsOf: [user, reply])
@@ -657,8 +683,10 @@ final class ChatModel {
         apiKey: AppSecrets.braveSearchAPIKey, resultCount: settings.values.webSearchResultCount)
       : nil
     let options = conversationOptions()
-    // With only a photo attached, give the model something to do with it.
-    let basePrompt = typed.isEmpty ? "Describe this image." : typed
+    // With only a photo attached, give the model something to do with it. A file goes ahead of
+    // the words, named and fenced, with the same standing question when there are none.
+    let basePrompt = user.attachment != nil
+      ? user.promptText : (typed.isEmpty ? "Describe this image." : typed)
     // Models keep answering the way they already have in a chat, so say when search was switched on
     // or off since the last reply (or is on in a chat being reopened). Only the model sees this.
     let searchChanged = activeConversation.map { $0.webSearch != options.webSearch } ?? options.webSearch
@@ -880,6 +908,7 @@ final class ChatModel {
     openChat = Chat(systemPrompt: settings.values.systemPrompt)
     images = [:]
     pendingImage = nil
+    pendingFile = nil
     draft = ""
     editingMessageID = nil
     contextTokens = nil
@@ -946,7 +975,7 @@ final class ChatModel {
       } else {
         note = "(made a picture of: \(message.imagePrompt ?? "what was asked for")) "
       }
-      let text = (note + message.text).trimmingCharacters(in: .whitespaces)
+      let text = (note + message.promptText).trimmingCharacters(in: .whitespaces)
       guard !text.isEmpty else { continue }
       remaining -= text.count
       if remaining < 0 { break }

@@ -358,7 +358,7 @@ struct ChatScreen: View {
       // than the composer it points at.
       PixelAnvil(size: 56, color: .secondary)
       VStack(alignment: .leading, spacing: 16) {
-        guideRow("plus", "Add a photo")
+        guideRow("plus", "Add a photo or file")
         if !chat.isOffline { guideRow("globe", "Search the web") }
         guideRow("mic.fill", "Speak to type")
         if chat.canGenerateImages { guideRow("paintbrush", "Ask for a picture") }

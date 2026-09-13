@@ -30,6 +30,7 @@ struct Composer: View {
   @State private var photoSelection: PhotosPickerItem?
   @State private var showingCamera = false
   @State private var showingPhotoLibrary = false
+  @State private var showingFiles = false
 
   /// The room the line between the buttons has for the message, and the room the whole capsule
   /// has once the buttons have stepped down. The first is remembered from the last time the line
@@ -66,6 +67,7 @@ struct Composer: View {
     VStack(alignment: .leading, spacing: 8) {
       if chat.editingMessageID != nil { editingBanner }
       pendingPhoto
+      pendingFile
       inputCapsule
     }
     .padding(.horizontal, 16)
@@ -74,6 +76,12 @@ struct Composer: View {
     // conversation does. Simultaneous, so the field keeps its own taps and text selection.
     .simultaneousGesture(swipeDownToDismiss)
     .photosPicker(isPresented: $showingPhotoLibrary, selection: $photoSelection, matching: .images)
+    .fileImporter(isPresented: $showingFiles, allowedContentTypes: FileReading.types) { result in
+      switch result {
+      case .success(let url): Task { await chat.attachFile(url) }
+      case .failure(let error): chat.alertMessage = error.localizedDescription
+      }
+    }
     #if canImport(UIKit)
       .fullScreenCover(isPresented: $showingCamera) {
         // The photo goes straight into the message; it isn't saved to the photo library.
@@ -153,6 +161,44 @@ struct Composer: View {
         Spacer(minLength: 0)
       }
       .padding(.horizontal, 4)
+    }
+  }
+
+  /// The file waiting to go: its name on a small card, and the way to take it off again.
+  @ViewBuilder
+  private var pendingFile: some View {
+    if let file = chat.pendingFile {
+      HStack(spacing: 8) {
+        HStack(spacing: 8) {
+          Image(systemName: "doc.text")
+            .font(.system(size: 17, weight: .medium))
+            .foregroundStyle(.secondary)
+          VStack(alignment: .leading, spacing: 1) {
+            Text(file.name)
+              .font(.subheadline.weight(.medium))
+              .lineLimit(1)
+            if file.isTruncated {
+              Text("Beginning only; the file is longer")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+          }
+          Button("Remove file", systemImage: "xmark.circle.fill") { chat.removePendingFile() }
+            .labelStyle(.iconOnly)
+            .font(.system(size: 18))
+            .foregroundStyle(.secondary)
+        }
+        .padding(.leading, 12)
+        .padding(.trailing, 8)
+        .padding(.vertical, 8)
+        .liquidGlass(in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+          RoundedRectangle(cornerRadius: 14, style: .continuous)
+            .strokeBorder(theme.hairline, lineWidth: 0.5))
+        Spacer(minLength: 0)
+      }
+      .padding(.horizontal, 4)
+      .padding(.top, 2)
     }
   }
 
@@ -238,37 +284,36 @@ struct Composer: View {
       }
   }
 
-  /// Everything you can put into a message. It's always here, the way ChatGPT's plus is: a control
-  /// that disappears depending on which model is loaded reads as a bug, and leaves nothing to say
-  /// why photos can't be sent.
-  @ViewBuilder
+  /// Everything you can put into a message: a photo from the camera or the library, or a file. It's
+  /// always here, the way ChatGPT's plus is, and files always work; when the model that's loaded
+  /// can't see photos, Photos is still listed and says why when tapped, rather than vanishing.
   private var addButton: some View {
-    if chat.supportsImages {
-      Menu {
+    Menu {
+      if chat.supportsImages {
         #if canImport(UIKit)
           if CameraPicker.isAvailable {
             Button("Camera", systemImage: "camera") { showingCamera = true }
           }
         #endif
         Button("Photos", systemImage: "photo.on.rectangle") { showingPhotoLibrary = true }
-      } label: {
-        plusLabel(available: true)
+      } else {
+        Button("Photos", systemImage: "photo.on.rectangle") { chat.alertMessage = noImagesReason }
       }
-      .tint(.primary)
-      .accessibilityLabel("Add photo")
-      .disabled(chat.isGenerating || chat.isPreparingImage)
-    } else {
-      Button { chat.alertMessage = noImagesReason } label: { plusLabel(available: false) }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Add photo")
-        .accessibilityHint("Unavailable with the model that's loaded")
+      Button("Files", systemImage: "doc") { showingFiles = true }
+    } label: {
+      plusLabel
     }
+    // Plain, and not tinted: a menu's label is highlighted in the tint while the menu opens, and
+    // tinted with the page's ink that was a capsule flashing black around the plus.
+    .buttonStyle(.plain)
+    .accessibilityLabel("Attach")
+    .disabled(chat.isGenerating || chat.isPreparingImage)
   }
 
-  private func plusLabel(available: Bool) -> some View {
+  private var plusLabel: some View {
     Image(systemName: "plus")
       .font(.system(size: ChatStyle.inlineControlGlyph, weight: .medium))
-      .foregroundStyle(available ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary))
+      .foregroundStyle(.primary)
       .frame(width: Self.leadingControl, height: ChatStyle.inlineControl)
       .contentShape(Circle())
   }
