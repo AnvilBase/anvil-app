@@ -450,30 +450,50 @@ final class ChatModel {
     savedChats = await archive.loadAll()
   }
 
+  /// Clears the chat now, in the same frame — the drawer starts closing in this same event, and
+  /// the empty page has to be there for the first frame of the slide, riding it, rather than
+  /// arriving a tick later over a page already on the move. Only a reply still being written makes
+  /// this wait: it has to be stopped before the chat it belongs to goes.
   func newChat() {
+    guard generationTask != nil else {
+      startNewChat()
+      return
+    }
     Task {
       await stopGeneration()
       startNewChat()
     }
   }
 
+  /// Opens a saved chat: its messages now, in this frame, for the same reason `newChat` clears
+  /// in this frame; its photos as they load.
   func open(_ id: Chat.ID) {
-    Task {
-      await stopGeneration()
-      guard id != openChat.id, let saved = savedChats.first(where: { $0.id == id }) else { return }
+    guard id != openChat.id, let saved = savedChats.first(where: { $0.id == id }) else { return }
+    guard generationTask != nil else {
       startNewChat()
       openChat = saved
-
-      var loaded: [ChatMessage.ID: CGImage] = [:]
-      for message in saved.messages where message.hasImage {
-        if let data = await archive.loadImage(chatID: saved.id, messageID: message.id),
-          let image = ImageProcessing.decode(data)
-        {
-          loaded[message.id] = image
-        }
-      }
-      if openChat.id == saved.id { images = loaded }
+      Task { await loadImages(of: saved) }
+      return
     }
+    Task {
+      await stopGeneration()
+      guard id != openChat.id else { return }
+      startNewChat()
+      openChat = saved
+      await loadImages(of: saved)
+    }
+  }
+
+  private func loadImages(of saved: Chat) async {
+    var loaded: [ChatMessage.ID: CGImage] = [:]
+    for message in saved.messages where message.hasImage {
+      if let data = await archive.loadImage(chatID: saved.id, messageID: message.id),
+        let image = ImageProcessing.decode(data)
+      {
+        loaded[message.id] = image
+      }
+    }
+    if openChat.id == saved.id { images = loaded }
   }
 
   func deleteChat(_ id: Chat.ID) {
@@ -492,9 +512,13 @@ final class ChatModel {
   }
 
   func deleteAllChats() {
+    // The open chat goes now, in this frame, as in `newChat`; the archive follows.
+    if generationTask == nil { startNewChat() }
     Task {
-      await stopGeneration()
-      startNewChat()
+      if generationTask != nil {
+        await stopGeneration()
+        startNewChat()
+      }
       do {
         try await archive.deleteAll()
         savedChats = []
