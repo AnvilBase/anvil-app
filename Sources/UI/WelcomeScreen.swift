@@ -68,7 +68,7 @@ struct WelcomeScreen: View {
         title: "Works Offline",
         detail: "The model runs on the phone. No account, and no internet needed to chat."),
       Point(
-        symbol: "lock.square.fill",
+        symbol: "vault",
         title: "Nothing Leaves Your Phone",
         detail: "No analytics, no telemetry, all local."),
     ]
@@ -84,10 +84,7 @@ struct WelcomeScreen: View {
 
   private func row(_ point: Point) -> some View {
     HStack(alignment: .top, spacing: 18) {
-      Image(systemName: point.symbol)
-        .font(.title2)
-        // Solid, one colour: a glyph drawn in layers reads as a picture, and these are marks.
-        .symbolRenderingMode(.monochrome)
+      glyph(point.symbol)
         // A fixed column, so the three titles start on the same line however wide their glyphs are.
         .frame(width: 34, alignment: .center)
         .accessibilityHidden(true)
@@ -100,6 +97,22 @@ struct WelcomeScreen: View {
       }
     }
     .accessibilityElement(children: .combine)
+  }
+
+  /// The mark beside a point: an SF Symbol by name, or the vault, which is the app's own shape and
+  /// is drawn in the same ink and at the same size as the symbols beside it.
+  @ViewBuilder
+  private func glyph(_ symbol: String) -> some View {
+    if symbol == "vault" {
+      VaultGlyph()
+        .fill(Color.primary, style: FillStyle(eoFill: true))
+        .frame(width: 28, height: 28)
+    } else {
+      Image(systemName: symbol)
+        .font(.title2)
+        // Solid, one colour: a glyph drawn in layers reads as a picture, and these are marks.
+        .symbolRenderingMode(.monochrome)
+    }
   }
 
   // MARK: - Continue
