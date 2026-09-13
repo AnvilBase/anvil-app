@@ -41,6 +41,14 @@ private struct RootView: View {
 
   @Environment(\.scenePhase) private var scenePhase
 
+  #if ANVIL_DEV
+    /// The development app can go into the chat without a model, to look at the screens without
+    /// waiting on gigabytes. The chat opens on "Couldn't load the model" and its composer won't send,
+    /// which is the honest state of things; the moment a model is installed it takes over. Not
+    /// written down: skipping is for this run, and the next launch asks again.
+    @State private var skippedModelSetup = false
+  #endif
+
   /// One screen going and the next arriving. Short, and eased in rather than sprung: this is the
   /// app moving you on, not something you did being acknowledged.
   private static let screenChange: Animation = .easeIn(duration: 0.22)
@@ -49,6 +57,34 @@ private struct RootView: View {
   /// subscription falls back everywhere at the same moment and nothing downstream has to ask.
   private var theme: AppTheme {
     pro.isUnlocked ? chat.settings.values.theme : .ink
+  }
+
+  /// Skip on the model screen, in the development app only. nil — no button — everywhere else,
+  /// including the development app when it is showing itself as the public one.
+  private var skipModelSetup: (() -> Void)? {
+    #if ANVIL_DEV
+      guard AppFlavor.showsDevelopmentFeatures(chat.settings.values) else { return nil }
+      return { withAnimation(Self.screenChange) { skippedModelSetup = true } }
+    #else
+      return nil
+    #endif
+  }
+
+  /// A model that isn't there, for the chat to open on after Skip. The chat tries to load it, is
+  /// told there is no such file, and shows that; nothing is invented about what it would have been.
+  private var skippedModel: ModelFile? {
+    #if ANVIL_DEV
+      guard skippedModelSetup, let directory = try? ModelFiles.modelsDirectory() else { return nil }
+      return ModelFile(
+        url: directory.appendingPathComponent("none.\(ModelFiles.fileExtension)"),
+        fileSize: 0,
+        modificationDate: .distantPast,
+        displayName: "No model",
+        catalogID: nil,
+        version: nil)
+    #else
+      return nil
+    #endif
   }
 
   var body: some View {
@@ -62,15 +98,13 @@ private struct RootView: View {
         }
         .transition(.opacity)
       } else if case .ready(let model) = library.state {
-        ChatScreen(chat: chat, model: model) {
-          Task {
-            await chat.unload()
-            await library.removeModel()
-          }
-        }
-        .transition(.opacity)
+        ChatScreen(chat: chat, model: model, library: library)
+          .transition(.opacity)
+      } else if let placeholder = skippedModel {
+        ChatScreen(chat: chat, model: placeholder, library: library)
+          .transition(.opacity)
       } else {
-        ModelSetupScreen(library: library)
+        ModelSetupScreen(library: library, onSkip: skipModelSetup)
           .transition(.opacity)
       }
     }
@@ -112,6 +146,11 @@ private struct RootView: View {
     .tint(theme.isFree ? nil : theme.palette.accent)
     .environment(pro)
     .environment(lock)
+    // The library hears about Pro here, the one place the App Store's answer is read, so a Pro
+    // model falls back the moment a subscription lapses, the same way the theme does.
+    .onChange(of: pro.isUnlocked, initial: true) { _, unlocked in
+      library.proUnlocked = unlocked
+    }
     .onChange(of: chat.settings.values.appIcon) { _, icon in
       icon.apply()
     }

@@ -14,8 +14,19 @@ actor OnDeviceEngine {
 
   enum EngineError: LocalizedError {
     case notLoaded
+    /// Every configuration was tried and none took. Each is named with what it said, because the
+    /// first one to fail — the GPU — is rarely the one that explains why; the CPU's reason usually
+    /// is, and a screen that shows only the first leaves someone re-downloading a good file.
+    case allAttemptsFailed([(configuration: String, reason: String)])
 
-    var errorDescription: String? { "The model is not loaded." }
+    var errorDescription: String? {
+      switch self {
+      case .notLoaded:
+        return "The model is not loaded."
+      case .allAttemptsFailed(let attempts):
+        return attempts.map { "\($0.configuration): \($0.reason)" }.joined(separator: "\n")
+      }
+    }
   }
 
   /// One configuration to try while loading, in order of preference.
@@ -46,7 +57,7 @@ actor OnDeviceEngine {
     let capabilities = Self.readCapabilities(modelPath: model.url.path)
     let wantImages = options.imageInput && (capabilities?.supportsImages ?? true)
 
-    var firstError: Error?
+    var failures: [(configuration: String, reason: String)] = []
     for attempt in Self.attempts(for: options.backend, images: wantImages) {
       let started = ContinuousClock.now
       do {
@@ -76,11 +87,13 @@ actor OnDeviceEngine {
           defaultSampler: capabilities?.defaultSampler)
         return LoadResult(details: details, notice: attempt.notice)
       } catch {
-        firstError = firstError ?? error
+        let images = attempt.vision == nil ? "" : " with images"
+        let configuration = Self.name(of: attempt.backend) + images
+        failures.append((configuration, error.localizedDescription))
         conversation = nil
       }
     }
-    throw firstError ?? EngineError.notLoaded
+    throw EngineError.allAttemptsFailed(failures)
   }
 
   func unload() {

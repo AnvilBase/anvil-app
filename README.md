@@ -113,17 +113,19 @@ them are needed for iOS, where the framework arrives as a release zip. If resolv
 ## Install a model
 
 A new install opens on a welcome screen — what the app is, in three lines, and **Continue**. It is
-shown once. After that the app ships without a model — it's gigabytes, and which one you want is your
-choice — so the next screen asks for one.
+shown once. After that the app ships without a model — it's gigabytes — so the next screen installs
+one.
 
 ### Download it in the app
 
-The first screen lists the models published at
-[anvilai.com/api/models](https://www.anvilai.com/api/models). Tap **Download** and leave it running.
+The first screen offers one model, the **Anvil Model**, with its size and parameter count. It is
+the `anvil-forge` entry published at [anvilai.com/api/models](https://www.anvilai.com/api/models).
+Tap **Download** and leave it running. The development app has a **Skip** in the corner, for getting
+to the chat without waiting on gigabytes; the chat then says no model is installed until one is.
 
 | Model | Size | Licence |
 | --- | --- | --- |
-| Anvil Forge | 3.41 GB | [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0) |
+| Anvil Model (`anvil-forge`) | 2.59 GB | [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0) |
 
 A model is served as a list of 512 MB parts, because a file that size can't be hosted as a single
 asset. The app downloads them one at a time, checks each against its SHA-256, appends it to the file
@@ -138,9 +140,11 @@ the model files are published from
 publishes them — point `ANVIL_MODELS_HOST` (see [Configuration](#configuration)) at your own
 deployment to serve your own.
 
-A new model replaces the old one. If loading fails, **Settings › Model** offers **Remove model**. The
-first load is slow; engine caches go in `Library/Caches/EngineCache`, so later launches are much
-faster.
+Models you download sit side by side. **Settings › Model** lists them with a mark against the one in
+use — tap another to switch, swipe one to delete it — and offers the rest of the catalog to download
+from there. If loading fails, the screen says why and offers **Try again**; Settings has **Reload
+model** too. The first load is slow; engine caches go in `Library/Caches/EngineCache`, so later
+launches are much faster.
 
 ## What the app does
 
@@ -212,6 +216,12 @@ alternate app icons, a Face ID or passcode lock, and Talk mode — replies read 
 with the microphone open again when they finish. The paywall is the **Anvil Pro** row at the top of
 Settings.
 
+Pro also has its own model. **Anvil Core** is the catalog entry marked `pro`, a larger model with its
+refusals removed, offered in Settings › Model behind the Pro badge. It can be downloaded and switched
+to only while Pro is active; if the subscription lapses the chat moves to the free model, or back to
+the install screen if that is the only one on the phone. The install screen never offers it — the way
+in is the Anvil Model, and Pro is found in Settings.
+
 Whether Pro is active is read from the App Store's entitlements, in `Sources/Pro/ProAccess.swift`,
 and from nowhere else. The settings Pro unlocks are stored either way and honoured only while the App
 Store says so. The development app has a **Preview Pro** switch on its developer screen for looking
@@ -276,7 +286,7 @@ Support/         per-app Info.plist and entitlements
 | `Chat/ChatArchive.swift` | Saves chats, photos, and totals as protected files |
 | `Chat/PrivateFiles.swift` | Complete file protection, excluded from backups |
 | `Engine/OnDeviceEngine.swift` | LiteRT-LM engine and conversation: load with fallbacks, stream, cancel, count |
-| `Engine/ModelLibrary.swift` | Finds the installed model in private storage and keeps it out of backups |
+| `Engine/ModelLibrary.swift` | The models on the phone, which one is active, switching and deleting |
 | `Engine/ModelCatalog.swift` | The models anvilai.com publishes, and where to fetch their parts |
 | `Engine/ModelDownloader.swift` | Downloads a model part by part, checks each one, appends them into the file |
 | `Engine/ModelDownloadSession.swift` | The background URLSession that keeps a download running when the app isn't |

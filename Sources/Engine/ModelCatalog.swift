@@ -20,12 +20,16 @@ struct CatalogModel: Codable, Identifiable, Hashable, Sendable {
   /// Free space to insist on before starting. Absent means "the model, plus a gigabyte".
   let minimumFreeBytes: Int64?
   let recommended: Bool?
+  /// Part of Anvil Pro: listed behind the paywall, and downloaded or switched to only while Pro is
+  /// active. Absent means free.
+  let pro: Bool?
   /// The open model this one is built from, and its licence. Both are shown before downloading.
   let basedOn: String?
   let license: String?
   let licenseURL: URL?
 
   var isRecommended: Bool { recommended ?? false }
+  var isPro: Bool { pro ?? false }
 
   var requiredFreeBytes: Int64 { minimumFreeBytes ?? (sizeBytes + 1_000_000_000) }
 

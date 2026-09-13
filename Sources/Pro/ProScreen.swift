@@ -2,79 +2,65 @@ import SwiftUI
 
 /// Anvil Pro: what it is, and the one button that gets it.
 ///
-/// Pushed from the top of Settings. The list says what Pro is in the same shape the empty chat
-/// says what the buttons do — a glyph and a line, nothing louder — and the price comes from the
-/// App Store, never from the app, so it is right for whichever storefront this is. A build the
-/// App Store has no product for says so instead of pretending.
+/// Pushed from the top of Settings. One screen, no scrolling: the mark, the name, six lines, and
+/// the price — which comes from the App Store, never from the app, so it is right for whichever
+/// storefront this is. A build the App Store has no product for says so instead of pretending.
 struct ProScreen: View {
   @Environment(ProAccess.self) private var pro
   @Environment(\.theme) private var theme
   @Environment(\.openURL) private var openURL
 
   var body: some View {
-    ScrollView {
-      VStack(spacing: 36) {
-        VStack(spacing: 14) {
-          PixelAnvil(size: 56)
-          Text("Anvil Pro")
-            .font(.largeTitle.bold())
-          Text("The same private assistant, with more of it in your hands.")
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-            .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-
-        VStack(alignment: .leading, spacing: 20) {
-          ForEach(Self.features, id: \.title) { feature in
-            HStack(alignment: .top, spacing: 16) {
-              Image(systemName: feature.symbol)
-                .font(.title3)
-                .frame(width: 28)
-                .foregroundStyle(.secondary)
-              VStack(alignment: .leading, spacing: 3) {
-                Text(feature.title)
-                  .font(.headline)
-                Text(feature.line)
-                  .font(.subheadline)
-                  .foregroundStyle(.secondary)
-              }
-            }
+    VStack(spacing: 0) {
+      Spacer(minLength: 12)
+      GoldAnvil(size: 84)
+      Text("Anvil Pro")
+        .font(.system(size: 40, weight: .bold))
+        .padding(.top, 22)
+      VStack(alignment: .leading, spacing: 22) {
+        ForEach(Self.features, id: \.title) { feature in
+          HStack(spacing: 18) {
+            Image(systemName: feature.symbol)
+              .font(.title2)
+              .frame(width: 34)
+              .foregroundStyle(.secondary)
+            Text(feature.title)
+              .font(.title3.weight(.semibold))
           }
         }
       }
-      .padding(.horizontal, 24)
-      .padding(.top, 24)
-      .padding(.bottom, 16)
+      .padding(.top, 40)
+      Spacer(minLength: 12)
     }
+    .frame(maxWidth: .infinity)
+    .padding(.horizontal, 24)
     .background(theme.page)
     .safeAreaInset(edge: .bottom) { footer }
     .navigationBarTitleDisplayMode(.inline)
   }
 
-  /// The policy the app is built to, and Apple's standard terms for a subscription. Both are what
-  /// App Review asks a subscription screen to link to.
+  private static let features: [(symbol: String, title: String)] = [
+    ("lock.open", "Anvil Core, the unrestricted model"),
+    ("text.quote", "Your own system prompt"),
+    ("slider.horizontal.3", "Sampling controls"),
+    ("paintpalette", "Themes"),
+    ("app", "App icons"),
+    ("faceid", "Face ID lock"),
+    ("waveform", "Talk mode"),
+  ]
+
+  /// The policy the app is built to, and Apple's standard terms for a subscription: what App
+  /// Review asks a subscription screen to link to, along with the renewal line below.
   private static let privacyURL = URL(
     string: "https://github.com/AnvilBase/anvil-app/blob/main/PRIVACY.md")!
   private static let termsURL = URL(
     string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
 
-  private static let features: [(symbol: String, title: String, line: String)] = [
-    ("text.quote", "Your own system prompt", "Tell Anvil who it is and how to answer."),
-    ("slider.horizontal.3", "Sampling controls", "Temperature, top-K, top-P and thinking."),
-    ("paintpalette", "Themes", "Ember, Frost, Moss and Rose, in light and dark."),
-    ("app", "App icons", "The mark in five more colours on your Home Screen."),
-    ("faceid", "Face ID lock", "Or your passcode, every time Anvil comes back."),
-    ("waveform", "Talk mode", "Replies read aloud on this iPhone, then the mic again."),
-  ]
-
   // MARK: - Subscribe
 
-  /// Held out of the scroll view, the way Continue is on the welcome screen: whatever the type size
-  /// does to the list, the way to buy stays under a thumb.
   @ViewBuilder
   private var footer: some View {
-    VStack(spacing: 12) {
+    VStack(spacing: 10) {
       if pro.isUnlocked {
         Label("Anvil Pro is active", systemImage: "checkmark.circle.fill")
           .font(.headline)
@@ -105,28 +91,19 @@ struct ProScreen: View {
         .buttonStyle(.plain)
         .disabled(pro.product == nil || pro.isPurchasing)
 
-        if pro.product == nil {
-          // An open-source build, or a sandbox with no product yet. Say so rather than showing a
-          // button that will never do anything.
-          Text("Subscriptions aren't available in this build.")
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-        } else {
-          Text("Renews monthly until cancelled. Cancel any time in Settings › Apple Account.")
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-            .multilineTextAlignment(.center)
-        }
+        // One line, and it is the one App Review asks for. Without a product it is the one that
+        // says why the button above does nothing.
+        Text(pro.product == nil ? "Not available in this build." : "Renews monthly. Cancel any time.")
+          .font(.footnote)
+          .foregroundStyle(.secondary)
 
-        // Grey, like every other secondary line in the app, rather than the system's blue: the
-        // one coloured thing on this screen is the button that buys.
         HStack(spacing: 18) {
           Button("Restore purchases") { Task { await pro.restore() } }
             .disabled(pro.isPurchasing)
           Link("Privacy", destination: Self.privacyURL)
           Link("Terms", destination: Self.termsURL)
         }
-        .font(.subheadline)
+        .font(.footnote)
         .foregroundStyle(.secondary)
 
         if let error = pro.lastError {

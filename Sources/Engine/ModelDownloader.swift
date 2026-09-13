@@ -222,13 +222,16 @@ struct ModelDownloadState: Codable {
   var nextPart: Int
 }
 
-/// The model that was installed, so the app can name it on screen and tell whether the catalog has a
-/// newer version. Written next to the model file.
+/// A model that was downloaded, so the app can name it on screen and tell whether the catalog has a
+/// newer version. One record per file, written next to the model files.
 struct InstalledModel: Codable {
   let id: String
   let name: String
   let version: String
   let fileName: String
+  /// Whether the catalog had it as part of Anvil Pro. Optional so records from before the flag
+  /// still read; those were all free.
+  var pro: Bool? = nil
 }
 
 /// The file work behind a download. Not tied to an actor, so hashing and copying gigabytes stays off
@@ -236,12 +239,16 @@ struct InstalledModel: Codable {
 enum ModelDownloadFiles {
   enum Failure: LocalizedError {
     case checksum
+    case assembledChecksum
     case notEnoughSpace(needed: Int64, free: Int64)
 
     var errorDescription: String? {
       switch self {
       case .checksum:
         return "Part of the download arrived damaged."
+      case .assembledChecksum:
+        return "The finished file didn't match its checksum, so it was thrown away. Try again "
+          + "downloads it afresh."
       case .notEnoughSpace(let needed, let free):
         let format = { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) }
         return "This model needs \(format(needed)) free, and there is \(format(free))."
@@ -323,15 +330,24 @@ enum ModelDownloadFiles {
     }
   }
 
-  /// Replaces any installed model with the finished download.
+  /// Puts the finished download beside whatever is already installed. Only a model with the same
+  /// file name — the same model, downloaded again — is replaced.
+  ///
+  /// The whole file is checked against the catalog's hash first. Every part was checked on the way
+  /// in, but the file is what the engine opens, and a part appended twice or out of order across
+  /// an interrupted download would pass every part and still be no model at all. A mismatch throws
+  /// the assembly away along with the record of how far it got, so trying again starts clean
+  /// instead of installing the same file twice.
   static func finish(_ model: CatalogModel) throws {
     let fileManager = FileManager.default
     let models = try ModelFiles.modelsDirectory()
     let partial = try partialURL(for: model)
 
-    for file in try fileManager.contentsOfDirectory(at: models, includingPropertiesForKeys: nil)
-    where file.pathExtension.lowercased() == ModelFiles.fileExtension {
-      try fileManager.removeItem(at: file)
+    do {
+      try verify(partial, matches: model.sha256)
+    } catch {
+      discard()
+      throw Failure.assembledChecksum
     }
 
     var destination = models.appendingPathComponent(model.fileName)
@@ -341,10 +357,12 @@ enum ModelDownloadFiles {
     values.isExcludedFromBackup = true
     try destination.setResourceValues(values)
 
-    let installed = InstalledModel(
-      id: model.id, name: model.name, version: model.version, fileName: model.fileName)
-    try JSONEncoder().encode(installed)
-      .write(to: models.appendingPathComponent(installedFileName), options: .atomic)
+    var records = installedModels().filter { $0.fileName != model.fileName }
+    records.append(
+      InstalledModel(
+        id: model.id, name: model.name, version: model.version, fileName: model.fileName,
+        pro: model.isPro))
+    try writeInstalled(records)
 
     discard()
   }
@@ -378,11 +396,28 @@ enum ModelDownloadFiles {
     }
   }
 
-  static func installed() -> InstalledModel? {
+  /// Every model that was downloaded, as it was named. Earlier builds wrote one record rather than
+  /// a list; both are read, so an update doesn't lose the name of the model already there.
+  static func installedModels() -> [InstalledModel] {
     guard let url = try? ModelFiles.modelsDirectory().appendingPathComponent(installedFileName),
       let data = try? Data(contentsOf: url)
-    else { return nil }
-    return try? JSONDecoder().decode(InstalledModel.self, from: data)
+    else { return [] }
+    if let records = try? JSONDecoder().decode([InstalledModel].self, from: data) { return records }
+    if let record = try? JSONDecoder().decode(InstalledModel.self, from: data) { return [record] }
+    return []
+  }
+
+  static func installed(named fileName: String) -> InstalledModel? {
+    installedModels().first { $0.fileName == fileName }
+  }
+
+  static func forget(_ fileName: String) {
+    try? writeInstalled(installedModels().filter { $0.fileName != fileName })
+  }
+
+  private static func writeInstalled(_ records: [InstalledModel]) throws {
+    let url = try ModelFiles.modelsDirectory().appendingPathComponent(installedFileName)
+    try JSONEncoder().encode(records).write(to: url, options: .atomic)
   }
 
   static func freeBytes() -> Int64? {

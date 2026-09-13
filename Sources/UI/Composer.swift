@@ -5,15 +5,19 @@ import SwiftUI
   import UIKit
 #endif
 
-/// The capsule at the bottom of the chat: what you're typing across the top, and everything you can
-/// do to it on the row underneath — what you can attach, whether the web is in play, and the round
-/// button that talks, sends, or stops. What you're editing and the photo waiting to be sent sit
-/// above the capsule, so its own shape never changes except to grow with the message.
+/// The capsule at the bottom of the chat. One line of message sits between the buttons — what you
+/// can attach and whether the web is in play on the left, the microphone and the round button that
+/// sends or stops on the right. When the message outgrows that line the buttons step down to a row
+/// of their own and the message takes the full width above them. What you're editing and the photo
+/// waiting to be sent sit above the capsule.
 ///
-/// One arrangement, always. The field used to share a row with the buttons until the message
-/// outgrew it and then move to a row of its own, which meant SwiftUI building a second field and
-/// throwing the first away — and the keyboard went down with it, on the very keystroke that needed
-/// it, every time a message reached a second line.
+/// The field never moves. An earlier version moved it — between the buttons, then to a row of its
+/// own — which meant SwiftUI building a second field and throwing the first away, and the keyboard
+/// went down with it on the very keystroke that reached a second line. So the field keeps one slot
+/// in the hierarchy and it is the buttons that come and go around it: they carry no state and can
+/// be rebuilt as often as they like. Whether the message has outgrown the line is measured from the
+/// text itself against the width the line has, not from how the field happened to lay out, so the
+/// two arrangements can't argue with each other and flicker.
 struct Composer: View {
   @Environment(\.theme) private var theme
   @Bindable var chat: ChatModel
@@ -23,6 +27,17 @@ struct Composer: View {
   @State private var photoSelection: PhotosPickerItem?
   @State private var showingCamera = false
   @State private var showingPhotoLibrary = false
+
+  /// The message as one unwrapped line, and the room the line between the buttons has for it. The
+  /// second is remembered from the last time the line was there, which is what lets the message
+  /// come back down onto it once it is short enough again.
+  @State private var draftWidth: CGFloat = 0
+  @State private var lineWidth: CGFloat = 0
+
+  /// Whether the message has outgrown the line: a line break, or wider than the room it has.
+  private var isStacked: Bool {
+    chat.draft.contains("\n") || (lineWidth > 0 && draftWidth > lineWidth - 4)
+  }
 
   /// A fixed radius rather than a true Capsule, whose ends would swell into half-circles as the
   /// field grows.
@@ -36,8 +51,8 @@ struct Composer: View {
       pendingPhoto
       inputCapsule
     }
-    .padding(.horizontal, 12)
-    .padding(.bottom, 8)
+    .padding(.horizontal, 16)
+    .padding(.bottom, 10)
     // Swiping down anywhere on the composer puts the keyboard away, the same way dragging the
     // conversation does. Simultaneous, so the field keeps its own taps and text selection.
     .simultaneousGesture(swipeDownToDismiss)
@@ -134,37 +149,63 @@ struct Composer: View {
       .font(.body)
       .focused($isInputFocused)
       .padding(.horizontal, 8)
-      .padding(.top, 8)
-      .padding(.bottom, 2)
+      // On the line, as tall as the buttons beside it so the text sits level with them; stacked,
+      // a little room above the text and the buttons' own row below it.
+      .frame(minHeight: isStacked ? 0 : ChatStyle.inlineControl)
+      .padding(.top, isStacked ? 8 : 0)
+      .padding(.bottom, isStacked ? 2 : 0)
+      // The message, unwrapped, measured out of sight: the width it would need on one line.
+      .background {
+        Text(chat.draft)
+          .font(.body)
+          .lineLimit(1)
+          .fixedSize()
+          .hidden()
+          .measuringWidth { draftWidth = $0 }
+      }
   }
 
-  // MARK: - The controls under it
+  // MARK: - The controls around it
+
+  /// The buttons on the left, as a pair: what you can attach, and whether the web is in play.
+  private var leadingButtons: some View {
+    HStack(spacing: 0) {
+      addButton
+      // Gone rather than greyed out when there is no connection: a switch that cannot be moved is
+      // something to wonder about, and web search without the web isn't a setting, it is nothing.
+      // What it was set to is kept in the settings file, not in the button, so it comes back the
+      // way it was left.
+      if !chat.isOffline { webSearchButton }
+      if chat.speechInput.state == .listening {
+        SpeechWave(level: CGFloat(chat.speechInput.level))
+          .padding(.leading, 4)
+          .transition(.opacity.combined(with: .scale(scale: 0.6, anchor: .leading)))
+      }
+    }
+  }
+
+  /// The leading pair are drawn a little narrower than the round buttons on the right, so the two
+  /// glyphs read as neighbours rather than as two stops along the row.
+  private static let leadingControl = ChatStyle.inlineControl - 6
 
   private var inputCapsule: some View {
     LiquidGlassGroup {
-      VStack(alignment: .leading, spacing: 10) {
+      // One layout holds the three pieces — the buttons on the left, the field, the buttons on the
+      // right — and only moves them. Nothing is inserted or removed when the message outgrows the
+      // line, which is what lets the change animate: the buttons slide down to their own row and
+      // the field widens over them, instead of one arrangement popping into the other.
+      ComposerLayout(stacked: isStacked, spacing: 6, rowSpacing: 8) {
+        leadingButtons
         messageField
-        HStack(spacing: 6) {
-          addButton
-          // Gone rather than greyed out when there is no connection: a switch that cannot be moved
-          // is something to wonder about, and web search without the web isn't a setting, it is
-          // nothing. What it was set to is kept in the settings file, not in the button, so it
-          // comes back the way it was left.
-          if !chat.isOffline { webSearchButton }
-          if chat.speechInput.state == .listening {
-            SpeechWave(level: CGFloat(chat.speechInput.level))
-              .padding(.leading, 4)
-              .transition(.opacity.combined(with: .scale(scale: 0.6, anchor: .leading)))
-          }
-          Spacer(minLength: 0)
-          trailingButtons
-        }
-        .animation(.snappy(duration: 0.22), value: chat.speechInput.state)
-        .animation(.snappy(duration: 0.28), value: chat.isOffline)
+          .measuringWidth { if !isStacked { lineWidth = $0 - 16 } }
+        HStack(spacing: 6) { trailingButtons }
       }
-      .padding(8)
+      .animation(.snappy(duration: 0.22), value: chat.speechInput.state)
+      .animation(.snappy(duration: 0.28), value: chat.isOffline)
+      .padding(9)
       .liquidGlass(in: containerShape)
       .overlay(containerShape.strokeBorder(theme.hairline, lineWidth: 0.5))
+      .animation(.snappy(duration: 0.26), value: isStacked)
       .animation(.snappy(duration: 0.18), value: hasSomethingToSend)
       // Only on the empty-to-typing boundary, which is sending and starting again — not on every
       // keystroke that grows the field a line.
@@ -213,7 +254,7 @@ struct Composer: View {
     Image(systemName: "plus")
       .font(.system(size: ChatStyle.inlineControlGlyph, weight: .medium))
       .foregroundStyle(available ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary))
-      .frame(width: ChatStyle.inlineControl, height: ChatStyle.inlineControl)
+      .frame(width: Self.leadingControl, height: ChatStyle.inlineControl)
       .contentShape(Circle())
   }
 
@@ -251,7 +292,7 @@ struct Composer: View {
             size: ChatStyle.inlineControlGlyph, weight: chat.webSearchOn ? .semibold : .medium)
         )
         .foregroundStyle(webSearchGlyph)
-        .frame(width: ChatStyle.inlineControl, height: ChatStyle.inlineControl)
+        .frame(width: Self.leadingControl, height: ChatStyle.inlineControl)
         .background(
           Color.primary.opacity(chat.webSearchOn ? 0.12 : 0),
           in: Circle()
@@ -265,13 +306,16 @@ struct Composer: View {
     .accessibilityLabel("Web search")
     .accessibilityValue(chat.webSearchOn ? "On" : "Off")
     .accessibilityHint(webSearchHint)
-    .disabled(chat.isGenerating)
+    .disabled(chat.isGenerating || chat.loadState != .ready)
   }
 
   /// Full strength either way — the wash behind it is what says it's on — and faded when the
   /// build carries no key, so a globe that can't be switched on doesn't look like one that can.
+  /// Faded too while no model is loaded, the same as the plus beside it: two buttons that are
+  /// waiting for the same thing should look like it together.
   private var webSearchGlyph: AnyShapeStyle {
-    chat.hasSearchKey ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary)
+    chat.hasSearchKey && chat.loadState == .ready
+      ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary)
   }
 
   /// Nothing to say about being offline: the button isn't there to be asked about then.
@@ -341,4 +385,62 @@ struct Composer: View {
     .accessibilityLabel(title)
   }
 
+}
+
+
+/// The composer's three pieces — the buttons on the left, the field, the buttons on the right —
+/// on one line, or with the field across the top and the buttons in a row beneath it. The same
+/// three views either way, only placed differently, so switching is a change of position that
+/// SwiftUI animates rather than a change of hierarchy that it can't.
+private struct ComposerLayout: Layout {
+  var stacked: Bool
+  var spacing: CGFloat
+  var rowSpacing: CGFloat
+
+  func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+    guard subviews.count == 3 else { return .zero }
+    let width = proposal.width ?? 0
+    let leading = subviews[0].sizeThatFits(.unspecified)
+    let trailing = subviews[2].sizeThatFits(.unspecified)
+    if stacked {
+      let field = subviews[1].sizeThatFits(ProposedViewSize(width: width, height: nil))
+      let row = max(leading.height, trailing.height)
+      return CGSize(width: width, height: field.height + rowSpacing + row)
+    } else {
+      let fieldWidth = max(0, width - leading.width - trailing.width - 2 * spacing)
+      let field = subviews[1].sizeThatFits(ProposedViewSize(width: fieldWidth, height: nil))
+      return CGSize(width: width, height: max(field.height, leading.height, trailing.height))
+    }
+  }
+
+  func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+    guard subviews.count == 3 else { return }
+    let leading = subviews[0].sizeThatFits(.unspecified)
+    let trailing = subviews[2].sizeThatFits(.unspecified)
+    if stacked {
+      let field = subviews[1].sizeThatFits(ProposedViewSize(width: bounds.width, height: nil))
+      subviews[1].place(
+        at: CGPoint(x: bounds.minX, y: bounds.minY), anchor: .topLeading,
+        proposal: ProposedViewSize(width: bounds.width, height: field.height))
+      let rowY = bounds.minY + field.height + rowSpacing
+      let row = max(leading.height, trailing.height)
+      subviews[0].place(
+        at: CGPoint(x: bounds.minX, y: rowY + row / 2), anchor: .leading,
+        proposal: ProposedViewSize(leading))
+      subviews[2].place(
+        at: CGPoint(x: bounds.maxX, y: rowY + row / 2), anchor: .trailing,
+        proposal: ProposedViewSize(trailing))
+    } else {
+      let fieldWidth = max(0, bounds.width - leading.width - trailing.width - 2 * spacing)
+      let field = subviews[1].sizeThatFits(ProposedViewSize(width: fieldWidth, height: nil))
+      let midY = bounds.midY
+      subviews[0].place(
+        at: CGPoint(x: bounds.minX, y: midY), anchor: .leading, proposal: ProposedViewSize(leading))
+      subviews[1].place(
+        at: CGPoint(x: bounds.minX + leading.width + spacing, y: midY), anchor: .leading,
+        proposal: ProposedViewSize(width: fieldWidth, height: field.height))
+      subviews[2].place(
+        at: CGPoint(x: bounds.maxX, y: midY), anchor: .trailing, proposal: ProposedViewSize(trailing))
+    }
+  }
 }

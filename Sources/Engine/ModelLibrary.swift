@@ -1,20 +1,30 @@
 import Foundation
 import Observation
 
-/// An installed model file. Installing a file with the same name again still produces a different
+/// A model file on the phone. Installing a file with the same name again still produces a different
 /// value (its size or modification date differ), which is what tells the chat to reload the engine.
-struct ModelFile: Hashable, Sendable {
+struct ModelFile: Hashable, Sendable, Identifiable {
   let url: URL
   let fileSize: Int64
   let modificationDate: Date
   /// What to call the model on screen: the catalog name where there is one, the file name otherwise.
   let displayName: String
+  /// Which catalog model it was downloaded as, and which version — nil for a file the app didn't
+  /// download itself.
+  let catalogID: String?
+  let version: String?
+  /// Downloaded as part of Anvil Pro. Usable only while Pro is active: see `ModelLibrary.proUnlocked`.
+  var isPro: Bool = false
+
+  var id: URL { url }
+  var fileName: String { url.lastPathComponent }
 }
 
-/// Finds the installed model and protects the file.
+/// The models on the phone, and which one the chat runs on.
 ///
-/// A downloaded `.litertlm` file is built up in Application Support/Models, which is hidden from the
-/// Files app and excluded from backups.
+/// Several can be installed at once — the catalog model beside an imported one — and one is active. Downloads
+/// go into Application Support/Models, which is hidden from the Files app and excluded from
+/// backups; the active one is remembered by name, so it survives a relaunch and a reinstall.
 @MainActor
 @Observable
 final class ModelLibrary {
@@ -26,7 +36,16 @@ final class ModelLibrary {
   }
 
   private(set) var state: State = .checking
+  /// Every model on the phone, by name. The one in `state` is the one in use.
+  private(set) var installed: [ModelFile] = []
   let downloader = ModelDownloader()
+
+  /// Whether Anvil Pro is active, as the root view hears it from the App Store. A Pro model on the
+  /// phone stays listed whatever this says, but is only ever the active one while it is true: when
+  /// Pro lapses the chat moves to a free model, or to the install screen if there is none.
+  var proUnlocked = false {
+    didSet { if proUnlocked != oldValue { apply(installed) } }
+  }
 
   private var isRefreshing = false
   private var installTask: Task<Void, Never>?
@@ -36,7 +55,12 @@ final class ModelLibrary {
     downloader.isActive ? nil : ModelDownloader.interrupted
   }
 
-  /// Downloads a model from anvilai.com and loads it once it arrives.
+  var active: ModelFile? {
+    if case .ready(let file) = state { return file }
+    return nil
+  }
+
+  /// Downloads a model from anvilai.com. Whatever is already installed stays; the new one joins it.
   func install(_ model: CatalogModel) {
     guard !downloader.isActive else { return }
     installTask?.cancel()
@@ -61,24 +85,52 @@ final class ModelLibrary {
     defer { isRefreshing = false }
 
     do {
-      if let existing = try ModelFiles.firstModel(in: ModelFiles.modelsDirectory()) {
-        setState(.ready(try ModelFiles.describe(existing)))
-      } else {
-        setState(.missing)
-      }
+      let files = try ModelFiles.models(in: ModelFiles.modelsDirectory()).map(ModelFiles.describe)
+      apply(files)
     } catch {
       setState(.failed(error.localizedDescription))
     }
   }
 
-  func removeModel() async {
+  /// Makes this the model the chat runs on. The chat sees the change and loads it.
+  func select(_ file: ModelFile) {
+    guard installed.contains(file), usable(file) else { return }
+    ModelFiles.setActiveFileName(file.fileName)
+    setState(.ready(file))
+  }
+
+  /// Deletes one model. If it was the one in use, whichever is left takes over — or nothing does.
+  func remove(_ file: ModelFile) async {
     do {
-      await cancelInstall()
-      try await Task.detached { try ModelFiles.removeImportedModels() }.value
-      setState(.missing)
+      try await Task.detached { try ModelFiles.remove(file) }.value
+      if ModelFiles.activeFileName() == file.fileName { ModelFiles.setActiveFileName(nil) }
+      apply(installed.filter { $0 != file })
     } catch {
       setState(.failed(error.localizedDescription))
     }
+  }
+
+  /// Settles on what is installed and which of it is active: the one chosen before if it is still
+  /// here, else the one already in use, else the first. Whichever it is, it is written down, so the
+  /// choice is stable from here on rather than being the first file in the folder each time.
+  private func apply(_ files: [ModelFile]) {
+    installed = files
+    let candidates = files.filter(usable)
+    guard let first = candidates.first else {
+      setState(.missing)
+      return
+    }
+    let chosen =
+      candidates.first { $0.fileName == ModelFiles.activeFileName() }
+      ?? candidates.first { $0.fileName == active?.fileName }
+      ?? first
+    ModelFiles.setActiveFileName(chosen.fileName)
+    setState(.ready(chosen))
+  }
+
+  /// Free models always; a Pro model only while Pro is active.
+  private func usable(_ file: ModelFile) -> Bool {
+    proUnlocked || !file.isPro
   }
 
   private func setState(_ newState: State) {
@@ -90,8 +142,9 @@ final class ModelLibrary {
 /// the main thread.
 enum ModelFiles {
   static let fileExtension = "litertlm"
+  private static let activeFileNameKey = "activeModelFileName"
 
-  /// Where the model lives: private to the app and never backed up.
+  /// Where the models live: private to the app and never backed up.
   static func modelsDirectory() throws -> URL {
     let support = try FileManager.default.url(
       for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
@@ -111,12 +164,12 @@ enum ModelFiles {
     return directory
   }
 
-  static func firstModel(in directory: URL) throws -> URL? {
+  /// Every model file in the directory, by name.
+  static func models(in directory: URL) throws -> [URL] {
     try FileManager.default
       .contentsOfDirectory(at: directory, includingPropertiesForKeys: nil, options: .skipsHiddenFiles)
       .filter { $0.pathExtension.lowercased() == fileExtension }
       .sorted { $0.lastPathComponent < $1.lastPathComponent }
-      .first
   }
 
   /// Reads the size straight from disk. URL resource values are cached, which would give a stale
@@ -130,22 +183,29 @@ enum ModelFiles {
     var url = url
     try excludeFromBackup(&url)
     let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
-    let installed = ModelDownloadFiles.installed()
-    let name = installed?.fileName == url.lastPathComponent ? installed?.name : nil
+    let record = ModelDownloadFiles.installed(named: url.lastPathComponent)
     return ModelFile(
       url: url,
       fileSize: (attributes[.size] as? NSNumber)?.int64Value ?? 0,
       modificationDate: attributes[.modificationDate] as? Date ?? .distantPast,
-      displayName: name ?? url.deletingPathExtension().lastPathComponent)
+      displayName: record?.name ?? url.deletingPathExtension().lastPathComponent,
+      catalogID: record?.id,
+      version: record?.version,
+      isPro: record?.pro ?? false)
   }
 
-  static func removeImportedModels() throws {
-    let fileManager = FileManager.default
-    for file in try fileManager.contentsOfDirectory(
-      at: modelsDirectory(), includingPropertiesForKeys: nil)
-    {
-      try fileManager.removeItem(at: file)
-    }
+  /// The file, and the record of what it was.
+  static func remove(_ file: ModelFile) throws {
+    try FileManager.default.removeItem(at: file.url)
+    ModelDownloadFiles.forget(file.fileName)
+  }
+
+  static func activeFileName() -> String? {
+    UserDefaults.standard.string(forKey: activeFileNameKey)
+  }
+
+  static func setActiveFileName(_ name: String?) {
+    UserDefaults.standard.set(name, forKey: activeFileNameKey)
   }
 
   private static func excludeFromBackup(_ url: inout URL) throws {

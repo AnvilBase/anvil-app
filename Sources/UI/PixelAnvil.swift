@@ -26,8 +26,9 @@ struct PixelAnvil: View {
 
 /// The mark as a path: one rectangle per filled cell, edge to edge, in the one shape. Cells that
 /// touch share an edge exactly, so the fill runs across them without a seam — what comes out is the
-/// solid mark in the icon file rather than a lattice version of it.
-private struct AnvilShape: Shape {
+/// solid mark in the icon file rather than a lattice version of it. ``GoldAnvil`` fills the same
+/// shape its own way.
+struct AnvilShape: Shape {
   private static let rows = [
     "#######",
     "#######",

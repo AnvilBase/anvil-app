@@ -7,7 +7,7 @@ struct ChatScreen: View {
   @Environment(AppLock.self) private var lock
   @Bindable var chat: ChatModel
   let model: ModelFile
-  let onRemoveModel: () -> Void
+  let library: ModelLibrary
 
   @State private var isSidebarOpen = false
   @State private var showingSettings = false
@@ -85,8 +85,7 @@ struct ChatScreen: View {
       fullScreenPhoto = nil
     }
     .sheet(isPresented: $showingSettings, onDismiss: { Task { await chat.settingsDidClose() } }) {
-      SettingsScreen(
-        chat: chat, model: model, settings: chat.settings, onRemoveModel: onRemoveModel)
+      SettingsScreen(chat: chat, library: library, settings: chat.settings)
     }
     .sheet(isPresented: $showingDeveloper) {
       NavigationStack {
@@ -210,7 +209,28 @@ struct ChatScreen: View {
         .foregroundStyle(.orange)
       Text("Couldn't load the model")
         .font(.title3.weight(.semibold))
+      // The engine's own reason, in full: it is the one clue to what to change, and a screen that
+      // hides it leaves someone re-downloading a model that was never the problem.
+      if case .failed(let reason) = chat.loadState {
+        Text(reason)
+          .font(.subheadline)
+          .foregroundStyle(.secondary)
+          .multilineTextAlignment(.center)
+      }
+      Button {
+        Task { await chat.reloadModel() }
+      } label: {
+        Text("Try again")
+          .font(.headline)
+          .padding(.horizontal, 28)
+          .frame(height: ChatStyle.inlineControl)
+          .background(theme.sendFill, in: Capsule())
+          .foregroundStyle(theme.sendGlyph)
+      }
+      .buttonStyle(.plain)
+      .padding(.top, 8)
     }
+    .padding(.horizontal, 32)
     .padding()
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .overlay(alignment: .bottom) { momentaryNotice }
@@ -280,27 +300,24 @@ struct ChatScreen: View {
   /// the field. It is still a scroll view, though there is nothing to scroll, so that dragging down
   /// here puts the keyboard away exactly as it does over a conversation.
   private var emptyState: some View {
-    GeometryReader { proxy in
-      ScrollView {
-        Color.clear.frame(height: proxy.size.height)
-      }
-      .scrollBounceBehavior(.always)
-      .scrollDismissesKeyboard(.interactively)
-      // Laid over the page rather than in it, and taking no touches of its own — a finger that
-      // lands on it goes straight through to the scroll view under it — so dragging anywhere on
-      // this screen still puts the keyboard away.
-      .overlay {
-        emptyGuide
-          // Nothing inside the guide takes the page's spring: the page arrives and leaves under
-          // `sendMotion`, and a guide that assembled itself, or slid into place, as that spring
-          // settled would be one more thing moving on a screen that should have nothing moving.
-          // The fade below is the whole of its entrance and exit.
-          .transaction { $0.animation = nil }
-          .offset(y: -proxy.size.height * 0.06)
-          .allowsHitTesting(false)
-          // It leaves with the first message, the same way the message arrives.
-          .transition(.opacity)
-      }
+    ScrollView {
+      // Tall enough to fill the page, so there is something to drag on.
+      Color.clear
+        .containerRelativeFrame(.vertical)
+    }
+    .scrollBounceBehavior(.always)
+    .scrollDismissesKeyboard(.interactively)
+    // Laid over the page rather than in it, and taking no touches of its own — a finger that
+    // lands on it goes straight through to the scroll view under it — so dragging anywhere on
+    // this screen still puts the keyboard away. Plain layout and a fixed nudge, nothing measured:
+    // the guide has to ride the page rigidly as the drawer slides it, and anything here that is
+    // re-derived per frame is something that can drift from it.
+    .overlay {
+      emptyGuide
+        .offset(y: -44)
+        .allowsHitTesting(false)
+        // It leaves with the first message, the same way the message arrives.
+        .transition(.opacity)
     }
   }
 

@@ -137,6 +137,14 @@ final class ChatModel {
         return
       }
     }
+    // Nothing to load. Said here rather than left to the engine, which would try each backend in
+    // turn against a file that isn't there.
+    guard FileManager.default.fileExists(atPath: model.url.path) else {
+      modelDetails = nil
+      loadedEngineOptions = nil
+      loadState = .failed("No model is installed. Download one in Settings › Model.")
+      return
+    }
     LoadAttempt.begin(options)
 
     do {
@@ -153,9 +161,7 @@ final class ChatModel {
       guard loadedModel == model else { return }
       modelDetails = nil
       loadedEngineOptions = nil
-      loadState = .failed(
-        "\(error.localizedDescription)\n\nThe file may be incomplete or not a LiteRT-LM model, "
-          + "or the phone may not have enough free memory.")
+      loadState = .failed(error.localizedDescription)
     }
   }
 

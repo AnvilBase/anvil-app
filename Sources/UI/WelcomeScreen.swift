@@ -16,19 +16,21 @@ struct WelcomeScreen: View {
   private var productName: String { AppFlavor.productName }
 
   var body: some View {
-    ScrollView {
-      VStack(alignment: .leading, spacing: 44) {
-        title
-        VStack(alignment: .leading, spacing: 30) {
-          ForEach(points) { point in
-            row(point)
+    // Centred on the page, with room to scroll only if the type is set large enough to need it.
+    GeometryReader { proxy in
+      ScrollView {
+        VStack(alignment: .leading, spacing: 44) {
+          title
+          VStack(alignment: .leading, spacing: 30) {
+            ForEach(points) { point in
+              row(point)
+            }
           }
         }
+        .padding(.horizontal, 24)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(minHeight: proxy.size.height)
       }
-      .padding(.horizontal, 24)
-      .padding(.top, 40)
-      .padding(.bottom, 24)
-      .frame(maxWidth: .infinity, alignment: .leading)
     }
     .background(theme.page)
     .safeAreaInset(edge: .bottom) { continueButton }
@@ -41,45 +43,34 @@ struct WelcomeScreen: View {
       // The mark itself, the same one the drawer carries, just larger. Nothing is coloured on this
       // screen: the anvil and the name are the one shape you are meant to come away with.
       PixelAnvil(size: 68)
-      VStack(spacing: 0) {
-        Text("Welcome to")
-        Text(productName)
-      }
-      .font(.largeTitle.bold())
-      .multilineTextAlignment(.center)
-      // Text here is already two steps up from the system default (see `AnvilRootScene`), and this
-      // is the largest type in the app. Rather than wrap the name onto a second line, let it close
-      // up.
-      .minimumScaleFactor(0.6)
-      .lineLimit(1)
+      // One line, always. Text here is already two steps up from the system default (see
+      // `AnvilRootScene`), and this is the largest type in the app: rather than wrap onto a second
+      // line at the biggest sizes, it closes up to fit.
+      Text("Welcome to \(productName)")
+        .font(.largeTitle.bold())
+        .minimumScaleFactor(0.6)
+        .lineLimit(1)
     }
     .frame(maxWidth: .infinity)
   }
 
   // MARK: - What the app is
 
-  /// Three things, and the order is the argument: it runs here, so nothing goes out, so here is the
-  /// short list of what does.
+  /// Three things, each with the one line it needs.
   private var points: [Point] {
     [
       Point(
-        symbol: "sparkles",
-        title: "Offline assistant",
-        detail:
-          "A model runs entirely on this iPhone. No account, no sign-in, and no internet needed to "
-          + "chat."),
-      Point(
         symbol: "lock.fill",
-        title: "Private and secure",
-        detail:
-          "Chats are encrypted with your passcode and stay on the phone. No analytics, no "
-          + "telemetry, nothing uploaded."),
+        title: "Private & Secure",
+        detail: "Chats are encrypted with your passcode and stay on this iPhone."),
       Point(
-        symbol: "antenna.radiowaves.left.and.right",
-        title: "Only two things go out",
-        detail:
-          "Downloading a model, and web search when you ask for it. You can see both happen, and "
-          + "nothing else ever leaves."),
+        symbol: "airplane",
+        title: "Works Offline",
+        detail: "The model runs on the phone. No account, and no internet needed to chat."),
+      Point(
+        symbol: "lock.square.fill",
+        title: "Nothing Leaves Your Phone",
+        detail: "No analytics, no telemetry, all local."),
     ]
   }
 
@@ -95,7 +86,8 @@ struct WelcomeScreen: View {
     HStack(alignment: .top, spacing: 18) {
       Image(systemName: point.symbol)
         .font(.title2)
-        .symbolRenderingMode(.hierarchical)
+        // Solid, one colour: a glyph drawn in layers reads as a picture, and these are marks.
+        .symbolRenderingMode(.monochrome)
         // A fixed column, so the three titles start on the same line however wide their glyphs are.
         .frame(width: 34, alignment: .center)
         .accessibilityHidden(true)

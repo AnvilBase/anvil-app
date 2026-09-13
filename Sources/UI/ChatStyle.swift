@@ -142,6 +142,17 @@ struct LiquidGlassGroup<Content: View>: View {
 }
 
 extension View {
+  /// Reports this view's width whenever it changes.
+  func measuringWidth(_ report: @escaping (CGFloat) -> Void) -> some View {
+    background {
+      GeometryReader { proxy in
+        Color.clear
+          .onAppear { report(proxy.size.width) }
+          .onChange(of: proxy.size.width) { _, width in report(width) }
+      }
+    }
+  }
+
   /// Reports this view's height whenever it changes. Used to lay a message out off-screen and ask
   /// how tall it came out.
   func measuringHeight(_ report: @escaping (CGFloat) -> Void) -> some View {

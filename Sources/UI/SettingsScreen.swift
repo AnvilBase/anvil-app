@@ -10,15 +10,15 @@ import SwiftUI
 /// when Pro is active, and as the same row marked Pro, leading to the paywall, when it isn't.
 struct SettingsScreen: View {
   let chat: ChatModel
-  let model: ModelFile
+  let library: ModelLibrary
   @Bindable var settings: SettingsStore
-  /// Throwing the model away and starting again. It is the last resort for a model that won't
-  /// load, and this is the only place it can be reached from.
-  let onRemoveModel: () -> Void
 
   @Environment(ProAccess.self) private var pro
+  @Environment(\.theme) private var theme
   @Environment(\.dismiss) private var dismiss
   @State private var confirmingDeleteAll = false
+  /// What anvilai.com publishes, for the models that aren't on the phone yet.
+  @State private var catalog: [CatalogModel] = []
 
   private var showsDevelopmentFeatures: Bool {
     AppFlavor.showsDevelopmentFeatures(settings.values)
@@ -36,8 +36,8 @@ struct SettingsScreen: View {
         if showsDevelopmentFeatures { metricsSection }
         generationSection
         historySection
-        appearanceSection
         securitySection
+        appearanceSection
         if AppFlavor.isDevelopment, !showsDevelopmentFeatures { backToDevelopmentSection }
       }
       .navigationTitle("Settings")
@@ -61,26 +61,38 @@ struct SettingsScreen: View {
 
   // MARK: - Pro
 
+  /// The one row in Settings that is selling something, and it looks like it: the mark on its
+  /// tile, the way it sits on the Home Screen, and a line of what Pro is. Still ink.
   private var proSection: some View {
     Section {
       NavigationLink {
         ProScreen()
       } label: {
-        HStack(spacing: 12) {
-          PixelAnvil(size: 20)
-          Text("Anvil Pro")
+        HStack(spacing: 14) {
+          // Gold on black whatever the theme: this is the one thing in Settings that is for sale,
+          // and it is allowed to look it.
+          RoundedRectangle(cornerRadius: 9, style: .continuous)
+            .fill(.black)
+            .frame(width: 40, height: 40)
+            .overlay(GoldAnvil(size: 24))
+          VStack(alignment: .leading, spacing: 3) {
+            Text("Anvil Pro")
+              .font(.headline)
+            Text(pro.isUnlocked ? "Active" : "Anvil Core · Prompt · Themes · Lock · Talk mode")
+              .font(.footnote)
+              .foregroundStyle(.secondary)
+              .lineLimit(1)
+          }
           Spacer()
-          Text(proStatus)
-            .foregroundStyle(.secondary)
+          if !pro.isUnlocked, let price = pro.displayPrice {
+            Text("\(price)/mo")
+              .font(.subheadline)
+              .foregroundStyle(.secondary)
+          }
         }
+        .padding(.vertical, 4)
       }
     }
-  }
-
-  private var proStatus: String {
-    if pro.isUnlocked { return "Active" }
-    if let price = pro.displayPrice { return "\(price) a month" }
-    return ""
   }
 
   /// The small outline that marks a Pro row, in the shape Recommended takes on the model screen.
@@ -113,13 +125,135 @@ struct SettingsScreen: View {
 
   // MARK: - Sections
 
+  /// The models on the phone, with a mark against the one in use; the ones that could be, with a
+  /// way to get them; and the reload. Tap a model to switch to it, swipe one to delete it. A Pro
+  /// model — Anvil Core — is listed either way, and is the paywall's door rather than a model to
+  /// switch to or download until Pro is active.
   private var modelSection: some View {
     Section("Model") {
-      LabeledContent("Loaded", value: model.displayName)
-      Button("Remove model", role: .destructive) {
-        dismiss()
-        onRemoveModel()
+      ForEach(library.installed) { file in
+        Group {
+          if file.isPro, !pro.isUnlocked {
+            NavigationLink {
+              ProScreen()
+            } label: {
+              LabeledContent(file.displayName) { proBadge }
+            }
+          } else {
+            Button {
+              guard file != library.active else { return }
+              library.select(file)
+              dismiss()
+            } label: {
+              HStack {
+                Text(file.displayName)
+                  .foregroundStyle(Color.primary)
+                Spacer()
+                if file == library.active {
+                  Image(systemName: "checkmark")
+                    .foregroundStyle(Color.secondary)
+                }
+              }
+            }
+          }
+        }
+        .swipeActions(edge: .trailing) {
+          Button("Delete", role: .destructive) {
+            Task {
+              // The engine has the file open; let go of it before it goes.
+              if file == library.active { await chat.unload() }
+              await library.remove(file)
+            }
+          }
+        }
       }
+      ForEach(updates) { model in
+        downloadRow(model, verb: "Update")
+      }
+      ForEach(available) { model in
+        downloadRow(model, verb: "Download")
+      }
+      // Always here, not only when a setting has changed: this is also the way back from a model
+      // that wouldn't load.
+      Button {
+        Task { await chat.reloadModel() }
+        dismiss()
+      } label: {
+        Label("Reload model", systemImage: "arrow.clockwise")
+          .foregroundStyle(Color.primary)
+      }
+    }
+    .task { catalog = (try? await ModelCatalog.load()) ?? [] }
+  }
+
+  /// Catalog models that aren't on the phone at all.
+  private var available: [CatalogModel] {
+    catalog.filter { model in
+      !library.installed.contains { $0.catalogID == model.id || $0.fileName == model.fileName }
+    }
+  }
+
+  /// Catalog models the phone has an older version of. The catalog can change what a name means —
+  /// a model re-based on something better — and the file name stays; the version is what moves.
+  private var updates: [CatalogModel] {
+    catalog.filter { model in
+      library.installed.contains { $0.catalogID == model.id && $0.version != model.version }
+    }
+  }
+
+  @ViewBuilder
+  private func downloadRow(_ model: CatalogModel, verb: String) -> some View {
+    let downloader = library.downloader
+    if model.isPro, !pro.isUnlocked {
+      NavigationLink {
+        ProScreen()
+      } label: {
+        HStack {
+          Label("\(verb) \(model.name)", systemImage: "arrow.down.circle")
+            .foregroundStyle(Color.primary)
+          Spacer()
+          proBadge
+        }
+      }
+    } else if downloader.model == model, downloader.isActive {
+      VStack(alignment: .leading, spacing: 8) {
+        HStack {
+          Text(model.name)
+          Spacer()
+          Text("\(Int(downloader.fraction * 100))%")
+            .foregroundStyle(.secondary)
+            .monospacedDigit()
+        }
+        ProgressView(value: downloader.fraction)
+          .tint(theme.sendFill)
+        Button("Cancel", role: .destructive) { Task { await library.cancelInstall() } }
+          .font(.subheadline)
+      }
+    } else if downloader.model == model, case .failed(let message) = downloader.phase {
+      VStack(alignment: .leading, spacing: 6) {
+        Text(model.name)
+        Text(message)
+          .font(.footnote)
+          .foregroundStyle(.secondary)
+        HStack(spacing: 16) {
+          Button("Try again") { library.install(model) }
+          Button("Start over", role: .destructive) { Task { await library.cancelInstall() } }
+        }
+        .font(.subheadline)
+      }
+    } else {
+      Button {
+        library.install(model)
+      } label: {
+        HStack {
+          Label("\(verb) \(model.name)", systemImage: "arrow.down.circle")
+            .foregroundStyle(Color.primary)
+          Spacer()
+          Text(model.formattedSize)
+            .foregroundStyle(Color.secondary)
+        }
+      }
+      .disabled(downloader.isActive)
     }
   }
 
@@ -235,45 +369,112 @@ struct SettingsScreen: View {
 
   private var appearanceSection: some View {
     Section("Appearance") {
+      // The section is already called Appearance; a segmented picker in a Form would print its
+      // own title above the control and say it twice.
       Picker("Appearance", selection: $settings.values.appearance) {
         ForEach(AppearancePreference.allCases) { preference in
           Text(preference.label).tag(preference)
         }
       }
       .pickerStyle(.segmented)
+      .labelsHidden()
 
-      proGated("Theme") {
-        Picker("Theme", selection: $settings.values.theme) {
-          ForEach(AppTheme.allCases) { theme in
-            HStack(spacing: 10) {
-              Circle()
-                .fill(theme.swatch)
-                .frame(width: 14, height: 14)
-              Text(theme.label)
-            }
-            .tag(theme)
-          }
-        }
-      }
+      proGated("Theme") { themeChooser }
+      proGated("App icon") { iconChooser }
+    }
+  }
 
-      proGated("App icon") {
-        Picker("App icon", selection: $settings.values.appIcon) {
-          ForEach(AppIconChoice.allCases) { icon in
-            HStack(spacing: 10) {
-              RoundedRectangle(cornerRadius: 5, style: .continuous)
-                .fill(icon.colors.background)
-                .frame(width: 22, height: 22)
-                .overlay(PixelAnvil(size: 12, color: icon.colors.mark))
+  // MARK: - Choosing by looking
+
+  /// The themes, each as a small page — its colour, a bubble, the one filled button — so what is
+  /// being chosen is seen rather than named. Tap to choose; the ring marks the one in use.
+  private var themeChooser: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      Text("Theme")
+      ScrollView(.horizontal) {
+        HStack(spacing: 14) {
+          ForEach(AppTheme.allCases) { choice in
+            let palette = choice.palette
+            swatch(
+              label: choice.label, selected: settings.values.theme == choice,
+              action: { settings.values.theme = choice }
+            ) {
+              RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(palette.page)
+                .overlay(alignment: .topLeading) {
+                  VStack(alignment: .leading, spacing: 5) {
+                    Capsule().fill(palette.userBubble).frame(width: 30, height: 9)
+                    Capsule().fill(palette.userBubble).frame(width: 20, height: 9)
+                  }
+                  .padding(9)
+                }
+                .overlay(alignment: .bottomTrailing) {
+                  Circle().fill(palette.sendFill).frame(width: 14, height: 14).padding(8)
+                }
                 .overlay(
-                  RoundedRectangle(cornerRadius: 5, style: .continuous)
-                    .strokeBorder(.secondary.opacity(0.3), lineWidth: 0.5))
-              Text(icon.label)
+                  RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(palette.hairline, lineWidth: 1))
             }
-            .tag(icon)
           }
         }
+        .padding(.vertical, 2)
       }
     }
+  }
+
+  /// The icons, as the icons: the mark on its tile in each of its colours.
+  private var iconChooser: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      Text("App icon")
+      ScrollView(.horizontal) {
+        HStack(spacing: 14) {
+          ForEach(AppIconChoice.allCases) { choice in
+            swatch(
+              label: choice.label, selected: settings.values.appIcon == choice,
+              action: { settings.values.appIcon = choice }
+            ) {
+              RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .fill(choice.colors.background)
+                .overlay {
+                  if choice == .pro {
+                    GoldAnvil(size: 32)
+                  } else {
+                    PixelAnvil(size: 30, color: choice.colors.mark)
+                  }
+                }
+                .overlay(
+                  RoundedRectangle(cornerRadius: 13, style: .continuous)
+                    .strokeBorder(.secondary.opacity(0.25), lineWidth: 0.5))
+            }
+          }
+        }
+        .padding(.vertical, 2)
+      }
+    }
+  }
+
+  /// One choice: the preview, a ring when it is the one in use, and its name underneath. A plain
+  /// button, so each is its own tap inside a row that holds several.
+  private func swatch<Preview: View>(
+    label: String, selected: Bool, action: @escaping () -> Void,
+    @ViewBuilder preview: () -> Preview
+  ) -> some View {
+    Button(action: action) {
+      VStack(spacing: 6) {
+        preview()
+          .frame(width: 58, height: 58)
+          .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+              .strokeBorder(selected ? Color.primary : .clear, lineWidth: 2)
+              .padding(-3))
+        Text(label)
+          .font(.caption)
+          .foregroundStyle(selected ? Color.primary : Color.secondary)
+      }
+    }
+    .buttonStyle(.plain)
+    .accessibilityLabel(label)
+    .accessibilityAddTraits(selected ? .isSelected : [])
   }
 
   private var securitySection: some View {

@@ -112,6 +112,7 @@ extension EnvironmentValues {
 /// alternates compiled from the asset catalog and switched with `setAlternateIconName`.
 enum AppIconChoice: String, Codable, CaseIterable, Identifiable, Sendable {
   case anvil
+  case pro
   case inverse
   case ember
   case frost
@@ -123,6 +124,7 @@ enum AppIconChoice: String, Codable, CaseIterable, Identifiable, Sendable {
   var label: String {
     switch self {
     case .anvil: "Anvil"
+    case .pro: "Pro"
     case .inverse: "Inverse"
     case .ember: "Ember"
     case .frost: "Frost"
@@ -140,6 +142,7 @@ enum AppIconChoice: String, Codable, CaseIterable, Identifiable, Sendable {
   var colors: (background: Color, mark: Color) {
     switch self {
     case .anvil: (.black, .white)
+    case .pro: (.black, AppTheme.ember.swatch)  // the chooser draws this one as the gold block
     case .inverse: (.white, .black)
     case .ember: (.black, AppTheme.ember.swatch)
     case .frost: (.black, AppTheme.frost.swatch)
