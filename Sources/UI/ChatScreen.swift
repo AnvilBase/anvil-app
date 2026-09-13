@@ -455,6 +455,7 @@ struct ChatScreen: View {
               .foregroundStyle(.primary)
               .frame(width: ChatStyle.inlineControl, height: ChatStyle.inlineControl)
               .liquidGlass(in: Circle(), interactive: true)
+              .contentShape(Circle())
           }
           .buttonStyle(.plain)
           .accessibilityLabel("Scroll to latest message")

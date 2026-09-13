@@ -115,6 +115,7 @@ struct ChatSidebar: View {
           .font(.system(size: ChatStyle.controlGlyph, weight: .medium))
           .frame(width: ChatStyle.control, height: ChatStyle.control)
           .liquidGlass(in: Circle(), interactive: true)
+          .contentShape(Circle())
       }
       .buttonStyle(.plain)
       .foregroundStyle(.primary)
@@ -298,6 +299,7 @@ struct ChatSidebar: View {
         .font(.system(size: ChatStyle.controlGlyph, weight: .medium))
         .frame(width: ChatStyle.control, height: ChatStyle.control)
         .liquidGlass(in: Circle(), interactive: true)
+        .contentShape(Circle())
     }
     .buttonStyle(.plain)
     .foregroundStyle(.primary)
@@ -311,6 +313,7 @@ struct ChatSidebar: View {
         .font(.system(size: ChatStyle.controlGlyph, weight: .medium))
         .frame(width: ChatStyle.control, height: ChatStyle.control)
         .liquidGlass(in: Circle(), interactive: true)
+        .contentShape(Circle())
     }
     .buttonStyle(.plain)
     .foregroundStyle(.primary)
@@ -343,6 +346,7 @@ struct ChatSidebar: View {
           .font(.system(size: 19, weight: .semibold))
           .frame(width: ChatStyle.control, height: ChatStyle.control)
           .liquidGlass(in: Circle(), interactive: true)
+          .contentShape(Circle())
       }
       .buttonStyle(.plain)
       .foregroundStyle(.primary)

@@ -122,6 +122,7 @@ struct Composer: View {
           .font(.system(size: 15, weight: .semibold))
           .frame(width: ChatStyle.smallControl, height: ChatStyle.smallControl)
           .liquidGlass(in: Circle(), interactive: true)
+          .contentShape(Circle())
       }
       .buttonStyle(.plain)
       .foregroundStyle(.primary)
