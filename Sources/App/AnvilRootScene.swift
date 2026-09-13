@@ -165,7 +165,7 @@ private struct RootView: View {
     }
     // A sheet is its own presentation, which `preferredColorScheme` on the root does not reach:
     // Settings stayed as it was while the chat behind it changed, and caught up only when reopened.
-    // The window is told as well, and every presentation in it follows, at once.
+    // The window is told as well, and so is every presentation up in it, at once.
     .onChange(of: chat.settings.values.appearance, initial: true) { _, appearance in
       appearance.applyToWindows()
     }
@@ -193,8 +193,8 @@ private struct RootView: View {
 }
 
 extension AppearancePreference {
-  /// Sets the interface style on every window the app has, which each sheet, alert and dialog in
-  /// them follows. Nothing for `system`, which hands the choice back to the phone.
+  /// Sets the interface style on every window the app has and on every sheet, alert and dialog up
+  /// in them. Unspecified for `system`, which hands the choice back to the phone.
   func applyToWindows() {
     #if canImport(UIKit)
       let style: UIUserInterfaceStyle =
@@ -204,7 +204,16 @@ extension AppearancePreference {
         case .dark: .dark
         }
       for case let scene as UIWindowScene in UIApplication.shared.connectedScenes {
-        for window in scene.windows { window.overrideUserInterfaceStyle = style }
+        for window in scene.windows {
+          window.overrideUserInterfaceStyle = style
+          // A sheet already up keeps the style it was presented with, which outranks the window's:
+          // Settings, and the passcode sheet over it, have to be told themselves.
+          var presented = window.rootViewController?.presentedViewController
+          while let controller = presented {
+            controller.overrideUserInterfaceStyle = style
+            presented = controller.presentedViewController
+          }
+        }
       }
     #endif
   }

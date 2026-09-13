@@ -32,9 +32,11 @@ final class ProAccess {
   private(set) var lastError: String?
 
   #if ANVIL_DEV
-    /// The development app looking at Pro without buying it. Not persisted: it is a way of seeing
-    /// the screens, not a way of having the feature, and it is gone when the app is.
-    var previewUnlocked = false
+    /// The development app looking at Pro without buying it. On from launch, because the Pro
+    /// screens are what the development app is mostly used to look at; the developer screen's
+    /// switch turns it off to see the free app. Not persisted: it is a way of seeing the screens,
+    /// not a way of having the feature, and every launch starts with it on again.
+    var previewUnlocked = true
   #endif
 
   var isUnlocked: Bool {

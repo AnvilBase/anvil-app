@@ -75,9 +75,11 @@ Two things are worth knowing because they aren't the app:
 - The photo picker runs in a separate system process. If a photo lives only in iCloud, iOS itself may
   download it; the app doesn't.
 - Tapping a source opens it in Safari, outside the app.
-- **Settings › Feedback** starts a mail in your mail app. A bug report comes with one line naming the
-  app version, the phone model, the iOS version, the model in use and whether Pro is on — nothing
-  from your chats — and you see all of it before you send it.
+- **Settings › Feedback** has a page each for feedback and for a bug report. What you write there is
+  sent only when you send it from your mail: **Send** opens it as a mail to you first, and the app
+  transmits nothing itself. By default it ends with one line naming the app version, the phone model,
+  the iOS version, the model in use and whether Pro is on — shown in full on the page, nothing from
+  your chats, and switched off with **Include device details**.
 
 ## Microphone, speech, and camera
 

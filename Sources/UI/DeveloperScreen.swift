@@ -134,7 +134,7 @@ struct DeveloperScreen: View {
   /// swipe-to-delete in Settings does; then every model goes, every chat, every memory, the
   /// totals and the passcode; the settings go back to their defaults — the welcome flag with
   /// them, so the root shows the welcome screen and the install screen after it — and the Pro
-  /// preview is switched off.
+  /// preview is back on, the way the development app opens.
   private func resetApp() {
     Task {
       await chat.unload()
@@ -147,7 +147,7 @@ struct DeveloperScreen: View {
       chat.resetTotals()
       AppLock.clearPasscode()
       #if ANVIL_DEV
-        pro.previewUnlocked = false
+        pro.previewUnlocked = true
       #endif
       chat.settings.values = AppSettings()
       chat.settings.save()

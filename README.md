@@ -254,8 +254,9 @@ the paywall — the way in is Anvil Core, and Pro is found in Settings.
 
 Whether Pro is active is read from the App Store's entitlements, in `Sources/Pro/ProAccess.swift`,
 and from nowhere else. The settings Pro unlocks are stored either way and honoured only while the App
-Store says so. The development app has a **Preview Pro** switch on its developer screen for looking
-at the screens; like the rest of that screen, it is compiled out of the public app.
+Store says so. The development app opens with Pro previewed, and its developer screen has a
+**Preview Pro** switch to turn that off and see the free app; like the rest of that screen, it is
+compiled out of the public app.
 
 Two things follow from the app being open source. The Pro machinery is in this repository, so a
 build made from it will show the paywall and, with no App Store product behind it, say that
@@ -343,6 +344,7 @@ Support/         per-app Info.plist and entitlements
 | `UI/ChatStyle.swift` | Shared sizes and motion, and the Liquid Glass helpers |
 | `System/SpeechOutput.swift` | The voice of Respond with audio and voice mode: replies read aloud with the voices iOS ships |
 | `UI/MarkdownView.swift` | The Markdown renderer |
+| `UI/FeedbackScreen.swift` | Send feedback and Report a bug: a form, sent from the mail sheet |
 | `UI/WelcomeScreen.swift`, `SettingsScreen.swift`, `MetricsScreen.swift`, `ModelSetupScreen.swift`, `MemoryScreen.swift`, `DeveloperScreen.swift` | The rest of the screens |
 
 **Engine fallbacks.** With the backend set to Automatic, loading tries GPU with vision on CPU, then

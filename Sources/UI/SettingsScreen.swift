@@ -16,12 +16,9 @@ struct SettingsScreen: View {
   @Environment(ProAccess.self) private var pro
   @Environment(\.theme) private var theme
   @Environment(\.dismiss) private var dismiss
-  @Environment(\.openURL) private var openURL
   @State private var confirmingDeleteAll = false
   /// The passcode being set or changed, while its sheet is up.
   @State private var passcodeSheet: PasscodeSheet.Mode?
-  /// Shown when a mail row finds no mail app to hand its message to.
-  @State private var showingNoMailApp = false
   /// What anvilai.com publishes, for the models that aren't on the phone yet.
   @State private var catalog: [CatalogModel] = []
 
@@ -75,13 +72,14 @@ struct SettingsScreen: View {
     } message: {
       Text(library.storageWarning ?? "")
     }
-      .alert("No mail app", isPresented: $showingNoMailApp) {
-        #if os(iOS)
-          Button("Copy address") { UIPasteboard.general.string = AppLinks.supportEmail }
-        #endif
-        Button("OK", role: .cancel) {}
-      } message: {
-        Text("Write to \(AppLinks.supportEmail) from wherever you do your mail.")
+      // Up here with the dialog and the alerts, not on the Security section. A modifier on a Form
+      // section lands on each of its rows, so the sheet was presented from inside a list cell, and
+      // the first time it was, Settings closed instead of the sheet opening over it.
+      .sheet(item: $passcodeSheet) { mode in
+        PasscodeSheet(mode: mode) {
+          settings.values.appLockEnabled = true
+          settings.save()
+        }
       }
     }
   }
@@ -646,12 +644,6 @@ struct SettingsScreen: View {
             + "in is to delete the app and install it again.")
       }
     }
-    .sheet(item: $passcodeSheet) { mode in
-      PasscodeSheet(mode: mode) {
-        settings.values.appLockEnabled = true
-        settings.save()
-      }
-    }
   }
 
   /// On only when asked for and a passcode exists to lock behind; switching it on goes through
@@ -705,51 +697,22 @@ struct SettingsScreen: View {
   }
 
   /// How to tell us. A rating goes to the App Store by way of the site; feedback and a bug report
-  /// each start a mail, and the bug report arrives with the lines that make one answerable — what
-  /// happened, and on which phone, iOS, build and model — already written, so the reply is never
-  /// a question about those.
+  /// each open a page of their own, written in the app and sent from the mail sheet. Those two
+  /// stay in the app, so they carry the chevron of a page rather than the arrow of a link.
   private var feedbackSection: some View {
     Section("Feedback") {
       link("Rate Anvil", systemImage: "star", to: AppLinks.rate)
-      mailRow(
-        "Send feedback", systemImage: "envelope", subject: "Anvil feedback",
-        body: "\n\n\n\(diagnostics)")
-      mailRow("Report a bug", systemImage: "ant", subject: "Anvil bug", body: bugReportBody)
-    }
-  }
-
-  /// The questions a bug report answers, with room under each, and the diagnostics line last.
-  private var bugReportBody: String {
-    "What happened:\n\n\nWhat you expected:\n\n\nHow to make it happen again:\n1. \n\n\n"
-      + diagnostics
-  }
-
-  /// One line, for the foot of a mail: the build, the phone and its iOS, the model in use, and
-  /// whether Pro is active. Everything a bug report gets asked for, and nothing about the chats.
-  private var diagnostics: String {
-    let model = library.active?.displayName ?? "no model"
-    return "Sent from \(AppFlavor.appName) \(AppFlavor.version) on \(DeviceInfo.model), "
-      + "iOS \(DeviceInfo.systemVersion), \(model), Pro \(pro.isUnlocked ? "on" : "off")"
-  }
-
-  /// A row that opens a mail to us, drawn like the link rows: it leaves the app the same way. If
-  /// nothing on the phone takes mail, an alert gives the address instead.
-  private func mailRow(
-    _ title: String, systemImage: String, subject: String, body: String
-  ) -> some View {
-    Button {
-      guard let url = AppLinks.mail(subject: subject, body: body) else { return }
-      openURL(url) { accepted in
-        if !accepted { showingNoMailApp = true }
-      }
-    } label: {
-      HStack {
-        Label(title, systemImage: systemImage)
+      NavigationLink {
+        FeedbackScreen(kind: .feedback, library: library)
+      } label: {
+        Label("Send feedback", systemImage: "envelope")
           .foregroundStyle(Color.primary)
-        Spacer()
-        Image(systemName: "arrow.up.right")
-          .font(.footnote.weight(.semibold))
-          .foregroundStyle(Color.secondary)
+      }
+      NavigationLink {
+        FeedbackScreen(kind: .bug, library: library)
+      } label: {
+        Label("Report a bug", systemImage: "ant")
+          .foregroundStyle(Color.primary)
       }
     }
   }
