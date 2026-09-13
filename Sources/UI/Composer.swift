@@ -75,11 +75,15 @@ struct Composer: View {
     }
     .padding(.horizontal, 16)
     .padding(.bottom, 10)
-    .animation(.snappy(duration: 0.22), value: showingAttachOptions)
-    // Whatever was being chosen is over once the message has gone.
+    // Whatever was being chosen is over once the message has gone, and going back to the words —
+    // tapping into the field, or typing — puts the row away too.
     .onChange(of: chat.isGenerating) { _, generating in
-      if generating { showingAttachOptions = false }
+      if generating { setAttachOptions(false) }
     }
+    .onChange(of: isInputFocused) { _, focused in
+      if focused { setAttachOptions(false) }
+    }
+    .onChange(of: chat.draft) { setAttachOptions(false) }
     // Swiping down anywhere on the composer puts the keyboard away, the same way dragging the
     // conversation does. Simultaneous, so the field keeps its own taps and text selection.
     .simultaneousGesture(swipeDownToDismiss)
@@ -299,7 +303,7 @@ struct Composer: View {
   /// the same three things, and it is always where the plus is pointing.
   private var addButton: some View {
     Button {
-      showingAttachOptions.toggle()
+      setAttachOptions(!showingAttachOptions)
     } label: {
       Image(systemName: "plus")
         .font(.system(size: ChatStyle.inlineControlGlyph, weight: .medium))
@@ -310,35 +314,49 @@ struct Composer: View {
         .contentShape(Circle())
     }
     .buttonStyle(.plain)
-    .animation(.snappy(duration: 0.22), value: showingAttachOptions)
     .accessibilityLabel("Attach")
     .accessibilityValue(showingAttachOptions ? "Open" : "Closed")
     .disabled(chat.isGenerating || chat.isPreparingImage)
+  }
+
+  /// Opens or closes the row, animated. The animation is asked for here, on the change, rather
+  /// than hung on the composer as a whole: an implicit animation over the whole stack redrew the
+  /// capsule's glass mid-flight, and glass caught mid-redraw comes out black.
+  private func setAttachOptions(_ open: Bool) {
+    guard open != showingAttachOptions else { return }
+    withAnimation(.snappy(duration: 0.22)) { showingAttachOptions = open }
   }
 
   /// Everything you can put into a message, as a row of three above the capsule: a photo from the
   /// camera or the library, or a file. Always all three, whatever model is loaded — a photo can
   /// always be attached, and what the model makes of it is the model's business. Choosing one
   /// puts the row away and opens the picker.
+  ///
+  /// The row fades and shrinks in place rather than sliding in from under the capsule: glass
+  /// cannot be drawn over glass, and a row of glass pills passing over the glass capsule on its
+  /// way out left the capsule painted black. Its pills are their own group, so they bend light
+  /// together and never with the capsule's.
   private var attachOptions: some View {
-    HStack(spacing: 8) {
-      #if canImport(UIKit)
-        if CameraPicker.isAvailable {
-          attachOption("Camera", systemImage: "camera") { showingCamera = true }
-        }
-      #endif
-      attachOption("Photos", systemImage: "photo.on.rectangle") { showingPhotoLibrary = true }
-      attachOption("Files", systemImage: "doc") { showingFiles = true }
+    LiquidGlassGroup(spacing: 8) {
+      HStack(spacing: 8) {
+        #if canImport(UIKit)
+          if CameraPicker.isAvailable {
+            attachOption("Camera", systemImage: "camera") { showingCamera = true }
+          }
+        #endif
+        attachOption("Photos", systemImage: "photo.on.rectangle") { showingPhotoLibrary = true }
+        attachOption("Files", systemImage: "doc") { showingFiles = true }
+      }
     }
     .padding(.horizontal, 4)
-    .transition(.move(edge: .bottom).combined(with: .opacity))
+    .transition(.opacity.combined(with: .scale(scale: 0.94, anchor: .bottom)))
   }
 
   private func attachOption(
     _ title: String, systemImage: String, action: @escaping () -> Void
   ) -> some View {
     Button {
-      showingAttachOptions = false
+      setAttachOptions(false)
       action()
     } label: {
       Label(title, systemImage: systemImage)
