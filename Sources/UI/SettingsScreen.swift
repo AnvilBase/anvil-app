@@ -379,6 +379,9 @@ struct SettingsScreen: View {
           .tint(theme.sendFill)
         Button("Cancel", role: .destructive) { Task { await library.cancelInstall(model) } }
           .font(.subheadline)
+          // Said outright: a button left to the default style inside a Form row hands its taps to
+          // the row, which has nothing to do with them, and the press goes nowhere.
+          .buttonStyle(.borderless)
       }
     } else if let downloader, case .failed(let message) = downloader.phase {
       VStack(alignment: .leading, spacing: 6) {
@@ -391,6 +394,9 @@ struct SettingsScreen: View {
           Button("Start over", role: .destructive) { Task { await library.cancelInstall(model) } }
         }
         .font(.subheadline)
+        // Two buttons on one row: with the default style a tap on the row would press both, or
+        // neither. Borderless, each takes only its own.
+        .buttonStyle(.borderless)
       }
     } else {
       Button {
