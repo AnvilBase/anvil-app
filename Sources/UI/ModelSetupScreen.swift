@@ -23,8 +23,6 @@ struct ModelSetupScreen: View {
   /// one of them.
   @ScaledMetric(relativeTo: .title2) private var markSize: CGFloat = 22
 
-  private var downloader: ModelDownloader { library.downloader }
-
   var body: some View {
     NavigationStack {
       ScrollView {
@@ -63,20 +61,11 @@ struct ModelSetupScreen: View {
 
   // MARK: - Installing from anvilai.com
 
+  /// The cards, always: a download under way, stopped, or waiting to be carried on shows on the
+  /// card of the model it belongs to, so two can be on their way at once and each says how far.
   @ViewBuilder
   private var installing: some View {
-    if downloader.isActive || hasFailedDownload {
-      downloadCard
-    } else if let interrupted = library.interruptedDownload {
-      resumeCard(interrupted)
-    } else {
-      modelCards
-    }
-  }
-
-  private var hasFailedDownload: Bool {
-    if case .failed = downloader.phase { return true }
-    return false
+    modelCards
   }
 
   @ViewBuilder
@@ -109,7 +98,7 @@ struct ModelSetupScreen: View {
   }
 
   private var cellularBinding: Binding<Bool> {
-    Binding(get: { downloader.allowsCellular }, set: { downloader.allowsCellular = $0 })
+    Binding(get: { library.allowsCellular }, set: { library.allowsCellular = $0 })
   }
 
   /// Whether this catalog model is already on the phone. Anvil Dream can be, while this screen is
@@ -166,11 +155,57 @@ struct ModelSetupScreen: View {
     .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
   }
 
-  /// What a card lets you do: download the model, go to the paywall for a Pro one, or, for one
-  /// that isn't published yet or is already here, see that.
+  /// What a card lets you do: download the model — or watch it come, stop it, carry it on after
+  /// the app was closed, or try again after it stopped — go to the paywall for a Pro one, or, for
+  /// one that isn't published yet or is already here, see that.
   @ViewBuilder
   private func action(for model: CatalogModel) -> some View {
-    if isInstalled(model) {
+    let downloader = library.downloader(for: model)
+    if let downloader, downloader.isActive {
+      VStack(alignment: .leading, spacing: 10) {
+        ProgressView(value: downloader.fraction)
+          // The same ink Download is filled with, rather than the accent: on this screen the one
+          // thing you started is the one thing that should be showing its progress in it.
+          .tint(theme.sendFill)
+        HStack {
+          Text(transferred(downloader))
+          Spacer()
+          Text("\(Int(downloader.fraction * 100))%")
+        }
+        .font(.subheadline)
+        .foregroundStyle(.secondary)
+        .monospacedDigit()
+        Button("Cancel", role: .destructive) { Task { await library.cancelInstall(model) } }
+          .buttonStyle(.bordered)
+      }
+    } else if let downloader, case .failed(let message) = downloader.phase {
+      VStack(alignment: .leading, spacing: 10) {
+        Label("Download stopped", systemImage: "exclamationmark.triangle")
+          .font(.subheadline.weight(.semibold))
+          .foregroundStyle(.orange)
+        Text(message)
+          .font(.subheadline)
+          .foregroundStyle(.secondary)
+        HStack {
+          Button("Try again") { library.install(model) }
+            .buttonStyle(.borderedProminent)
+          Button("Start over", role: .destructive) { Task { await library.cancelInstall(model) } }
+            .buttonStyle(.bordered)
+        }
+      }
+    } else if library.interruptedDownloads.contains(where: { $0.id == model.id }) {
+      VStack(alignment: .leading, spacing: 10) {
+        Text("Part-downloaded")
+          .font(.subheadline)
+          .foregroundStyle(.secondary)
+        HStack {
+          Button("Resume") { library.install(model) }
+            .buttonStyle(.borderedProminent)
+          Button("Start over", role: .destructive) { Task { await library.cancelInstall(model) } }
+            .buttonStyle(.bordered)
+        }
+      }
+    } else if isInstalled(model) {
       Label("Installed", systemImage: "checkmark.circle")
         .font(.subheadline)
         .foregroundStyle(.secondary)
@@ -228,64 +263,7 @@ struct ModelSetupScreen: View {
     .frame(maxWidth: .infinity, alignment: .leading)
   }
 
-  private func resumeCard(_ interrupted: CatalogModel) -> some View {
-    VStack(alignment: .leading, spacing: 12) {
-      Text("\(interrupted.name) is part-downloaded")
-        .font(.headline)
-      HStack {
-        Button("Resume") { library.install(interrupted) }
-          .buttonStyle(.borderedProminent)
-        Button("Start over", role: .destructive) { Task { await library.cancelInstall() } }
-          .buttonStyle(.bordered)
-      }
-    }
-    .padding()
-    .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
-  }
-
-  private var downloadCard: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      Text(downloader.model?.name ?? "Model")
-        .font(.headline)
-
-      if case .failed(let message) = downloader.phase {
-        Label("Download stopped", systemImage: "exclamationmark.triangle")
-          .font(.subheadline.weight(.semibold))
-          .foregroundStyle(.orange)
-        Text(message)
-          .font(.subheadline)
-          .foregroundStyle(.secondary)
-        HStack {
-          if let model = downloader.model {
-            Button("Try again") { library.install(model) }
-              .buttonStyle(.borderedProminent)
-          }
-          Button("Start over", role: .destructive) { Task { await library.cancelInstall() } }
-            .buttonStyle(.bordered)
-        }
-      } else {
-        ProgressView(value: downloader.fraction)
-          // The same ink Download is filled with, rather than the accent: on this screen the one
-          // thing you started is the one thing that should be showing its progress in it.
-          .tint(theme.sendFill)
-        HStack {
-          Text(transferred)
-          Spacer()
-          Text("\(Int(downloader.fraction * 100))%")
-        }
-        .font(.subheadline)
-        .foregroundStyle(.secondary)
-        .monospacedDigit()
-
-        Button("Cancel", role: .destructive) { Task { await library.cancelInstall() } }
-          .buttonStyle(.bordered)
-      }
-    }
-    .padding()
-    .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
-  }
-
-  private var transferred: String {
+  private func transferred(_ downloader: ModelDownloader) -> String {
     let format = { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) }
     return "\(format(downloader.receivedBytes)) of \(format(downloader.totalBytes))"
   }

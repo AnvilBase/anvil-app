@@ -44,7 +44,16 @@ final class ModelLibrary {
   private(set) var state: State = .checking
   /// Every model on the phone, by name. The one in `state` is the one in use.
   private(set) var installed: [ModelFile] = []
-  let downloader = ModelDownloader()
+  /// The downloads under way or just failed, by catalog id. Several at once is fine: each has its
+  /// own file, its own record of how far it got, and its own transfers. A finished one is dropped
+  /// from here; a failed one stays until it is tried again or started over, so its row can say why.
+  private(set) var downloads: [String: ModelDownloader] = [:]
+
+  /// Downloading several gigabytes over a cellular plan is rarely what someone wants, so it's off
+  /// until they say otherwise. One switch for every download.
+  var allowsCellular = ModelDownloader.allowsCellular {
+    didSet { ModelDownloader.allowsCellular = allowsCellular }
+  }
 
   /// Whether Anvil Pro is active, as the root view hears it from the App Store. A Pro model on the
   /// phone stays listed whatever this says, but is only ever the active one while it is true: when
@@ -54,12 +63,19 @@ final class ModelLibrary {
   }
 
   private var isRefreshing = false
-  private var installTask: Task<Void, Never>?
+  private var installTasks: [String: Task<Void, Never>] = [:]
 
-  /// A download the app closing interrupted, which can be carried on.
-  var interruptedDownload: CatalogModel? {
-    downloader.isActive ? nil : ModelDownloader.interrupted
+  /// Downloads the app closing interrupted, each of which can be carried on. Not the ones already
+  /// carrying on.
+  var interruptedDownloads: [CatalogModel] {
+    ModelDownloader.interrupted.filter { !(downloads[$0.id]?.isActive ?? false) }
   }
+
+  /// The download of `model`, while it is under way or has just failed.
+  func downloader(for model: CatalogModel) -> ModelDownloader? { downloads[model.id] }
+
+  /// Whether any download is under way.
+  var isDownloading: Bool { downloads.values.contains { $0.isActive } }
 
   var active: ModelFile? {
     if case .ready(let file) = state { return file }
@@ -78,32 +94,47 @@ final class ModelLibrary {
   var storageWarning: String?
 
   func install(_ model: CatalogModel) {
-    guard !downloader.isActive, !model.isComingSoon else { return }
+    guard !(downloads[model.id]?.isActive ?? false), !model.isComingSoon else { return }
     // Room is checked before anything starts, so a phone that is nearly full hears about it in a
-    // sentence rather than watching a download begin and stop.
-    let resumeFrom = min(ModelDownloadFiles.loadState()?.nextPart ?? 0, model.parts.count)
-    if let short = ModelDownloadFiles.storageShortfall(for: model, from: resumeFrom) {
+    // sentence rather than watching a download begin and stop. What the other downloads under way
+    // still need is counted too: they will want their room before this one has finished.
+    let resumeFrom = min(ModelDownloadFiles.loadState(for: model.id)?.nextPart ?? 0, model.parts.count)
+    let reserved = downloads.values.filter(\.isActive).reduce(Int64(0)) { $0 + $1.remainingBytes }
+    if let short = ModelDownloadFiles.storageShortfall(for: model, from: resumeFrom, reserving: reserved) {
       storageWarning = ModelDownloadFiles.storageMessage(
         for: model.name, needed: short.needed, free: short.free)
       return
     }
-    installTask?.cancel()
-    installTask = Task { [self] in
+    installTasks[model.id]?.cancel()
+    let downloader = ModelDownloader()
+    downloader.reservedElsewhere = reserved
+    downloads[model.id] = downloader
+    installTasks[model.id] = Task { [self] in
       await downloader.run(model)
-      if downloader.phase == .finished { await refresh() }
+      installTasks[model.id] = nil
+      if downloader.phase == .finished {
+        downloads[model.id] = nil
+        await refresh()
+      }
     }
   }
 
-  func cancelInstall() async {
-    installTask?.cancel()
-    _ = await installTask?.value
-    installTask = nil
-    downloader.discard()
+  /// Stops the download of `model` and throws away what it had. For someone cancelling on purpose.
+  func cancelInstall(_ model: CatalogModel) async {
+    installTasks[model.id]?.cancel()
+    _ = await installTasks[model.id]?.value
+    installTasks[model.id] = nil
+    if let downloader = downloads[model.id] {
+      downloader.discard(model)
+    } else {
+      ModelDownloadFiles.discard(model)
+    }
+    downloads[model.id] = nil
   }
 
   func refresh() async {
-    // A download owns the models folder while it runs; leave its half-built file alone.
-    guard !downloader.isActive else { return }
+    // Only finished models are listed — a file still being built has another extension — so a
+    // download under way is no reason not to look.
     guard !isRefreshing else { return }
     isRefreshing = true
     defer { isRefreshing = false }

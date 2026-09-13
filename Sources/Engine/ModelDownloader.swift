@@ -29,25 +29,27 @@ final class ModelDownloader {
   private(set) var totalBytes: Int64 = 0
 
   /// Parts fetched at once. One connection rarely saturates a phone's link, and a part that stalls
-  /// no longer holds up the ones behind it — the others keep arriving while it retries.
-  private static let concurrentParts = 3
+  /// no longer holds up the ones behind it — the others keep arriving while it retries. Four: the
+  /// gain past that is small, and two models downloading together already make eight.
+  private static let concurrentParts = 4
 
   private var inFlight: [Int: Task<URL, Error>] = [:]
   private var partProgress: [Int: Int64] = [:]
   private var appendedBytes: Int64 = 0
 
+  /// Bytes other downloads still need, counted against free space before this one starts or
+  /// carries on. Set by the library, which can see them all.
+  var reservedElsewhere: Int64 = 0
+
   /// Downloading several gigabytes over a cellular plan is rarely what someone wants, so it's off
-  /// until they say otherwise.
-  var allowsCellular: Bool {
-    didSet { UserDefaults.standard.set(allowsCellular, forKey: Self.cellularKey) }
+  /// until they say otherwise. One setting for every download; `ModelLibrary` owns the switch.
+  static var allowsCellular: Bool {
+    get { UserDefaults.standard.bool(forKey: cellularKey) }
+    set { UserDefaults.standard.set(newValue, forKey: cellularKey) }
   }
 
   private static let cellularKey = "modelDownloadAllowsCellular"
   private static let maximumAttempts = 3
-
-  init() {
-    allowsCellular = UserDefaults.standard.bool(forKey: Self.cellularKey)
-  }
 
   var isActive: Bool {
     switch phase {
@@ -60,8 +62,11 @@ final class ModelDownloader {
     totalBytes > 0 ? min(Double(receivedBytes) / Double(totalBytes), 1) : 0
   }
 
-  /// A download that was still unfinished when the app last closed.
-  static var interrupted: CatalogModel? { ModelDownloadFiles.loadState()?.model }
+  /// What this download still has to fetch.
+  var remainingBytes: Int64 { max(totalBytes - receivedBytes, 0) }
+
+  /// Downloads that were still unfinished when the app last closed, any of which can be carried on.
+  static var interrupted: [CatalogModel] { ModelDownloadFiles.savedStates().map(\.model) }
 
   func run(_ model: CatalogModel) async {
     self.model = model
@@ -78,14 +83,14 @@ final class ModelDownloader {
     }
   }
 
-  /// Throws away a half-finished download. Only for someone cancelling on purpose: a failure leaves
-  /// the parts in place, so trying again picks up where it stopped.
-  func discard() {
+  /// Throws away a half-finished download of `model`. Only for someone cancelling on purpose: a
+  /// failure leaves the parts in place, so trying again picks up where it stopped. This download's
+  /// transfers alone are cancelled; another model's carry on.
+  func discard(_ model: CatalogModel) {
     cancelInFlight()
-    ModelDownloadSession.shared.cancelAll()
-    ModelDownloadFiles.discard()
+    ModelDownloadFiles.discard(model)
     phase = .idle
-    model = nil
+    self.model = nil
     receivedBytes = 0
     appendedBytes = 0
     partsCompleted = 0
@@ -122,15 +127,13 @@ final class ModelDownloader {
   }
 
   private func download(_ model: CatalogModel) async throws {
-    // A half-finished download of some other model is of no use now.
-    if let state = ModelDownloadFiles.loadState(),
-      state.model.id != model.id || state.model.version != model.version
-    {
-      ModelDownloadFiles.discard()
+    // A half-finished download of an older version of this model is of no use now.
+    if let state = ModelDownloadFiles.loadState(for: model.id), state.model.version != model.version {
+      ModelDownloadFiles.discard(model)
     }
 
-    var nextPart = min(ModelDownloadFiles.loadState()?.nextPart ?? 0, model.parts.count)
-    try ModelDownloadFiles.requireSpace(for: model, from: nextPart)
+    var nextPart = min(ModelDownloadFiles.loadState(for: model.id)?.nextPart ?? 0, model.parts.count)
+    try ModelDownloadFiles.requireSpace(for: model, from: nextPart, reserving: reservedElsewhere)
 
     let destination = try ModelDownloadFiles.partialURL(for: model)
     var badChecksums = 0
@@ -201,7 +204,7 @@ final class ModelDownloader {
     while true {
       do {
         return try await ModelDownloadSession.shared.download(
-          part, allowsCellular: allowsCellular
+          part, allowsCellular: Self.allowsCellular
         ) { written, _ in onProgress(written) }
       } catch {
         if error is CancellationError || (error as? URLError)?.code == .cancelled {
@@ -261,7 +264,8 @@ enum ModelDownloadFiles {
     }
   }
 
-  static let stateFileName = "download.json"
+  /// One record per download in progress, so two models can be on their way at once.
+  static func stateFileName(for id: String) -> String { "download-\((id as NSString).lastPathComponent).json" }
   static let installedFileName = "installed.json"
   private static let incomingDirectoryName = "Incoming"
   private static let partialExtension = "partial"
@@ -352,7 +356,7 @@ enum ModelDownloadFiles {
     do {
       try verify(partial, matches: model.sha256)
     } catch {
-      discard()
+      discard(model)
       throw Failure.assembledChecksum
     }
 
@@ -387,35 +391,50 @@ enum ModelDownloadFiles {
         pro: model.isPro, kind: model.modelKind, recommended: model.isRecommended))
     try writeInstalled(records)
 
-    discard()
+    discard(model)
   }
 
-  static func loadState() -> ModelDownloadState? {
-    guard let url = try? ModelFiles.modelsDirectory().appendingPathComponent(stateFileName),
+  static func loadState(for id: String) -> ModelDownloadState? {
+    guard let url = try? ModelFiles.modelsDirectory().appendingPathComponent(stateFileName(for: id)),
       let data = try? Data(contentsOf: url)
     else { return nil }
     return try? JSONDecoder().decode(ModelDownloadState.self, from: data)
   }
 
+  /// Every download that was under way, in no particular order.
+  static func savedStates() -> [ModelDownloadState] {
+    guard let models = try? ModelFiles.modelsDirectory(),
+      let files = try? FileManager.default.contentsOfDirectory(
+        at: models, includingPropertiesForKeys: nil, options: .skipsHiddenFiles)
+    else { return [] }
+    return files
+      .filter { $0.lastPathComponent.hasPrefix("download-") && $0.pathExtension == "json" }
+      .compactMap { url in
+        (try? Data(contentsOf: url)).flatMap { try? JSONDecoder().decode(ModelDownloadState.self, from: $0) }
+      }
+      .sorted { $0.model.name < $1.model.name }
+  }
+
   static func saveState(_ state: ModelDownloadState) {
-    guard let url = try? ModelFiles.modelsDirectory().appendingPathComponent(stateFileName),
+    guard
+      let url = try? ModelFiles.modelsDirectory().appendingPathComponent(
+        stateFileName(for: state.model.id)),
       let data = try? JSONEncoder().encode(state)
     else { return }
     try? data.write(to: url, options: .atomic)
   }
 
-  /// Removes the file being built, the staged parts, and the record of how far the download got. An
-  /// installed model is left alone.
-  static func discard() {
+  /// Removes the file being built for `model`, its staged parts, and the record of how far it
+  /// got. Another model's download, and every installed model, are left alone.
+  static func discard(_ model: CatalogModel) {
     let fileManager = FileManager.default
     guard let models = try? ModelFiles.modelsDirectory() else { return }
-    try? fileManager.removeItem(at: models.appendingPathComponent(stateFileName))
-    try? fileManager.removeItem(
-      at: models.appendingPathComponent(incomingDirectoryName, isDirectory: true))
-    let files =
-      (try? fileManager.contentsOfDirectory(at: models, includingPropertiesForKeys: nil)) ?? []
-    for file in files where file.pathExtension == partialExtension {
-      try? fileManager.removeItem(at: file)
+    try? fileManager.removeItem(at: models.appendingPathComponent(stateFileName(for: model.id)))
+    if let partial = try? partialURL(for: model) { try? fileManager.removeItem(at: partial) }
+    if let incoming = try? incomingDirectory() {
+      for part in model.parts {
+        try? fileManager.removeItem(at: incoming.appendingPathComponent(part.name))
+      }
     }
   }
 
@@ -456,19 +475,23 @@ enum ModelDownloadFiles {
   static let storageBuffer: Int64 = 2_000_000_000
 
   /// What a download needs free to start or carry on: what is left to fetch, the one part being
-  /// staged, and the buffer. Nil when there is room, or when the phone won't say how much there is.
-  static func storageShortfall(for model: CatalogModel, from nextPart: Int) -> (needed: Int64, free: Int64)? {
+  /// staged, the buffer, and whatever other downloads under way still need (`reserving`). Nil when
+  /// there is room, or when the phone won't say how much there is.
+  static func storageShortfall(
+    for model: CatalogModel, from nextPart: Int, reserving: Int64 = 0
+  ) -> (needed: Int64, free: Int64)? {
     let remaining = model.parts.dropFirst(nextPart).reduce(Int64(0)) { $0 + $1.sizeBytes }
     let largestPart = model.parts.map(\.sizeBytes).max() ?? 0
     var needed = remaining + largestPart + storageBuffer
     if nextPart == 0 { needed = max(needed, model.requiredFreeBytes) }
+    needed += reserving
     guard let free = freeBytes(), free < needed else { return nil }
     return (needed, free)
   }
 
   /// Checks there is room for what is left to download, plus the one part being staged.
-  static func requireSpace(for model: CatalogModel, from nextPart: Int) throws {
-    if let short = storageShortfall(for: model, from: nextPart) {
+  static func requireSpace(for model: CatalogModel, from nextPart: Int, reserving: Int64 = 0) throws {
+    if let short = storageShortfall(for: model, from: nextPart, reserving: reserving) {
       throw Failure.notEnoughSpace(needed: short.needed, free: short.free)
     }
   }

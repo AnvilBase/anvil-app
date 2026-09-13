@@ -312,8 +312,9 @@ struct SettingsScreen: View {
   /// tapping does — and its size; an update says so where the size would be.
   @ViewBuilder
   private func downloadRow(_ model: CatalogModel, update: Bool) -> some View {
-    let downloader = library.downloader
-    let detail = update ? "Update · \(model.formattedSize)" : model.formattedSize
+    let downloader = library.downloader(for: model)
+    let interrupted = library.interruptedDownloads.contains { $0.id == model.id }
+    let detail = interrupted ? "Resume" : (update ? "Update · \(model.formattedSize)" : model.formattedSize)
     if model.isPro, !pro.isUnlocked {
       NavigationLink {
         ProScreen()
@@ -329,7 +330,7 @@ struct SettingsScreen: View {
           proBadge
         }
       }
-    } else if downloader.model == model, downloader.isActive {
+    } else if let downloader, downloader.isActive {
       VStack(alignment: .leading, spacing: 8) {
         HStack {
           modelName(model.name, pro: model.isPro, image: model.isImage)
@@ -340,10 +341,10 @@ struct SettingsScreen: View {
         }
         ProgressView(value: downloader.fraction)
           .tint(theme.sendFill)
-        Button("Cancel", role: .destructive) { Task { await library.cancelInstall() } }
+        Button("Cancel", role: .destructive) { Task { await library.cancelInstall(model) } }
           .font(.subheadline)
       }
-    } else if downloader.model == model, case .failed(let message) = downloader.phase {
+    } else if let downloader, case .failed(let message) = downloader.phase {
       VStack(alignment: .leading, spacing: 6) {
         modelName(model.name, pro: model.isPro, image: model.isImage)
         Text(message)
@@ -351,7 +352,7 @@ struct SettingsScreen: View {
           .foregroundStyle(.secondary)
         HStack(spacing: 16) {
           Button("Try again") { library.install(model) }
-          Button("Start over", role: .destructive) { Task { await library.cancelInstall() } }
+          Button("Start over", role: .destructive) { Task { await library.cancelInstall(model) } }
         }
         .font(.subheadline)
       }
@@ -371,7 +372,6 @@ struct SettingsScreen: View {
             .foregroundStyle(Color.secondary)
         }
       }
-      .disabled(downloader.isActive)
     }
   }
 
