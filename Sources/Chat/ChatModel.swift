@@ -893,6 +893,17 @@ final class ChatModel {
         activeConversation = nil
       }
 
+      // A refusal from the free model, without Pro: the Pro page comes up over the reply, since
+      // what was declined is what Anvil Raw is for. The reply stays — the page is over it, and
+      // Not now puts it away — and only without Pro: with it, Raw is a download away in Settings
+      // and the page has nothing to sell.
+      if !isStopping, !pro.isUnlocked, !isUnrestricted,
+        let written = messages.first(where: { $0.id == reply.id }),
+        !written.isError, ImageRequest.looksLikeRefusal(written.text)
+      {
+        showingPro = true
+      }
+
       monitor.cancel()
       let peaks = await monitor.value
       let counters = await device.replyCounters()
