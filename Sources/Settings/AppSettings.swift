@@ -97,8 +97,26 @@ struct AppSettings: Codable, Equatable, Sendable {
   static let searchResultCounts = [3, 5, 8]
 
   /// A prompt of your own for new chats, or empty for Anvil's own; each chat keeps the one it
-  /// started with. Resolved by `AppSettings.prompt(for:)`, never read straight.
+  /// started with. Resolved by `AppSettings.prompt(for:)`, never read straight. At most
+  /// `maxSystemPromptWords` long — see `withinPromptLimit`.
   var systemPrompt = ""
+
+  /// How long a prompt of your own can be. A small model's context is short and Anvil's own
+  /// prompt already sits in it; a hundred words is room for who you are and how you like replies,
+  /// and not for a second system prompt.
+  static let maxSystemPromptWords = 100
+
+  /// Words, for the limit: runs of anything that isn't whitespace.
+  static func wordCount(_ text: String) -> Int {
+    text.split(whereSeparator: \.isWhitespace).count
+  }
+
+  /// The text cut after its hundredth word, with everything up to there left exactly as typed.
+  static func withinPromptLimit(_ text: String) -> String {
+    let words = text.matches(of: /\S+/)
+    guard words.count > maxSystemPromptWords else { return text }
+    return String(text[..<words[maxSystemPromptWords - 1].range.upperBound])
+  }
   var useModelSamplerDefaults = true
   var sampler = SamplerValues(temperature: 1.0, topK: 64, topP: 0.95)
   /// Maximum tokens per reply; 0 means no limit.
@@ -138,6 +156,9 @@ struct AppSettings: Codable, Equatable, Sendable {
   var appLockEnabled = false
   /// Replies read aloud, and the microphone open again when they finish.
   var talkMode = false
+  /// Anvil Dream making pictures, while it is installed. On unless it is turned off: downloading
+  /// it is asking for it, and this is how to keep it on the phone without it being used.
+  var imageGenerationEnabled = true
   /// Asks the development app to present itself as the public one. Meaningless in the public app,
   /// which has no way to be handed it — see `AppFlavor.showsDevelopmentFeatures`.
   var previewAsPublic = false
@@ -158,6 +179,8 @@ struct AppSettings: Codable, Equatable, Sendable {
     if systemPrompt.trimmingCharacters(in: .whitespacesAndNewlines) == Self.defaultSystemPrompt {
       systemPrompt = ""
     }
+    // A file from before the limit may hold a longer one.
+    systemPrompt = Self.withinPromptLimit(systemPrompt)
     useModelSamplerDefaults = try value(.useModelSamplerDefaults, defaults.useModelSamplerDefaults)
     sampler = try value(.sampler, defaults.sampler)
     maxReplyTokens = try value(.maxReplyTokens, defaults.maxReplyTokens)
@@ -174,6 +197,7 @@ struct AppSettings: Codable, Equatable, Sendable {
     appIcon = try value(.appIcon, defaults.appIcon)
     appLockEnabled = try value(.appLockEnabled, defaults.appLockEnabled)
     talkMode = try value(.talkMode, defaults.talkMode)
+    imageGenerationEnabled = try value(.imageGenerationEnabled, defaults.imageGenerationEnabled)
     previewAsPublic = try value(.previewAsPublic, defaults.previewAsPublic)
   }
 }

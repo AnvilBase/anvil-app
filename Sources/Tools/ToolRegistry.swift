@@ -17,7 +17,7 @@ enum ToolRequirement: Sendable {
     case .always: "Always available"
     case .webSearch: "When web search is on"
     case .memory: "When memory is on"
-    case .imageGeneration: "When Anvil Dream is installed and Pro is active"
+    case .imageGeneration: "When Anvil Dream is installed and on, and Pro is active"
     }
   }
 }

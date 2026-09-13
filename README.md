@@ -150,8 +150,9 @@ deployment to serve your own.
 
 Models you download sit side by side. **Settings › Models** lists them with a mark against the one in
 use — tap another to switch, swipe one to delete it — and offers the rest of the catalog to download
-from there. If loading fails, the screen says why and offers **Try again**; Settings has **Reload
-model** too. The first load is slow; engine caches go in `Library/Caches/EngineCache`, so later
+from there. Anvil Dream, which makes pictures rather than text, is listed apart from them, in
+**Settings › Image** just below, where its row is a switch. If loading fails, the screen says why
+and offers **Try again**; Settings has **Reload model** too. The first load is slow; engine caches go in `Library/Caches/EngineCache`, so later
 launches are much faster.
 
 ## What the app does
@@ -180,7 +181,8 @@ instructions for new chats. **Settings › Memory** lists them, and lets you add
 them. They're stored in `Application Support/Memory` with complete file protection and aren't
 backed up.
 
-**Pictures.** With Anvil Pro and **Anvil Dream** installed, the model can make a picture with the
+**Pictures.** With Anvil Pro and **Anvil Dream** installed and switched on (**Settings › Image**, a section
+of its own under Models, has the switch; it is on once downloaded), the model can make a picture with the
 `generate_image` tool: ask for a drawing, a painting or a photo of something and it appears in the
 reply, made on the phone in a few seconds. With **Anvil Raw** as the model, a message that asks
 for a picture — "generate an image of a fox", "draw a dragon" — is made straight away by the app
@@ -191,8 +193,8 @@ its own judgement. The tool is only offered where a picture can be made.
 Without Pro, a message that clearly asks for one — "generate an image", "a picture of a fox" —
 opens the Pro page instead of sending, with the words kept in the field; the app reads the message
 for that itself (`Sources/Chat/ImageRequest.swift`) rather than trusting the model, which reaches
-for a picture tool on messages that never asked. With Pro but without Anvil Dream the message goes
-and a notice points at the download. Anvil Dream is a Latent Consistency Model (LCM
+for a picture tool on messages that never asked. With Pro but without Anvil Dream, or with it
+switched off, the message goes and a notice points at the download or the switch. Anvil Dream is a Latent Consistency Model (LCM
 Dreamshaper v7) run through Core ML on the Neural Engine, four passes of the network for a 512×512
 image; the sampler is `Sources/Engine/LCMScheduler.swift` and the loop is `DreamEngine.swift`.
 Pictures are kept with the chat the way photos are, and open full screen the same way. Nothing
@@ -253,7 +255,8 @@ its refusals removed, offered in Settings › Models behind the Pro badge. It ca
 switched to only while Pro is active; if the subscription lapses the chat moves back to Anvil Core,
 or to the install screen if no free model is on the phone. **Anvil Dream** is the entry marked
 `pro` and `"kind": "image"`: it makes pictures rather than text, is never the model the chat runs
-on, and works beside whichever one is — see [Pictures](#what-the-app-does). It arrives as an Apple
+on, and works beside whichever one is, so Settings lists it under Image rather than Models, with
+a switch to turn it off — see [Pictures](#what-the-app-does). It arrives as an Apple
 Archive of Core ML models that the app unpacks into its own folder, and the `generate_image` tool
 makes pictures while it is installed and Pro is active. On the install screen both lead to
 the paywall — the way in is Anvil Core, and Pro is found in Settings.

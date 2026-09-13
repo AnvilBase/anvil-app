@@ -18,11 +18,19 @@ actor OnDeviceEngine {
     /// first one to fail — the GPU — is rarely the one that explains why; the CPU's reason usually
     /// is, and a screen that shows only the first leaves someone re-downloading a good file.
     case allAttemptsFailed([(configuration: String, reason: String)])
+    /// The engine stopped the reply before it finished. It reports this the way it reports a
+    /// fault — a stream error reading "CANCELLED: task cancelled" — but it is not one: the words
+    /// so far are good, and the next message goes again as normal. Stop does it on purpose; the
+    /// engine also does it on its own, when iOS takes the GPU away from an app that has left the
+    /// screen mid-reply.
+    case cancelled
 
     var errorDescription: String? {
       switch self {
       case .notLoaded:
         return "The model is not loaded."
+      case .cancelled:
+        return "The reply was cut short."
       case .allAttemptsFailed(let attempts):
         let lines = attempts.map { "\($0.configuration): \($0.reason)" }
         let advice = attempts.lazy.compactMap { EngineLog.advice(for: $0.reason) }.first
@@ -161,7 +169,7 @@ actor OnDeviceEngine {
           }
           continuation.finish()
         } catch {
-          continuation.finish(throwing: error)
+          continuation.finish(throwing: Self.isCancellation(error) ? EngineError.cancelled : error)
         }
       }
       continuation.onTermination = { termination in
@@ -171,6 +179,13 @@ actor OnDeviceEngine {
         }
       }
     }
+  }
+
+  /// Whether an error from the stream is the engine saying the reply was cancelled, which LiteRT-LM
+  /// passes up as the native status text rather than as a case of its own.
+  private static func isCancellation(_ error: Error) -> Bool {
+    guard case LiteRTLMError.conversation(.invalidResponse(let details)) = error else { return false }
+    return details.hasPrefix("CANCELLED")
   }
 
   /// Asks the engine to stop generating. The active stream then finishes on its own.

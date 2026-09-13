@@ -37,6 +37,7 @@ struct SettingsScreen: View {
       Form {
         proSection
         modelSection
+        imageSection
         systemPromptSection
         memorySection
         voiceSection
@@ -156,23 +157,15 @@ struct SettingsScreen: View {
 
   // MARK: - Sections
 
-  /// Every model, one row each, in the catalog's order — Anvil Core, Anvil Raw, Anvil Dream —
-  /// whatever state it is in: on the phone with a mark against the one in use, waiting to be
-  /// downloaded, or announced and not published yet. A file the catalog doesn't know, one imported
-  /// by hand, comes after them. Tap a model to switch to it, swipe one to delete it. A Pro model is
-  /// listed either way, and is the paywall's door rather than a model to switch to or download
-  /// until Pro is active. Anvil Dream is never switched to at all: it makes pictures beside
-  /// whichever model is in use, and its row carries a checkmark and nothing else.
+  /// Every text model, one row each, in the catalog's order — Anvil Core, Anvil Raw — whatever
+  /// state it is in: on the phone with a mark against the one in use, waiting to be downloaded, or
+  /// announced and not published yet. A file the catalog doesn't know, one imported by hand, comes
+  /// after them. Tap a model to switch to it, swipe one to delete it. A Pro model is listed either
+  /// way, and is the paywall's door rather than a model to switch to or download until Pro is
+  /// active. Anvil Dream is not here: see `imageSection`.
   private var modelSection: some View {
     Section("Models") {
-      ForEach(modelRows) { row in
-        switch row {
-        case .installed(let file): installedRow(file)
-        case .update(let model): downloadRow(model, update: true)
-        case .available(let model): downloadRow(model, update: false)
-        case .comingSoon(let model): comingSoonRow(model)
-        }
-      }
+      ForEach(modelRows.filter { !$0.isImage }) { row in modelRow(row) }
       // Always here, not only when a setting has changed: this is also the way back from a model
       // that wouldn't load.
       Button {
@@ -186,12 +179,45 @@ struct SettingsScreen: View {
     .task { catalog = (try? await ModelCatalog.load()) ?? [] }
   }
 
+  /// Anvil Dream, under Models and apart from them. It is never the model in use, so it has no
+  /// place in a list of models to switch between; it makes pictures beside whichever one is, and
+  /// what there is to choose is whether it does. Installed, its row is that switch. Otherwise the
+  /// row is the same one it would have been above — to download, updating, coming soon, or the
+  /// paywall's door. Left out until the catalog or the phone has an image model to show.
+  @ViewBuilder
+  private var imageSection: some View {
+    let rows = modelRows.filter(\.isImage)
+    if !rows.isEmpty {
+      Section("Image") {
+        ForEach(rows) { row in modelRow(row) }
+      }
+    }
+  }
+
+  @ViewBuilder
+  private func modelRow(_ row: ModelRow) -> some View {
+    switch row {
+    case .installed(let file): installedRow(file)
+    case .update(let model): downloadRow(model, update: true)
+    case .available(let model): downloadRow(model, update: false)
+    case .comingSoon(let model): comingSoonRow(model)
+    }
+  }
+
   private enum ModelRow: Identifiable {
     case installed(ModelFile)
     /// The catalog has a newer version of a model that is on the phone.
     case update(CatalogModel)
     case available(CatalogModel)
     case comingSoon(CatalogModel)
+
+    /// Anvil Dream, or any image model: it goes in the Image section rather than under Models.
+    var isImage: Bool {
+      switch self {
+      case .installed(let file): file.kind == .image
+      case .update(let model), .available(let model), .comingSoon(let model): model.isImage
+      }
+    }
 
     var id: String {
       switch self {
@@ -248,15 +274,15 @@ struct SettingsScreen: View {
           }
         }
       } else if file.kind == .image {
-        // Installed is all there is to say about Anvil Dream: it is never the active model, it
-        // works beside whichever one is. The same mark the active model gets, and no words.
-        LabeledContent {
-          Image(systemName: "checkmark")
-            .foregroundStyle(Color.secondary)
-        } label: {
+        // Anvil Dream is never the active model; it works beside whichever one is. So its row is
+        // a switch rather than a mark: on, replies can come with pictures; off, it stays on the
+        // phone, nothing makes a picture with it, and the memory it had loaded is let go.
+        Toggle(isOn: $settings.values.imageGenerationEnabled) {
           modelName(file.displayName, pro: file.isPro, image: true)
         }
-        .accessibilityValue("Installed")
+        .onChange(of: settings.values.imageGenerationEnabled) { _, on in
+          if !on { Task { await chat.unloadImageModel() } }
+        }
       } else {
         Button {
           guard file != library.active else { return }
@@ -375,12 +401,18 @@ struct SettingsScreen: View {
   }
 
   /// The field holds a prompt of your own and nothing else: empty, it reads Default, and that is
-  /// the whole of what is shown of Anvil's own prompt. Restore default empties it.
+  /// the whole of what is shown of Anvil's own prompt. Restore default empties it. One line while
+  /// it is empty, and as many as the words need after that, up to ten; a hundred words at most,
+  /// with the count under the field once there is something to count.
   private var systemPromptSection: some View {
-    Section("System prompt") {
+    Section {
       if pro.isUnlocked {
         TextField("Default", text: $settings.values.systemPrompt, axis: .vertical)
-          .lineLimit(3...10)
+          .lineLimit(1...10)
+          .onChange(of: settings.values.systemPrompt) { _, text in
+            let limited = AppSettings.withinPromptLimit(text)
+            if limited != text { settings.values.systemPrompt = limited }
+          }
         Button("Restore default") { settings.values.systemPrompt = "" }
           .disabled(usesDefaultPrompt)
       } else {
@@ -395,6 +427,14 @@ struct SettingsScreen: View {
             }
           }
         }
+      }
+    } header: {
+      Text("System prompt")
+    } footer: {
+      if pro.isUnlocked, !usesDefaultPrompt {
+        Text(
+          "\(AppSettings.wordCount(settings.values.systemPrompt)) of "
+            + "\(AppSettings.maxSystemPromptWords) words")
       }
     }
   }

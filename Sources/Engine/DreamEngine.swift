@@ -23,7 +23,7 @@ actor DreamEngine {
     var errorDescription: String? {
       switch self {
       case .incomplete(let name):
-        "Anvil Dream is missing \(name). Delete it in Settings › Models and download it again."
+        "Anvil Dream is missing \(name). Delete it in Settings › Image and download it again."
       case .noOutput:
         "Anvil Dream produced nothing."
       }

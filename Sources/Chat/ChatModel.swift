@@ -112,10 +112,13 @@ final class ChatModel {
   /// it declines.
   var isUnrestricted: Bool { loadedModel?.isPro == true && loadedModel?.kind == .text }
 
-  /// Whether a reply can come with a picture: Anvil Dream is on the phone, and Pro is active. The
-  /// library only ever hands over a Pro model while Pro is active, but this is decided in one
-  /// place, so it is asked again here.
-  var canGenerateImages: Bool { pro.isUnlocked && imageModel != nil }
+  /// Whether a reply can come with a picture: Anvil Dream is on the phone and switched on, and Pro
+  /// is active. The library only ever hands over a Pro model while Pro is active, but this is
+  /// decided in one place, so it is asked again here. Every way a picture gets made asks this, so
+  /// the switch in Settings › Image turns off all of them at once.
+  var canGenerateImages: Bool {
+    pro.isUnlocked && imageModel != nil && settings.values.imageGenerationEnabled
+  }
 
   /// Set when a message asked for a picture and Pro isn't active: the chat screen shows the Pro
   /// page, and clears this when it goes. See `ImageRequest` for what counts as asking.
@@ -273,7 +276,8 @@ final class ChatModel {
     // decided by the model. Where one can be made it is made straight away, below. Where none
     // can be: without Pro the message stays in the field and the Pro page opens, so what was
     // asked for is one tap away and the words are still there to send once it is; with Pro and
-    // no Anvil Dream the message goes, and a notice says where the download is.
+    // no Anvil Dream, or Anvil Dream switched off, the message goes, and a notice says where the
+    // download, or the switch, is.
     let typedNow = draft.trimmingCharacters(in: .whitespacesAndNewlines)
     // A message with something attached — a photo or a file — is about the attachment, never a
     // request for a picture: "make this image brighter" is about the photo. It goes to the text
@@ -289,7 +293,10 @@ final class ChatModel {
       && ImageRequest.isFollowUp(typedNow)
     if asksForPicture, !canGenerateImages {
       if pro.isUnlocked {
-        chatNotice = "Download Anvil Dream in Settings › Models to make pictures."
+        chatNotice =
+          imageModel == nil
+          ? "Download Anvil Dream in Settings › Image to make pictures."
+          : "Anvil Dream is off. Turn it on in Settings › Image to make pictures."
       } else {
         showingPro = true
         return
@@ -849,7 +856,16 @@ final class ChatModel {
           imageGenerator: imageGenerator, replyID: reply.id, started: started,
           firstPiece: &firstPiece)
       } catch {
-        if !isStopping {
+        if isStopping {
+          // Stop was pressed; the reply is marked below.
+        } else if case OnDeviceEngine.EngineError.cancelled = error {
+          // Cut short by the engine rather than by Stop — iOS took the GPU away, most likely,
+          // because the app left the screen mid-reply. Not a fault in the words so far, which
+          // stay; the notice says what happened, and the next message goes again as normal.
+          activeConversation = nil
+          updateMessage(reply.id) { if $0.text.isEmpty { $0.text = "(stopped)" } }
+          chatNotice = "The reply was cut short. Send the message again to continue."
+        } else {
           // The engine's conversation may no longer match the chat, so rebuild it next time.
           activeConversation = nil
           updateMessage(reply.id) {
