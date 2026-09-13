@@ -444,10 +444,11 @@ struct SettingsScreen: View {
       }
       .pickerStyle(.segmented)
       .labelsHidden()
-      // The height of a row's control rather than the thin strip a segmented picker is by
-      // default: it is the one control in the section you press rather than look at.
-      .frame(height: ChatStyle.smallControl + 4)
-      .padding(.vertical, 4)
+      // Taller than the thin strip a segmented picker is by default — as tall as an inline
+      // control, and a little more: it is the one control in the section you press rather than
+      // look at, and three words across a row want room around them.
+      .frame(height: ChatStyle.inlineControl + 6)
+      .padding(.vertical, 6)
 
       proGated("Theme") { themeChooser }
       proGated("App icon") { iconChooser }
@@ -547,8 +548,9 @@ struct SettingsScreen: View {
     }
   }
 
-  /// One choice: the preview and its name underneath. The one in use is shown as it is; the others
-  /// are drained of colour and faded, so which is chosen is read from the swatches themselves and
+  /// One choice: the preview and its name underneath. Every one keeps its colour — the colours are
+  /// what is being chosen between — and the one in use is the bright one: lit a touch and at full
+  /// strength, the others dimmed, so which is chosen is read from the swatches themselves and
   /// nothing has to be drawn around one. A plain button, so each is its own tap inside a row that
   /// holds several.
   private func swatch<Preview: View>(
@@ -559,8 +561,8 @@ struct SettingsScreen: View {
       VStack(spacing: 6) {
         preview()
           .frame(width: 58, height: 58)
-          .saturation(selected ? 1 : 0)
-          .opacity(selected ? 1 : 0.4)
+          .brightness(selected ? 0.08 : 0)
+          .opacity(selected ? 1 : 0.6)
         Text(label)
           .font(.caption)
           .foregroundStyle(selected ? Color.primary : Color.secondary)
