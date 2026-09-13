@@ -15,6 +15,9 @@ struct ModelFile: Hashable, Sendable, Identifiable {
   let version: String?
   /// Downloaded as part of Anvil Pro. Usable only while Pro is active: see `ModelLibrary.proUnlocked`.
   var isPro: Bool = false
+  /// The model the catalog recommends, Anvil Core: the one the chat runs on until another is
+  /// chosen, and the one it comes back to.
+  var isRecommended: Bool = false
   /// A text model, which the chat runs on, or an image model, which Anvil Dream makes pictures
   /// with. Only a text model is ever the active one.
   var kind: ModelKind = .text
@@ -120,8 +123,8 @@ final class ModelLibrary {
   }
 
   /// Settles on what is installed and which of it is active: the one chosen before if it is still
-  /// here, else the one already in use, else the first. Whichever it is, it is written down, so the
-  /// choice is stable from here on rather than being the first file in the folder each time.
+  /// here, else the one already in use, else the default. Whichever it is, it is written down, so
+  /// the choice is stable from here on rather than being the first file in the folder each time.
   private func apply(_ files: [ModelFile]) {
     installed = files
     let candidates = files.filter { $0.kind == .text && usable($0) }
@@ -129,10 +132,17 @@ final class ModelLibrary {
       setState(.missing)
       return
     }
+    // The default is Anvil Core, the model the catalog recommends: it is what a new install runs
+    // on, and what the chat comes back to when a Pro model can't be used any more. Failing that,
+    // any free model from the catalog, before a file that was imported by hand.
+    let fallback =
+      candidates.first { $0.isRecommended }
+      ?? candidates.first { !$0.isPro && $0.catalogID != nil }
+      ?? first
     let chosen =
       candidates.first { $0.fileName == ModelFiles.activeFileName() }
       ?? candidates.first { $0.fileName == active?.fileName }
-      ?? first
+      ?? fallback
     ModelFiles.setActiveFileName(chosen.fileName)
     setState(.ready(chosen))
   }
@@ -227,6 +237,7 @@ enum ModelFiles {
       catalogID: record?.id,
       version: record?.version,
       isPro: record?.pro ?? false,
+      isRecommended: record?.recommended ?? false,
       kind: isImage ? .image : .text)
   }
 

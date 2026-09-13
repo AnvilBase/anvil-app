@@ -121,8 +121,9 @@ one.
 
 The first screen lists the models published at
 [anvilai.com/api/models](https://www.anvilai.com/api/models), in the catalog's order — **Anvil Core**,
-**Anvil Raw**, **Anvil Dream** — each with its size and parameter count. Anvil Core is the free one:
-tap **Download** and leave it running. The Pro models lead to the paywall until Pro is active, and one
+**Anvil Raw**, **Anvil Dream** — each with its size and parameter count. Anvil Core is the free one
+and the default, marked **Recommended**: tap **Download** and leave it running. It is the model the
+chat runs on until another is chosen, and the one it comes back to if a Pro model can't be used. The Pro models lead to the paywall until Pro is active, and one
 the catalog has announced but not published yet says "Coming soon". The development app has a **Skip** in the corner, for getting
 to the chat without waiting on gigabytes; the chat then says no model is installed until one is.
 
@@ -231,15 +232,15 @@ alternate app icons, a passcode lock, and Talk mode — replies read aloud on th
 with the microphone open again when they finish. The paywall is the **Anvil Pro** row at the top of
 Settings.
 
-Pro also has its own models. **Anvil Core** is the catalog entry marked `pro`, a larger model with
+Pro also has its own models. **Anvil Raw** is the catalog entry marked `pro`, a larger model with
 its refusals removed, offered in Settings › Models behind the Pro badge. It can be downloaded and
-switched to only while Pro is active; if the subscription lapses the chat moves to the free model, or
-back to the install screen if that is the only one on the phone. **Anvil Dream** is the entry marked
+switched to only while Pro is active; if the subscription lapses the chat moves back to Anvil Core,
+or to the install screen if no free model is on the phone. **Anvil Dream** is the entry marked
 `pro` and `"kind": "image"`: it makes pictures rather than text, is never the model the chat runs
 on, and works beside whichever one is — see [Pictures](#what-the-app-does). It arrives as an Apple
 Archive of Core ML models that the app unpacks into its own folder, and the `generate_image` tool
-makes pictures while it is installed and Pro is active. The install screen never offers
-either — the way in is the Anvil Model, and Pro is found in Settings.
+makes pictures while it is installed and Pro is active. On the install screen both lead to
+the paywall — the way in is Anvil Core, and Pro is found in Settings.
 
 Whether Pro is active is read from the App Store's entitlements, in `Sources/Pro/ProAccess.swift`,
 and from nowhere else. The settings Pro unlocks are stored either way and honoured only while the App

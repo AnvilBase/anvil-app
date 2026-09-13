@@ -2,9 +2,10 @@ import SwiftUI
 
 /// The first screen, shown until a chat model has been installed. The models the catalog
 /// publishes, one card each, in the catalog's order — Anvil Core, Anvil Raw, Anvil Dream — with the
-/// file, its size and its checksums all coming from anvilai.com. The free one is the way in: press
-/// Download and leave it running. A Pro model's card leads to the paywall until Pro is active, and
-/// one the catalog has announced but not published yet says so.
+/// file, its size and its checksums all coming from anvilai.com. Anvil Core, the free one, is the
+/// way in and the default, and its card says Recommended: press Download and leave it running. A
+/// Pro model's card leads to the paywall until Pro is active, and one the catalog has announced but
+/// not published yet says so.
 struct ModelSetupScreen: View {
   @Environment(\.theme) private var theme
   @Environment(ProAccess.self) private var pro
@@ -117,9 +118,12 @@ struct ModelSetupScreen: View {
           .font(.title2.weight(.semibold))
           .lineLimit(1)
           .minimumScaleFactor(0.75)
-        if model.isPro {
+        if model.isRecommended {
           Spacer()
-          proBadge
+          badge("Recommended")
+        } else if model.isPro {
+          Spacer()
+          badge("Pro")
         }
       }
 
@@ -190,9 +194,10 @@ struct ModelSetupScreen: View {
     }
   }
 
-  /// The small outline that marks a Pro card, as it does a Pro row in Settings.
-  private var proBadge: some View {
-    Text("Pro")
+  /// The small outline that marks a card — Recommended on Anvil Core, Pro on the others — as it
+  /// marks a Pro row in Settings.
+  private func badge(_ text: String) -> some View {
+    Text(text)
       .font(.caption.weight(.semibold))
       .foregroundStyle(.secondary)
       .padding(.horizontal, 7)
