@@ -105,13 +105,14 @@ struct SettingsScreen: View {
       .overlay(Capsule().strokeBorder(.secondary.opacity(0.6), lineWidth: 1))
   }
 
-  /// The badges on a Pro model's row while Pro is locked: what the model is — Unrestricted for
-  /// Anvil Raw, Image for Anvil Dream, the words the Pro page uses — and then Pro. A locked row
-  /// has no other way of saying what it is for, and the word is what the paywall is selling.
-  private func lockedProBadges(image: Bool) -> some View {
-    HStack(spacing: 6) {
-      capsule(image ? "Image" : "Unrestricted")
-      proBadge
+  /// A Pro model's name with what it is beside it — Unrestricted for Anvil Raw, Image for Anvil
+  /// Dream, the words the Pro page uses — whether Pro is active or not: the word is what tells the
+  /// two Pro models apart at a glance, and Pro being paid for doesn't change what they are. A
+  /// free model is its name alone.
+  private func modelName(_ name: String, pro: Bool, image: Bool) -> some View {
+    HStack(spacing: 8) {
+      Text(name)
+      if pro { capsule(image ? "Image" : "Unrestricted") }
     }
   }
 
@@ -220,14 +221,20 @@ struct SettingsScreen: View {
         NavigationLink {
           ProScreen()
         } label: {
-          LabeledContent(file.displayName) { lockedProBadges(image: file.kind == .image) }
+          LabeledContent {
+            proBadge
+          } label: {
+            modelName(file.displayName, pro: true, image: file.kind == .image)
+          }
         }
       } else if file.kind == .image {
         // Installed is all there is to say about Anvil Dream: it is never the active model, it
         // works beside whichever one is. The same mark the active model gets, and no words.
-        LabeledContent(file.displayName) {
+        LabeledContent {
           Image(systemName: "checkmark")
             .foregroundStyle(Color.secondary)
+        } label: {
+          modelName(file.displayName, pro: file.isPro, image: true)
         }
         .accessibilityValue("Installed")
       } else {
@@ -237,7 +244,7 @@ struct SettingsScreen: View {
           dismiss()
         } label: {
           HStack {
-            Text(file.displayName)
+            modelName(file.displayName, pro: file.isPro, image: false)
               .foregroundStyle(Color.primary)
             Spacer()
             if file == library.active {
@@ -266,16 +273,17 @@ struct SettingsScreen: View {
     let trailing = HStack(spacing: 8) {
       Text("Coming soon")
         .foregroundStyle(.secondary)
-      if model.isPro, !pro.isUnlocked { lockedProBadges(image: model.isImage) }
+      if model.isPro, !pro.isUnlocked { proBadge }
     }
+    let name = modelName(model.name, pro: model.isPro, image: model.isImage)
     if model.isPro, !pro.isUnlocked {
       NavigationLink {
         ProScreen()
       } label: {
-        LabeledContent(model.name) { trailing }
+        LabeledContent { trailing } label: { name }
       }
     } else {
-      LabeledContent(model.name) { trailing }
+      LabeledContent { trailing } label: { name }
     }
   }
 
@@ -290,16 +298,20 @@ struct SettingsScreen: View {
         ProScreen()
       } label: {
         HStack {
-          Label(model.name, systemImage: "arrow.down.circle")
-            .foregroundStyle(Color.primary)
+          Label {
+            modelName(model.name, pro: true, image: model.isImage)
+          } icon: {
+            Image(systemName: "arrow.down.circle")
+          }
+          .foregroundStyle(Color.primary)
           Spacer()
-          lockedProBadges(image: model.isImage)
+          proBadge
         }
       }
     } else if downloader.model == model, downloader.isActive {
       VStack(alignment: .leading, spacing: 8) {
         HStack {
-          Text(model.name)
+          modelName(model.name, pro: model.isPro, image: model.isImage)
           Spacer()
           Text("\(Int(downloader.fraction * 100))%")
             .foregroundStyle(.secondary)
@@ -312,7 +324,7 @@ struct SettingsScreen: View {
       }
     } else if downloader.model == model, case .failed(let message) = downloader.phase {
       VStack(alignment: .leading, spacing: 6) {
-        Text(model.name)
+        modelName(model.name, pro: model.isPro, image: model.isImage)
         Text(message)
           .font(.footnote)
           .foregroundStyle(.secondary)
@@ -327,8 +339,12 @@ struct SettingsScreen: View {
         library.install(model)
       } label: {
         HStack {
-          Label(model.name, systemImage: "arrow.down.circle")
-            .foregroundStyle(Color.primary)
+          Label {
+            modelName(model.name, pro: model.isPro, image: model.isImage)
+          } icon: {
+            Image(systemName: "arrow.down.circle")
+          }
+          .foregroundStyle(Color.primary)
           Spacer()
           Text(detail)
             .foregroundStyle(Color.secondary)
