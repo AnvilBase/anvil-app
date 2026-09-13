@@ -94,7 +94,7 @@ struct AppSettings: Codable, Equatable, Sendable {
   static let contextSizes = [2048, 4096, 8192, 16384, 32768]
   static let replyLengthLimits = [0, 256, 512, 1024, 2048, 4096]
   static let retentionChoices = [1, 3, 7, 30, 0]
-  static let searchResultCounts = [3, 5, 8]
+  static let searchResultCounts = [1, 3, 5]
 
   /// A prompt of your own for new chats, or empty for Anvil's own; each chat keeps the one it
   /// started with. Resolved by `AppSettings.prompt(for:)`, never read straight. At most
@@ -141,7 +141,7 @@ struct AppSettings: Codable, Equatable, Sendable {
   /// one you can ask for with a button. When on (and online, with a key), the model can call the
   /// web search tool.
   var webSearchEnabled = false
-  var webSearchResultCount = 5
+  var webSearchResultCount = 3
   /// Remember facts across chats (stored only on this iPhone).
   var memoryEnabled = true
   /// Send a dictated message automatically when you pause.
@@ -200,6 +200,10 @@ struct AppSettings: Codable, Equatable, Sendable {
     historyRetentionDays = try value(.historyRetentionDays, defaults.historyRetentionDays)
     webSearchEnabled = try value(.webSearchEnabled, defaults.webSearchEnabled)
     webSearchResultCount = try value(.webSearchResultCount, defaults.webSearchResultCount)
+    // A count saved under an older set of choices — 8, once — is not one the picker can show.
+    if !Self.searchResultCounts.contains(webSearchResultCount) {
+      webSearchResultCount = defaults.webSearchResultCount
+    }
     memoryEnabled = try value(.memoryEnabled, defaults.memoryEnabled)
     autoSendVoice = try value(.autoSendVoice, defaults.autoSendVoice)
     voiceIdentifier = try value(.voiceIdentifier, defaults.voiceIdentifier)
