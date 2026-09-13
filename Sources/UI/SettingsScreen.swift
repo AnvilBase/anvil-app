@@ -606,8 +606,8 @@ struct SettingsScreen: View {
     }
   }
 
-  /// The icons, as the icons: the mark on its tile in each of its colours. Pro's is the gold mark
-  /// on the warm ground its icon has, not on black like the rest.
+  /// The icons, as the icons: the mark on its tile in each of its colours. Pro's is the gold
+  /// block, on the same black as the rest.
   private var iconChooser: some View {
     chooserRow("App icon") {
       ForEach(AppIconChoice.allCases) { choice in
@@ -616,13 +616,10 @@ struct SettingsScreen: View {
           action: { settings.appIcon = choice }
         ) {
           RoundedRectangle(cornerRadius: 13, style: .continuous)
-            .fill(
-              choice == .pro
-                ? AnyShapeStyle(GoldAnvil.ground) : AnyShapeStyle(choice.colors.background)
-            )
+            .fill(choice.colors.background)
             .overlay {
               if choice == .pro {
-                GoldAnvil(size: 32)
+                GoldBlock(size: 38)
               } else {
                 PixelAnvil(size: 30, color: choice.colors.mark)
               }

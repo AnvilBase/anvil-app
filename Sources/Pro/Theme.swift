@@ -150,9 +150,7 @@ enum AppIconChoice: String, Codable, CaseIterable, Identifiable, Sendable {
     // development app used to wear the inverted one to tell it apart; its name under the icon
     // does that.
     case .anvil: (.black, .white)
-    // Pro is the gold mark on a warm dark ground, not on black: the chooser draws it with
-    // `GoldAnvil.ground`, and these stand in only where a flat colour is all that can be shown.
-    case .pro: (Color(red: 0.13, green: 0.10, blue: 0.05), Color(red: 0.98, green: 0.80, blue: 0.30))
+    case .pro: (.black, Color(red: 0.98, green: 0.80, blue: 0.30))  // the chooser draws the gold block
     case .inverse: (.white, .black)
     case .ember: (.black, AppTheme.ember.swatch)
     case .frost: (.black, AppTheme.frost.swatch)
