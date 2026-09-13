@@ -125,14 +125,26 @@ struct SettingsScreen: View {
       .overlay(Capsule().strokeBorder(.secondary.opacity(0.6), lineWidth: 1))
   }
 
-  /// A Pro model's name with what it is beside it — Unrestricted for Anvil Raw, Image for Anvil
-  /// Dream, the words the Pro page uses — whether Pro is active or not: the word is what tells the
-  /// two Pro models apart at a glance, and Pro being paid for doesn't change what they are. A
-  /// free model is its name alone.
-  private func modelName(_ name: String, pro: Bool, image: Bool) -> some View {
-    HStack(spacing: 8) {
-      Text(name)
-      if pro { capsule(image ? "Image" : "Unrestricted") }
+  /// A Pro model's name with what it is — Unrestricted for Anvil Raw, Image for Anvil Dream, the
+  /// words the Pro page uses — whether Pro is active or not: the word is what tells the two Pro
+  /// models apart at a glance, and Pro being paid for doesn't change what they are. A free model
+  /// is its name alone. Beside the name where the row has room, which an installed row does; under
+  /// it on a row that hasn't been downloaded, where the arrow, the size and the Pro mark take the
+  /// rest of the line and Unrestricted beside the name was wrapped onto a line of its own.
+  private func modelName(_ name: String, pro: Bool, image: Bool, under: Bool = false) -> some View {
+    let tag = pro ? capsule(image ? "Image" : "Unrestricted") : nil
+    return Group {
+      if under {
+        VStack(alignment: .leading, spacing: 4) {
+          Text(name)
+          tag
+        }
+      } else {
+        HStack(spacing: 8) {
+          Text(name)
+          tag
+        }
+      }
     }
   }
 
@@ -320,7 +332,7 @@ struct SettingsScreen: View {
         .foregroundStyle(.secondary)
       if model.isPro, !pro.isUnlocked { proBadge }
     }
-    let name = modelName(model.name, pro: model.isPro, image: model.isImage)
+    let name = modelName(model.name, pro: model.isPro, image: model.isImage, under: true)
     if model.isPro, !pro.isUnlocked {
       NavigationLink {
         ProScreen()
@@ -345,7 +357,7 @@ struct SettingsScreen: View {
       } label: {
         HStack {
           Label {
-            modelName(model.name, pro: true, image: model.isImage)
+            modelName(model.name, pro: true, image: model.isImage, under: true)
           } icon: {
             Image(systemName: "arrow.down.circle")
           }
@@ -357,7 +369,7 @@ struct SettingsScreen: View {
     } else if let downloader, downloader.isActive {
       VStack(alignment: .leading, spacing: 8) {
         HStack {
-          modelName(model.name, pro: model.isPro, image: model.isImage)
+          modelName(model.name, pro: model.isPro, image: model.isImage, under: true)
           Spacer()
           Text("\(Int(downloader.fraction * 100))%")
             .foregroundStyle(.secondary)
@@ -370,7 +382,7 @@ struct SettingsScreen: View {
       }
     } else if let downloader, case .failed(let message) = downloader.phase {
       VStack(alignment: .leading, spacing: 6) {
-        modelName(model.name, pro: model.isPro, image: model.isImage)
+        modelName(model.name, pro: model.isPro, image: model.isImage, under: true)
         Text(message)
           .font(.footnote)
           .foregroundStyle(.secondary)
@@ -386,7 +398,7 @@ struct SettingsScreen: View {
       } label: {
         HStack {
           Label {
-            modelName(model.name, pro: model.isPro, image: model.isImage)
+            modelName(model.name, pro: model.isPro, image: model.isImage, under: true)
           } icon: {
             Image(systemName: "arrow.down.circle")
           }
