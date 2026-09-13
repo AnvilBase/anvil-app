@@ -335,6 +335,12 @@ final class ChatModel {
   /// owes you, so the field keeps filling until they arrive. Sending is what ends it — see
   /// `endDictation`.
   func toggleDictation(autoSend: Bool? = nil) {
+    // In voice mode the microphone is voice mode's, and stopping it on its own only has voice mode
+    // open it again. Its stop is the way out instead, as the button in the bar is.
+    if voiceModeOn, speechInput.isActive {
+      endVoiceMode()
+      return
+    }
     if speechInput.isActive {
       speechInput.stop()
       return

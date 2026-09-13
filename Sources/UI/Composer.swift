@@ -399,8 +399,14 @@ struct Composer: View {
     }
     .buttonStyle(.plain)
     .disabled(chat.loadState != .ready || chat.isPreparingImage)
-    .accessibilityLabel(chat.speechInput.isActive ? "Stop listening" : "Talk")
+    .accessibilityLabel(micLabel)
     .accessibilityHint("Speech is typed into the message field on this iPhone")
+  }
+
+  /// In voice mode the stop square closes voice mode, so it says so.
+  private var micLabel: String {
+    guard chat.speechInput.isActive else { return "Talk" }
+    return chat.voiceModeOn ? "End voice mode" : "Stop listening"
   }
 
   /// The filled ones, drawn smaller than the bare glyphs beside them. A circle of solid colour
