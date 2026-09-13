@@ -225,7 +225,9 @@ struct ChatScreen: View {
   ///
   /// The composer stays, because the screen is still the chat and taking it away would say the app
   /// had become something else. It simply won't send: Send is behind `canSend`, which wants a model
-  /// that loaded, and the microphone wants the same.
+  /// that loaded, and the microphone wants the same. No Try again: the same load tried again fails
+  /// the same way, and what is worth changing — the model, the context — is in Settings › Models,
+  /// where Reload model is.
   private var failure: some View {
     VStack(spacing: 16) {
       Image(systemName: "exclamationmark.triangle")
@@ -242,18 +244,6 @@ struct ChatScreen: View {
           .multilineTextAlignment(.center)
           .textSelection(.enabled)
       }
-      Button {
-        Task { await chat.reloadModel() }
-      } label: {
-        Text("Try again")
-          .font(.headline)
-          .padding(.horizontal, 28)
-          .frame(height: ChatStyle.inlineControl)
-          .background(theme.sendFill, in: Capsule())
-          .foregroundStyle(theme.sendGlyph)
-      }
-      .buttonStyle(.plain)
-      .padding(.top, 8)
     }
     .padding(.horizontal, 32)
     .padding()

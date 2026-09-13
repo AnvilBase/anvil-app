@@ -93,8 +93,13 @@ final class ModelLibrary {
   /// alert and clear it when the alert is dismissed.
   var storageWarning: String?
 
+  /// Whether a model to chat with — Anvil Core or Anvil Raw — is on the phone. Anvil Dream only
+  /// makes pictures for a chat, so it waits for one of them: the screens say so, and this refuses.
+  var hasTextModel: Bool { installed.contains { $0.kind == .text } }
+
   func install(_ model: CatalogModel) {
     guard !(downloads[model.id]?.isActive ?? false), !model.isComingSoon else { return }
+    guard !model.isImage || hasTextModel else { return }
     // Room is checked before anything starts, so a phone that is nearly full hears about it in a
     // sentence rather than watching a download begin and stop. What the other downloads under way
     // still need is counted too: they will want their room before this one has finished.

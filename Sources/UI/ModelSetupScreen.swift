@@ -229,18 +229,29 @@ struct ModelSetupScreen: View {
       }
       .buttonStyle(.plain)
     } else {
-      // The same ink the welcome screen's Continue is: the one thing to press on this screen.
-      Button {
-        library.install(model)
-      } label: {
-        Label("Download", systemImage: "arrow.down.circle")
-          .font(.headline)
-          .frame(maxWidth: .infinity)
-          .frame(height: ChatStyle.inlineControl)
-          .background(theme.sendFill, in: Capsule())
-          .foregroundStyle(theme.sendGlyph)
+      // Anvil Dream makes pictures for a chat, so it waits for a model to chat with.
+      let waitsForChatModel = model.isImage && !library.hasTextModel
+      VStack(spacing: 8) {
+        // The same ink the welcome screen's Continue is: the one thing to press on this screen.
+        Button {
+          library.install(model)
+        } label: {
+          Label("Download", systemImage: "arrow.down.circle")
+            .font(.headline)
+            .frame(maxWidth: .infinity)
+            .frame(height: ChatStyle.inlineControl)
+            .background(theme.sendFill, in: Capsule())
+            .foregroundStyle(theme.sendGlyph)
+            .opacity(waitsForChatModel ? 0.35 : 1)
+        }
+        .buttonStyle(.plain)
+        .disabled(waitsForChatModel)
+        if waitsForChatModel {
+          Text("Download Anvil Core or Anvil Raw first")
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+        }
       }
-      .buttonStyle(.plain)
     }
   }
 

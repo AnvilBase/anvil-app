@@ -405,6 +405,8 @@ struct SettingsScreen: View {
         .buttonStyle(.borderless)
       }
     } else {
+      // Anvil Dream makes pictures for a chat, so it waits for a model to chat with.
+      let waitsForChatModel = model.isImage && !library.hasTextModel
       Button {
         library.install(model)
       } label: {
@@ -414,12 +416,13 @@ struct SettingsScreen: View {
           } icon: {
             Image(systemName: "arrow.down.circle")
           }
-          .foregroundStyle(Color.primary)
+          .foregroundStyle(waitsForChatModel ? Color.secondary : Color.primary)
           Spacer()
-          Text(detail)
+          Text(waitsForChatModel ? "Needs Anvil Core or Raw" : detail)
             .foregroundStyle(Color.secondary)
         }
       }
+      .disabled(waitsForChatModel)
     }
   }
 
