@@ -180,7 +180,12 @@ backed up.
 
 **Pictures.** With Anvil Pro and **Anvil Dream** installed, the model can make a picture with the
 `generate_image` tool: ask for a drawing, a painting or a photo of something and it appears in the
-reply, made on the phone in a few seconds. The tool is only offered where a picture can be made.
+reply, made on the phone in a few seconds. With **Anvil Raw** as the model, a message that asks
+for a picture — "generate an image of a fox", "draw a dragon" — is made straight away by the app
+without asking the model, "make it darker" after a picture changes it, and a refusal to a message
+about a picture is answered with the picture: Raw's no is not the app's
+(`Sources/Chat/ImageRequest.swift`). With Anvil Core the model is asked through its tool and keeps
+its own judgement. The tool is only offered where a picture can be made.
 Without Pro, a message that clearly asks for one — "generate an image", "a picture of a fox" —
 opens the Pro page instead of sending, with the words kept in the field; the app reads the message
 for that itself (`Sources/Chat/ImageRequest.swift`) rather than trusting the model, which reaches

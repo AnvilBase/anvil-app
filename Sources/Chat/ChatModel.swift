@@ -84,6 +84,12 @@ final class ChatModel {
   /// Replies read aloud, and the microphone open again when they finish. Pro, and on.
   var talkModeOn: Bool { pro.isUnlocked && settings.values.talkMode }
 
+  /// Whether the model in use is Anvil Raw — the Pro text model, the one with its refusals
+  /// removed. Only with it does the app make a picture without asking the model, follow one up,
+  /// or answer a refusal with the picture. Anvil Core keeps its own judgement: what it declines,
+  /// it declines.
+  var isUnrestricted: Bool { loadedModel?.isPro == true && loadedModel?.kind == .text }
+
   /// Whether a reply can come with a picture: Anvil Dream is on the phone, and Pro is active. The
   /// library only ever hands over a Pro model while Pro is active, but this is decided in one
   /// place, so it is asked again here.
@@ -242,13 +248,21 @@ final class ChatModel {
 
   func send() {
     guard canSend else { return }
-    // A picture asked for where none can be made. Without Pro the message stays in the field and
-    // the Pro page opens: what was asked for is one tap away, and the words are still there to
-    // send once it is. With Pro and no Anvil Dream the message goes, and a notice says where the
-    // download is. Read from the words, not decided by the model — see `ImageRequest`.
-    if !canGenerateImages, pendingImage == nil,
-      ImageRequest.isAsking(draft.trimmingCharacters(in: .whitespacesAndNewlines))
-    {
+    // A message that asks for a picture, read from its words — see `ImageRequest` — rather than
+    // decided by the model. Where one can be made it is made straight away, below. Where none
+    // can be: without Pro the message stays in the field and the Pro page opens, so what was
+    // asked for is one tap away and the words are still there to send once it is; with Pro and
+    // no Anvil Dream the message goes, and a notice says where the download is.
+    let typedNow = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+    let asksForPicture = pendingImage == nil && ImageRequest.isAsking(typedNow)
+    // With Anvil Raw, a picture asked for is made without asking the model, and "make it
+    // darker" or "another one" after a picture is the picture changed. With Anvil Core the
+    // model is asked, through its tool, and decides for itself.
+    let makesDirectly = canGenerateImages && isUnrestricted
+    let followsPicture =
+      pendingImage == nil && !asksForPicture && makesDirectly && lastPicturePrompt != nil
+      && ImageRequest.isFollowUp(typedNow)
+    if asksForPicture, !canGenerateImages {
       if pro.isUnlocked {
         chatNotice = "Download Anvil Dream in Settings › Models to make pictures."
       } else {
@@ -272,7 +286,22 @@ final class ChatModel {
       removedImageIDs = truncate(from: editingMessageID)
       self.editingMessageID = nil
     }
-    submit(typed, image: image, removedImageIDs: removedImageIDs)
+    if asksForPicture, makesDirectly {
+      submitPicture(
+        typed, description: ImageRequest.description(in: typed), removedImageIDs: removedImageIDs)
+    } else if followsPicture, let previous = lastPicturePrompt {
+      submitPicture(
+        typed, description: ImageRequest.followUpDescription(typed, after: previous),
+        removedImageIDs: removedImageIDs)
+    } else {
+      submit(typed, image: image, removedImageIDs: removedImageIDs)
+    }
+  }
+
+  /// What the last picture in the chat was made from, if the reply before this message was one.
+  private var lastPicturePrompt: String? {
+    guard let last = openChat.messages.last, last.role == .assistant, last.hasImage else { return nil }
+    return last.imagePrompt
   }
 
   /// Starts or stops dictation. Speech is recognized on this iPhone and typed into the message
@@ -509,6 +538,77 @@ final class ChatModel {
 
   // MARK: - Writing a reply
 
+  /// Makes the picture itself, without asking the text model whether to. A model taught to refuse
+  /// refuses pictures too, and a picture asked for on the user's own phone is theirs to have: the
+  /// ask is read from the words, what is left of them is the description, and Anvil Dream is
+  /// called straight. The reply is the picture under a caption. The text model isn't consulted,
+  /// so there is no one to say no.
+  private func submitPicture(
+    _ typed: String, description: String, removedImageIDs: [ChatMessage.ID]
+  ) {
+    guard let imageModel else { return }
+    if openChat.messages.isEmpty {
+      openChat.systemPrompt = settings.values.systemPrompt
+      openChat.title = Self.title(for: typed)
+    }
+    let user = ChatMessage(role: .user, text: typed)
+    let reply = ChatMessage(role: .assistant, text: "", imagePrompt: description)
+    openChat.messages.append(contentsOf: [user, reply])
+    openChat.updatedAt = Date()
+    messagesSent += 1
+    isGenerating = true
+    chatNotice = nil
+    let chatID = openChat.id
+
+    generationTask = Task {
+      for id in removedImageIDs {
+        await archive.deleteImage(chatID: chatID, messageID: id)
+      }
+      await save()
+      await makePicture(description, into: reply.id, chatID: chatID, with: imageModel)
+      // The engine's conversation never saw this turn; the next send rebuilds it from history.
+      activeConversation = nil
+      openChat.updatedAt = Date()
+      await save()
+      isGenerating = false
+      isStopping = false
+      generationTask = nil
+    }
+  }
+
+  /// Makes the picture and puts it in the reply, under a caption; or, failing, says why there.
+  private func makePicture(
+    _ description: String, into replyID: ChatMessage.ID, chatID: UUID, with imageModel: ModelFile
+  ) async {
+    updateMessage(replyID) { $0.imagePrompt = description }
+    do {
+      let image = try await dream.generate(description, from: imageModel)
+      guard let data = ImageProcessing.jpegData(image) else { throw DreamEngine.Failure.noOutput }
+      if let decoded = ImageProcessing.decode(data) { images[replyID] = decoded }
+      updateMessage(replyID) {
+        $0.hasImage = true
+        $0.text = Self.caption(for: description)
+        $0.isError = false
+      }
+      replyStarted += 1
+      try? await archive.saveImage(data, chatID: chatID, messageID: replyID)
+    } catch {
+      updateMessage(replyID) {
+        $0.imagePrompt = nil
+        $0.text = "Anvil Dream couldn't make the picture: \(error.localizedDescription)"
+        $0.isError = true
+      }
+    }
+  }
+
+  /// The line under a picture made straight from the message: what it is, as a sentence.
+  private static func caption(for description: String) -> String {
+    let trimmed = description.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard let first = trimmed.first else { return "Here it is." }
+    let sentence = first.uppercased() + trimmed.dropFirst()
+    return sentence.last.map { ".!?".contains($0) } == true ? sentence : sentence + "."
+  }
+
   /// Adds your message and streams the reply to it.
   private func submit(_ typed: String, image: PreparedImage?, removedImageIDs: [ChatMessage.ID]) {
     if openChat.messages.isEmpty {
@@ -591,6 +691,21 @@ final class ChatModel {
       }
       if isStopping {
         updateMessage(reply.id) { if $0.text.isEmpty { $0.text = "(stopped)" } }
+      }
+
+      // The last word on pictures, with Anvil Raw. A message that mentioned one, put some way
+      // the words above didn't catch, and a model that answered by declining: the picture is
+      // made anyway, and the refusal goes under it. Raw's no is not the app's; Core's is.
+      if !isStopping, canGenerateImages, isUnrestricted, image == nil, let imageModel,
+        ImageRequest.mightBeAsking(typed),
+        let written = messages.first(where: { $0.id == reply.id }),
+        !written.hasImage, written.imagePrompt == nil, !written.isError,
+        ImageRequest.looksLikeRefusal(written.text)
+      {
+        await makePicture(
+          ImageRequest.description(in: typed), into: reply.id, chatID: chatID, with: imageModel)
+        // The engine's conversation holds the refusal; the next send rebuilds it from history.
+        activeConversation = nil
       }
 
       monitor.cancel()
