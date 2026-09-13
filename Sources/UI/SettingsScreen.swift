@@ -1,3 +1,4 @@
+import StoreKit
 import SwiftUI
 
 /// Everything you can change, in the order it matters: Pro, which model is loaded, what it is told,
@@ -16,6 +17,8 @@ struct SettingsScreen: View {
   @Environment(ProAccess.self) private var pro
   @Environment(\.theme) private var theme
   @Environment(\.dismiss) private var dismiss
+  /// Apple's own rating prompt, the stars over the page, asked for by Rate Anvil.
+  @Environment(\.requestReview) private var requestReview
   @State private var confirmingDeleteAll = false
   /// The passcode being set or changed, while its sheet is up.
   @State private var passcodeSheet: PasscodeSheet.Mode?
@@ -755,12 +758,21 @@ struct SettingsScreen: View {
     }
   }
 
-  /// How to tell us. A rating goes to the App Store by way of the site; feedback and a bug report
-  /// each open a page of their own, written in the app and sent from the mail sheet. Those two
-  /// stay in the app, so they carry the chevron of a page rather than the arrow of a link.
+  /// How to tell us. Rate Anvil asks iOS for its own rating prompt — the five stars over the page,
+  /// the way every app asks — and stays on the page; iOS decides whether to show it, and shows it
+  /// a few times a year at most, so a press that seems to do nothing has been heard. Write a
+  /// review goes to the App Store page, where the words go. Feedback and a bug report each open a
+  /// page of their own, written in the app and sent from the mail sheet. The in-app rows carry
+  /// the chevron of a page; the App Store row, the arrow of a link.
   private var feedbackSection: some View {
     Section("Feedback") {
-      link("Rate Anvil", systemImage: "star", to: AppLinks.rate)
+      Button {
+        requestReview()
+      } label: {
+        Label("Rate Anvil", systemImage: "star")
+          .foregroundStyle(Color.primary)
+      }
+      link("Write a review", systemImage: "square.and.pencil", to: AppLinks.review)
       NavigationLink {
         FeedbackScreen(kind: .feedback, library: library)
       } label: {

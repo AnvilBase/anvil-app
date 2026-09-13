@@ -20,9 +20,12 @@ enum AppLinks {
   /// The app's own licence. Model licences are shown with each model, in the catalog.
   static let licenses = URL(string: "https://github.com/AnvilBase/anvil-app/blob/main/LICENSE")!
 
-  /// Where a rating goes. Through the site like the community links: the App Store page only
-  /// exists once the app is listed, and its address is a redirect there rather than an ID here.
-  static let rate = URL(string: "https://www.anvilai.com/rate")!
+  /// Where a written review goes: the app's App Store page. Through the site like the community
+  /// links — the page only exists once the app is listed, and its address is a redirect there
+  /// rather than an ID here. The redirect should land on the page's write-review sheet
+  /// (`?action=write-review` on the App Store address), so the words are one tap away. A rating
+  /// by itself doesn't leave the app: Settings asks iOS for its own prompt.
+  static let review = URL(string: "https://www.anvilai.com/rate")!
   /// The inbox feedback and bug reports are addressed to — the one the site's footer gives.
   static let supportEmail = "hello@anvilai.app"
 
