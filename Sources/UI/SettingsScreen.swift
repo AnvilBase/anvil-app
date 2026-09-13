@@ -704,7 +704,7 @@ struct SettingsScreen: View {
   /// Where the people are. Each row leaves the app; the addresses live in `AppLinks`.
   private var communitySection: some View {
     Section("Community") {
-      link("Discord", systemImage: "bubble.left.and.bubble.right", to: AppLinks.discord)
+      link("Discord", image: "Discord", to: AppLinks.discord)
       link("X", systemImage: "at", to: AppLinks.x)
       link("Instagram", systemImage: "camera", to: AppLinks.instagram)
     }
@@ -750,9 +750,29 @@ struct SettingsScreen: View {
   /// link takes on its own: leaving the app is not a bigger thing than any other row does. The
   /// symbol in front is the row's, in the same ink, as Reload model and Export chats have theirs.
   private func link(_ title: String, systemImage: String, to url: URL) -> some View {
+    link(to: url) { Label(title, systemImage: systemImage) }
+  }
+
+  /// The same row with a mark of our own in front — Discord's, from the catalog — drawn as a
+  /// template so it takes the row's ink the way a symbol does, and sized to sit where one sits.
+  private func link(_ title: String, image: String, to url: URL) -> some View {
+    link(to: url) {
+      Label {
+        Text(title)
+      } icon: {
+        Image(image)
+          .renderingMode(.template)
+          .resizable()
+          .scaledToFit()
+          .frame(width: 20, height: 20)
+      }
+    }
+  }
+
+  private func link<L: View>(to url: URL, @ViewBuilder label: () -> L) -> some View {
     Link(destination: url) {
       HStack {
-        Label(title, systemImage: systemImage)
+        label()
           .foregroundStyle(Color.primary)
         Spacer()
         Image(systemName: "arrow.up.right")
