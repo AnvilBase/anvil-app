@@ -1,18 +1,16 @@
 import SwiftUI
 
-/// The mark in gold, as a block that catches the light: Anvil Pro's mark, on the row that sells
-/// it and the page that does.
+/// The mark in gold, catching the light: Anvil Pro's mark, on the row that sells it and the
+/// page that does.
 ///
-/// The same ``AnvilShape`` as everywhere else, given a body: the shape is stepped down in dark
-/// bronze so it stands off the surface, the top face is a gold gradient with a bevel — light
-/// along its upper edges, shade along its lower — and every few seconds a broad, soft band of
-/// light crosses the face from its bottom-left corner to its top-right, the way a sheen moves
-/// over metal as it tilts. The band is wider than the mark and fades to nothing well outside it,
+/// The same ``AnvilShape`` as everywhere else, flat on the page: the face is a gold gradient,
+/// and every few seconds a broad, soft band of light crosses it from its bottom-left corner to
+/// its top-right, the way a sheen moves over metal as it tilts. The band is wider than the mark and fades to nothing well outside it,
 /// so what shows is light passing over the gold and never the band's own edge. Between
 /// crossings, three small glints — four-pointed, the shape a highlight takes through a lens —
 /// flash at the corners of the face, each on its own beat, so the mark is never quite still.
-/// Drawn, not modelled: a pixel mark extruded is still a pixel mark. Reduce Motion gets the gold
-/// and neither the sheen nor the glints.
+/// Flat, not modelled: a pixel mark stays a pixel mark. Reduce Motion gets the gold and neither
+/// the sheen nor the glints.
 struct GoldAnvil: View {
   var size: CGFloat = 56
 
@@ -26,11 +24,6 @@ struct GoldAnvil: View {
       .init(color: Color(red: 0.96, green: 0.79, blue: 0.36), location: 1),
     ],
     startPoint: .topLeading, endPoint: .bottomTrailing)
-
-  /// The sides of the block: darker, and darker still further down.
-  private static let side = LinearGradient(
-    colors: [Color(red: 0.62, green: 0.42, blue: 0.10), Color(red: 0.40, green: 0.26, blue: 0.05)],
-    startPoint: .top, endPoint: .bottom)
 
   /// How often the sheen crosses, and how long a crossing takes. Rare and unhurried: gold
   /// catching the light now and then, not something that glitters.
@@ -125,55 +118,36 @@ struct GoldAnvil: View {
     }
   }
 
-  /// The block, and the sheen and glints where they stand at `time` — or, with no time, neither.
+  /// The face, and the sheen and glints where they stand at `time` — or, with no time, neither.
   private func mark(at time: Double?) -> some View {
-    // The face takes the top of the frame; the depth below it is the body.
-    let depth = max(2, (size * 0.11).rounded())
-    let faceSize = size - depth
-    let steps = Int(depth)
+    let faceSize = size
 
-    return ZStack(alignment: .top) {
-      // The body, deepest layer first so each sits under the one above it.
-      ForEach((1...steps).reversed(), id: \.self) { step in
-        AnvilShape()
-          .fill(Self.side)
-          .frame(width: faceSize, height: faceSize)
-          .offset(y: CGFloat(step))
-      }
-      AnvilShape()
-        .fill(
-          Self.face
-            .shadow(.inner(color: .white.opacity(0.55), radius: faceSize * 0.02, y: faceSize * 0.025))
-            .shadow(.inner(color: .black.opacity(0.45), radius: faceSize * 0.05, y: -faceSize * 0.035))
-        )
-        .frame(width: faceSize, height: faceSize)
-        .overlay {
-          if let time, let progress = Self.sweep(at: time) {
-            // The band, on a square three times the face, slid along the diagonal from well
-            // below and left of the mark to well above and right of it. At either end of the
-            // trip the lit part of the band is more than a face's width outside the mark, and
-            // the square still covers the face throughout, so no edge of anything ever shows.
-            let extent = faceSize * 3
-            let travel = faceSize * 1.7 * CGFloat(progress * 2 - 1)
-            Rectangle()
-              .fill(Self.sheen)
-              .frame(width: extent, height: extent)
-              .offset(x: travel, y: -travel)
-              .blendMode(.screen)
-          }
+    return AnvilShape()
+      .fill(Self.face)
+      .frame(width: faceSize, height: faceSize)
+      .overlay {
+        if let time, let progress = Self.sweep(at: time) {
+          // The band, on a square three times the face, slid along the diagonal from well
+          // below and left of the mark to well above and right of it. At either end of the
+          // trip the lit part of the band is more than a face's width outside the mark, and
+          // the square still covers the face throughout, so no edge of anything ever shows.
+          let extent = faceSize * 3
+          let travel = faceSize * 1.7 * CGFloat(progress * 2 - 1)
+          Rectangle()
+            .fill(Self.sheen)
+            .frame(width: extent, height: extent)
+            .offset(x: travel, y: -travel)
+            .blendMode(.screen)
         }
-        .mask(AnvilShape().frame(width: faceSize, height: faceSize))
-    }
-    .frame(width: size, height: size, alignment: .top)
-    // A light shadow, enough to lift the block off the page and no more.
-    .shadow(color: .black.opacity(0.16), radius: size * 0.05, y: size * 0.03)
-    .overlay {
-      // Over the block rather than inside its mask: a glint sits on a corner and past it.
-      if let time {
-        glints(at: time, faceSize: faceSize, inset: depth / 2)
       }
-    }
-    .accessibilityHidden(true)
+      .mask(AnvilShape().frame(width: faceSize, height: faceSize))
+      .overlay {
+        // Over the face rather than inside its mask: a glint sits on a corner and past it.
+        if let time {
+          glints(at: time, faceSize: faceSize, inset: 0)
+        }
+      }
+      .accessibilityHidden(true)
   }
 }
 
