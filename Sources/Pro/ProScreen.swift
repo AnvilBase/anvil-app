@@ -94,13 +94,30 @@ struct ProScreen: View {
           .foregroundStyle(theme.sendGlyph)
         }
         .buttonStyle(.plain)
-        .disabled(pro.product == nil || pro.isPurchasing)
+        #if ANVIL_DEV
+          // The development app can't buy the product, so holding Subscribe stands in for it:
+          // Pro switches on for this run, the way the developer screen's preview does. The
+          // button stays pressable without a product for that reason alone; a tap still does
+          // nothing. Compiled out of the public app, not hidden in it.
+          .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.8).onEnded { _ in pro.previewUnlocked = true }
+          )
+          .sensoryFeedback(.success, trigger: pro.previewUnlocked)
+          .disabled(pro.isPurchasing)
+        #else
+          .disabled(pro.product == nil || pro.isPurchasing)
+        #endif
 
         // One line, and it is the one App Review asks for. Without a product it is the one that
         // says why the button above does nothing.
         Text(pro.product == nil ? "Not available in this build." : "Renews monthly. Cancel any time.")
           .font(.footnote)
           .foregroundStyle(.secondary)
+        #if ANVIL_DEV
+          Text("Hold Subscribe to preview Pro in this build.")
+            .font(.footnote)
+            .foregroundStyle(.tertiary)
+        #endif
 
         HStack(spacing: 18) {
           Button("Restore purchases") { Task { await pro.restore() } }
