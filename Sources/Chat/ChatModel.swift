@@ -195,7 +195,6 @@ final class ChatModel {
       modelDetails = result.details
       loadedEngineOptions = options
       notice = result.notice
-      if !result.details.supportsImages { pendingImage = nil }
       loadState = .ready
     } catch {
       LoadAttempt.succeeded()
@@ -276,13 +275,17 @@ final class ChatModel {
     // asked for is one tap away and the words are still there to send once it is; with Pro and
     // no Anvil Dream the message goes, and a notice says where the download is.
     let typedNow = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-    let asksForPicture = pendingImage == nil && ImageRequest.isAsking(typedNow)
+    // A message with something attached — a photo or a file — is about the attachment, never a
+    // request for a picture: "make this image brighter" is about the photo. It goes to the text
+    // model, with Anvil Dream kept out of that turn (see `submit`).
+    let hasAttachment = pendingImage != nil || pendingFile != nil
+    let asksForPicture = !hasAttachment && ImageRequest.isAsking(typedNow)
     // With Anvil Raw, a picture asked for is made without asking the model, and "make it
     // darker" or "another one" after a picture is the picture changed. With Anvil Core the
     // model is asked, through its tool, and decides for itself.
     let makesDirectly = canGenerateImages && isUnrestricted
     let followsPicture =
-      pendingImage == nil && !asksForPicture && makesDirectly && lastPicturePrompt != nil
+      !hasAttachment && !asksForPicture && makesDirectly && lastPicturePrompt != nil
       && ImageRequest.isFollowUp(typedNow)
     if asksForPicture, !canGenerateImages {
       if pro.isUnlocked {
@@ -791,7 +794,12 @@ final class ChatModel {
       ? WebSearchConfig(
         apiKey: AppSecrets.braveSearchAPIKey, resultCount: settings.values.webSearchResultCount)
       : nil
-    let options = conversationOptions()
+    var options = conversationOptions()
+    // Anvil Dream stays out of a turn that carries a photo or a file: the message is about what
+    // was attached, and a model handed a picture tool beside a picture reaches for it. Without the
+    // tool for this turn it can only answer. A change of options restarts the engine's
+    // conversation from history, the way switching web search does.
+    if image != nil || file != nil { options.imageGeneration = false }
     // With only a photo attached, give the model something to do with it. A file goes ahead of
     // the words, named and fenced, with the same standing question when there are none.
     let basePrompt = user.attachment != nil
@@ -857,7 +865,7 @@ final class ChatModel {
       // The last word on pictures, with Anvil Raw. A message that mentioned one, put some way
       // the words above didn't catch, and a model that answered by declining: the picture is
       // made anyway, and the refusal goes under it. Raw's no is not the app's; Core's is.
-      if !isStopping, canGenerateImages, isUnrestricted, image == nil, let imageModel,
+      if !isStopping, canGenerateImages, isUnrestricted, image == nil, file == nil, let imageModel,
         ImageRequest.mightBeAsking(typed),
         let written = messages.first(where: { $0.id == reply.id }),
         !written.hasImage, written.imagePrompt == nil, !written.isError,
@@ -961,6 +969,9 @@ final class ChatModel {
         chatNotice =
           "Earlier messages didn't fit in the model's context, so it only sees your new message."
       }
+    }
+    if image != nil, !supportsImages {
+      chatNotice = "The model that's loaded can't see photos, so it answered the words alone."
     }
     let stream = try await device.stream(
       prompt, imageData: supportsImages ? image?.jpegData : nil,

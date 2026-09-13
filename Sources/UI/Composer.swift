@@ -8,8 +8,8 @@ import SwiftUI
 /// The capsule at the bottom of the chat. One line of message sits between the buttons — what you
 /// can attach and whether the web is in play on the left, the microphone and the round button that
 /// sends or stops on the right. When the message outgrows that line the buttons step down to a row
-/// of their own and the message takes the full width above them. What you're editing and the photo
-/// waiting to be sent sit above the capsule.
+/// of their own and the message takes the full width above them. What you're editing, the photo or
+/// file waiting to be sent, and the ways to attach one sit above the capsule.
 ///
 /// The field never moves. An earlier version moved it — between the buttons, then to a row of its
 /// own — which meant SwiftUI building a second field and throwing the first away, and the keyboard
@@ -31,6 +31,8 @@ struct Composer: View {
   @State private var showingCamera = false
   @State private var showingPhotoLibrary = false
   @State private var showingFiles = false
+  /// The row of ways to attach something, up above the capsule while the plus is open.
+  @State private var showingAttachOptions = false
 
   /// The room the line between the buttons has for the message, and the room the whole capsule
   /// has once the buttons have stepped down. The first is remembered from the last time the line
@@ -68,10 +70,16 @@ struct Composer: View {
       if chat.editingMessageID != nil { editingBanner }
       pendingPhoto
       pendingFile
+      if showingAttachOptions { attachOptions }
       inputCapsule
     }
     .padding(.horizontal, 16)
     .padding(.bottom, 10)
+    .animation(.snappy(duration: 0.22), value: showingAttachOptions)
+    // Whatever was being chosen is over once the message has gone.
+    .onChange(of: chat.isGenerating) { _, generating in
+      if generating { showingAttachOptions = false }
+    }
     // Swiping down anywhere on the composer puts the keyboard away, the same way dragging the
     // conversation does. Simultaneous, so the field keeps its own taps and text selection.
     .simultaneousGesture(swipeDownToDismiss)
@@ -285,46 +293,65 @@ struct Composer: View {
       }
   }
 
-  /// Everything you can put into a message: a photo from the camera or the library, or a file. It's
-  /// always here, the way ChatGPT's plus is, and files always work; when the model that's loaded
-  /// can't see photos, Photos is still listed and says why when tapped, rather than vanishing.
+  /// The plus: it opens and closes the row of ways to attach something, up above the capsule. It
+  /// used to be a menu, which iOS put wherever it liked — over the capsule as often as not — and
+  /// which hid the photo options whenever the loaded model couldn't see photos. The row is always
+  /// the same three things, and it is always where the plus is pointing.
   private var addButton: some View {
-    Menu {
-      if chat.supportsImages {
-        #if canImport(UIKit)
-          if CameraPicker.isAvailable {
-            Button("Camera", systemImage: "camera") { showingCamera = true }
-          }
-        #endif
-        Button("Photos", systemImage: "photo.on.rectangle") { showingPhotoLibrary = true }
-      } else {
-        Button("Photos", systemImage: "photo.on.rectangle") { chat.alertMessage = noImagesReason }
-      }
-      Button("Files", systemImage: "doc") { showingFiles = true }
+    Button {
+      showingAttachOptions.toggle()
     } label: {
-      plusLabel
+      Image(systemName: "plus")
+        .font(.system(size: ChatStyle.inlineControlGlyph, weight: .medium))
+        .foregroundStyle(.primary)
+        // Turned to a cross while the row is up: the same button, now the way to put it away.
+        .rotationEffect(.degrees(showingAttachOptions ? 45 : 0))
+        .frame(width: Self.leadingControl, height: ChatStyle.inlineControl)
+        .contentShape(Circle())
     }
-    // Plain, and not tinted: a menu's label is highlighted in the tint while the menu opens, and
-    // tinted with the page's ink that was a capsule flashing black around the plus.
     .buttonStyle(.plain)
+    .animation(.snappy(duration: 0.22), value: showingAttachOptions)
     .accessibilityLabel("Attach")
+    .accessibilityValue(showingAttachOptions ? "Open" : "Closed")
     .disabled(chat.isGenerating || chat.isPreparingImage)
   }
 
-  private var plusLabel: some View {
-    Image(systemName: "plus")
-      .font(.system(size: ChatStyle.inlineControlGlyph, weight: .medium))
-      .foregroundStyle(.primary)
-      .frame(width: Self.leadingControl, height: ChatStyle.inlineControl)
-      .contentShape(Circle())
+  /// Everything you can put into a message, as a row of three above the capsule: a photo from the
+  /// camera or the library, or a file. Always all three, whatever model is loaded — a photo can
+  /// always be attached, and what the model makes of it is the model's business. Choosing one
+  /// puts the row away and opens the picker.
+  private var attachOptions: some View {
+    HStack(spacing: 8) {
+      #if canImport(UIKit)
+        if CameraPicker.isAvailable {
+          attachOption("Camera", systemImage: "camera") { showingCamera = true }
+        }
+      #endif
+      attachOption("Photos", systemImage: "photo.on.rectangle") { showingPhotoLibrary = true }
+      attachOption("Files", systemImage: "doc") { showingFiles = true }
+    }
+    .padding(.horizontal, 4)
+    .transition(.move(edge: .bottom).combined(with: .opacity))
   }
 
-  /// Two different reasons photos are unavailable, and the difference decides what to do about it.
-  private var noImagesReason: String {
-    chat.settings.values.engine.imageInput
-      ? "The model that's loaded can't read images. A model that can will show the photo options "
-        + "here."
-      : "Image input is switched off. Turn it on in Settings › Models, then Reload model."
+  private func attachOption(
+    _ title: String, systemImage: String, action: @escaping () -> Void
+  ) -> some View {
+    Button {
+      showingAttachOptions = false
+      action()
+    } label: {
+      Label(title, systemImage: systemImage)
+        .font(.subheadline.weight(.medium))
+        .lineLimit(1)
+        .frame(maxWidth: .infinity)
+        .frame(height: ChatStyle.smallControl)
+        .liquidGlass(in: Capsule(), interactive: true)
+        .overlay(Capsule().strokeBorder(theme.hairline, lineWidth: 0.5))
+        .contentShape(Capsule())
+    }
+    .buttonStyle(.plain)
+    .foregroundStyle(.primary)
   }
 
   /// A plain globe when it's off, the same globe on a soft wash of the page's own ink when it's
@@ -386,6 +413,7 @@ struct Composer: View {
 
   private var hasSomethingToSend: Bool {
     !chat.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || chat.pendingImage != nil
+      || chat.pendingFile != nil
   }
 
   /// A plain glyph, not a filled circle — the filled circle is what marks the one button that acts.
