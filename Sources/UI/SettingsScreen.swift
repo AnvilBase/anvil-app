@@ -94,13 +94,25 @@ struct SettingsScreen: View {
   }
 
   /// The small outline that marks a Pro row, in the shape Recommended takes on the model screen.
-  private var proBadge: some View {
-    Text("Pro")
+  private var proBadge: some View { capsule("Pro") }
+
+  private func capsule(_ text: String) -> some View {
+    Text(text)
       .font(.caption.weight(.semibold))
       .foregroundStyle(.secondary)
       .padding(.horizontal, 7)
       .padding(.vertical, 2)
       .overlay(Capsule().strokeBorder(.secondary.opacity(0.6), lineWidth: 1))
+  }
+
+  /// The badges on a Pro model's row while Pro is locked: what the model is — Unrestricted for
+  /// Anvil Raw, Image for Anvil Dream, the words the Pro page uses — and then Pro. A locked row
+  /// has no other way of saying what it is for, and the word is what the paywall is selling.
+  private func lockedProBadges(image: Bool) -> some View {
+    HStack(spacing: 6) {
+      capsule(image ? "Image" : "Unrestricted")
+      proBadge
+    }
   }
 
   /// A row that is the control when Pro is active and the paywall's door when it isn't. The locked
@@ -208,7 +220,7 @@ struct SettingsScreen: View {
         NavigationLink {
           ProScreen()
         } label: {
-          LabeledContent(file.displayName) { proBadge }
+          LabeledContent(file.displayName) { lockedProBadges(image: file.kind == .image) }
         }
       } else if file.kind == .image {
         LabeledContent(file.displayName) {
@@ -251,7 +263,7 @@ struct SettingsScreen: View {
     let trailing = HStack(spacing: 8) {
       Text("Coming soon")
         .foregroundStyle(.secondary)
-      if model.isPro, !pro.isUnlocked { proBadge }
+      if model.isPro, !pro.isUnlocked { lockedProBadges(image: model.isImage) }
     }
     if model.isPro, !pro.isUnlocked {
       NavigationLink {
@@ -278,7 +290,7 @@ struct SettingsScreen: View {
           Label(model.name, systemImage: "arrow.down.circle")
             .foregroundStyle(Color.primary)
           Spacer()
-          proBadge
+          lockedProBadges(image: model.isImage)
         }
       }
     } else if downloader.model == model, downloader.isActive {
