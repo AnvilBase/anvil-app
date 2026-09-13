@@ -163,6 +163,12 @@ private struct RootView: View {
     .onChange(of: chat.settings.values.appIcon) { _, icon in
       icon.apply()
     }
+    // A sheet is its own presentation, which `preferredColorScheme` on the root does not reach:
+    // Settings stayed as it was while the chat behind it changed, and caught up only when reopened.
+    // The window is told as well, and every presentation in it follows, at once.
+    .onChange(of: chat.settings.values.appearance, initial: true) { _, appearance in
+      appearance.applyToWindows()
+    }
     .onChange(of: scenePhase) { _, phase in
       guard chat.settings.values.appLockEnabled || phase == .active else { return }
       switch phase {
@@ -183,6 +189,24 @@ private struct RootView: View {
         break
       }
     }
+  }
+}
+
+extension AppearancePreference {
+  /// Sets the interface style on every window the app has, which each sheet, alert and dialog in
+  /// them follows. Nothing for `system`, which hands the choice back to the phone.
+  func applyToWindows() {
+    #if canImport(UIKit)
+      let style: UIUserInterfaceStyle =
+        switch self {
+        case .system: .unspecified
+        case .light: .light
+        case .dark: .dark
+        }
+      for case let scene as UIWindowScene in UIApplication.shared.connectedScenes {
+        for window in scene.windows { window.overrideUserInterfaceStyle = style }
+      }
+    #endif
   }
 }
 

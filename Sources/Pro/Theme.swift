@@ -141,9 +141,11 @@ enum AppIconChoice: String, Codable, CaseIterable, Identifiable, Sendable {
   /// The icon's own colours, for the picker to draw a small version of it.
   var colors: (background: Color, mark: Color) {
     switch self {
-    case .anvil: (.black, .white)
+    // The development app wears the inverted icon, to tell it from the public one, so its Inverse
+    // is the public icon; the picker draws both the way that app has them.
+    case .anvil: AppFlavor.isDevelopment ? (.white, .black) : (.black, .white)
     case .pro: (.black, AppTheme.ember.swatch)  // the chooser draws this one as the gold block
-    case .inverse: (.white, .black)
+    case .inverse: AppFlavor.isDevelopment ? (.black, .white) : (.white, .black)
     case .ember: (.black, AppTheme.ember.swatch)
     case .frost: (.black, AppTheme.frost.swatch)
     case .moss: (.black, AppTheme.moss.swatch)

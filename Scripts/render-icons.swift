@@ -5,7 +5,9 @@
 // Each is the seven-by-seven mark at exactly the size and position of the icon the app shipped
 // with — 76-point cells starting at (246, 246) on a 1024 canvas — so switching icons changes the
 // colour and nothing else. The public app's primary is the white mark on black and the development
-// app's is its inverse; both catalogs get the same alternates.
+// app's is its inverse. The coloured alternates are the same in both catalogs; Inverse is not — it
+// is the inverse of whichever primary the app has, or the development app would offer an Inverse
+// that looks exactly like the icon it already wears.
 
 import CoreGraphics
 import Foundation
@@ -27,14 +29,22 @@ struct Icon {
 
 let white: (CGFloat, CGFloat, CGFloat) = (1, 1, 1)
 let black: (CGFloat, CGFloat, CGFloat) = (0, 0, 0)
-let alternates = [
-  Icon(set: "AppIcon-Inverse", background: white, mark: black),
+let coloured = [
   Icon(set: "AppIcon-Ember", background: black, mark: (1.0, 0.47, 0.16)),
   Icon(set: "AppIcon-Frost", background: black, mark: (0.36, 0.66, 1.0)),
   Icon(set: "AppIcon-Moss", background: black, mark: (0.32, 0.72, 0.46)),
   Icon(set: "AppIcon-Rose", background: black, mark: (1.0, 0.42, 0.62)),
   Icon(set: "AppIcon-Pro", background: black, mark: (0.98, 0.80, 0.30), gold: true),
 ]
+
+/// The alternates for one app: its Inverse first, then the colours.
+func alternates(for app: String) -> [Icon] {
+  let inverse =
+    app == "AnvilAIDev"
+    ? Icon(set: "AppIcon-Inverse", background: black, mark: white)
+    : Icon(set: "AppIcon-Inverse", background: white, mark: black)
+  return [inverse] + coloured
+}
 
 /// The mark's cells as one path, at a vertical offset. Core Graphics counts from the bottom; the
 /// rows are written from the top.
@@ -122,7 +132,7 @@ func render(_ icon: Icon, to url: URL) throws {
 let root = URL(fileURLWithPath: CommandLine.arguments[0]).deletingLastPathComponent().deletingLastPathComponent()
 for app in ["AnvilAI", "AnvilAIDev"] {
   let catalog = root.appendingPathComponent("Apps/\(app)/Assets.xcassets")
-  for icon in alternates {
+  for icon in alternates(for: app) {
     let set = catalog.appendingPathComponent("\(icon.set).appiconset")
     try FileManager.default.createDirectory(at: set, withIntermediateDirectories: true)
     try render(icon, to: set.appendingPathComponent("\(icon.set).png"))

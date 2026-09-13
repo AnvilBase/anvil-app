@@ -435,20 +435,14 @@ struct SettingsScreen: View {
 
   private var appearanceSection: some View {
     Section("Appearance") {
-      // The section is already called Appearance; a segmented picker in a Form would print its
-      // own title above the control and say it twice.
-      Picker("Appearance", selection: $settings.values.appearance) {
-        ForEach(AppearancePreference.allCases) { preference in
-          Text(preference.label).tag(preference)
-        }
+      // As tall as an inline control — it is the one control in the section you press rather than
+      // look at — which the system's segmented picker refuses to be: it keeps its own thin height
+      // inside whatever frame it is given. So the control is the app's own.
+      SegmentedControl(AppearancePreference.allCases, selection: $settings.values.appearance) {
+        $0.label
       }
-      .pickerStyle(.segmented)
-      .labelsHidden()
-      // Taller than the thin strip a segmented picker is by default — as tall as an inline
-      // control, and a little more: it is the one control in the section you press rather than
-      // look at, and three words across a row want room around them.
-      .frame(height: ChatStyle.inlineControl + 6)
-      .padding(.vertical, 6)
+      .padding(.vertical, 4)
+      .accessibilityLabel("Appearance")
 
       proGated("Theme") { themeChooser }
       proGated("App icon") { iconChooser }
