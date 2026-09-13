@@ -356,9 +356,10 @@ struct ChatScreen: View {
   /// does its line.
   private var emptyGuide: some View {
     VStack(spacing: 32) {
-      // The same grey as the lines under it: this is a guide, and nothing here should be louder
-      // than the composer it points at.
-      PixelAnvil(size: 56, color: .secondary)
+      // In Ink, the same grey as the lines under it: this is a guide, and nothing here should be
+      // louder than the composer it points at. A coloured theme puts its colour here — the one
+      // place on an empty page for it to show.
+      PixelAnvil(size: 56, color: theme.mark)
       VStack(alignment: .leading, spacing: 16) {
         guideRow("plus", "Add a photo or file")
         if !chat.isOffline { guideRow("globe", "Search the web") }

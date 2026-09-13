@@ -43,7 +43,8 @@ enum AppTheme: String, Codable, CaseIterable, Identifiable, Sendable {
         hairline: ChatStyle.adaptive(light: Color(white: 0.886), dark: Color(white: 0.231)),
         sendFill: ChatStyle.adaptive(light: .black, dark: .white),
         sendGlyph: ChatStyle.adaptive(light: .white, dark: .black),
-        accent: ChatStyle.adaptive(light: .black, dark: .white))
+        accent: ChatStyle.adaptive(light: .black, dark: .white),
+        mark: .secondary)
     case .ember:
       Self.tinted(
         hue: Color(red: 1.0, green: 0.47, blue: 0.16), light: (0.98, 0.965, 0.95),
@@ -80,7 +81,8 @@ enum AppTheme: String, Codable, CaseIterable, Identifiable, Sendable {
       hairline: ChatStyle.adaptive(light: lift(light, by: -0.1), dark: lift(dark, by: 0.15)),
       sendFill: hue,
       sendGlyph: .white,
-      accent: hue)
+      accent: hue,
+      mark: hue)
   }
 }
 
@@ -97,6 +99,9 @@ struct Theme: Equatable {
   let sendGlyph: Color
   /// What controls are tinted with: links, pickers, toggles.
   let accent: Color
+  /// The anvil on the empty page. Ink keeps it the grey of the guide under it; a coloured theme
+  /// draws it in its own hue, so the theme is on the page from the first look.
+  let mark: Color
 
   /// The drawer is not a different surface from the chat, it is the same one seen from further
   /// down. What tells them apart is the chat lifting off it as it slides — see `SidebarContainer` —
