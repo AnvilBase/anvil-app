@@ -133,7 +133,8 @@ final class ChatModel {
 
   /// Whether replies can search right now. Your preference is kept while offline, and search comes
   /// back on by itself when the connection returns.
-  var webSearchOn: Bool { settings.values.webSearchEnabled && network.isOnline }
+  var hasSearchKey: Bool { AppSecrets.hasBraveSearchKey }
+  var webSearchOn: Bool { settings.values.webSearchEnabled && hasSearchKey && network.isOnline }
 
   var canSend: Bool {
     loadState == .ready && !isGenerating && !isPreparingImage
