@@ -80,8 +80,9 @@ struct AppSettings: Codable, Equatable, Sendable {
   var maxReplyTokens = 0
   var thinkingEnabled = false
   var engine = EngineOptions()
-  /// Days without activity before a chat is deleted; 0 keeps chats until deleted by hand.
-  var historyRetentionDays = 3
+  /// Days without activity before a chat is deleted; 0, the default, keeps chats until they are
+  /// deleted by hand.
+  var historyRetentionDays = 0
   /// Off by default: the two things that leave the phone should both be asked for, and this is the
   /// one you can ask for with a button. When on (and online, with a key), the model can call the
   /// web search tool.

@@ -357,8 +357,8 @@ The app has two pieces of networking, both on a `URLSession` with no cookies or 
 `NWPathMonitor` reads whether the phone is online and sends nothing. There are no web views, no
 sockets, no analytics, and no crash reporting. Chats (including search queries and sources), photos,
 memories, settings, and usage totals live in Application Support with complete file protection —
-unreadable while the phone is locked — and are excluded from backups. Chats are deleted automatically
-after the retention period.
+unreadable while the phone is locked — and are excluded from backups. Chats are kept until you delete
+them, or automatically after a retention period if you set one.
 
 To check: with web search off, chat in airplane mode, then look at **Settings › Privacy & Security ›
 App Privacy Report**. There should be no network activity for the app once a model is installed. With

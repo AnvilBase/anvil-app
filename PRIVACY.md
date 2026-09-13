@@ -22,8 +22,9 @@ no servers, and the maintainers never receive your data — there is nowhere for
 read while the phone is locked — not even by the app itself. Nothing personal is included in iCloud or
 Finder backups.
 
-Chats are deleted automatically after the retention period in **Settings › Chat history** (three days
-by default), and **Delete all chats** removes them immediately. **Export chats** writes every chat to
+Chats are kept until you delete them, unless you set a retention period in **Settings › Chat
+history**, after which a chat with no activity is deleted automatically; **Delete all chats** removes
+them immediately. **Export chats** writes every chat to
 one Markdown file and hands it to the share sheet; where it goes from there — Files, AirDrop, another
 app — is your choice, and the app keeps no copy beyond the temporary file iOS clears itself.
 
