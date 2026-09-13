@@ -58,7 +58,7 @@ struct ProScreen: View {
     ("paintpalette", "Themes", nil),
     ("app", "App Icons", nil),
     ("lock", "Passcode Lock", nil),
-    ("waveform", "Talk Mode", nil),
+    ("waveform", "Audio Replies", nil),
   ]
 
   // MARK: - Subscribe

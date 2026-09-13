@@ -238,7 +238,7 @@ the context this chat is using; and totals across every reply, which survive del
 
 Anvil Pro is a monthly subscription, bought through the App Store, that unlocks the settings the
 free app keeps simple: your own system prompt, the model's sampling values, themes,
-alternate app icons, a passcode lock, and Talk mode — replies read aloud on the phone,
+alternate app icons, a passcode lock, and Respond with audio — replies read aloud on the phone,
 with the microphone open again when they finish. The paywall is the **Anvil Pro** row at the top of
 Settings.
 
@@ -341,7 +341,7 @@ Support/         per-app Info.plist and entitlements
 | `UI/Composer.swift` | Input card: photos, web search, field, Send/Stop/microphone |
 | `UI/MessageRow.swift` | One message, with searches, sources, and metrics |
 | `UI/ChatStyle.swift` | Shared sizes and motion, and the Liquid Glass helpers |
-| `System/SpeechOutput.swift` | Talk mode's voice: replies read aloud with the voices iOS ships |
+| `System/SpeechOutput.swift` | The voice of Respond with audio and voice mode: replies read aloud with the voices iOS ships |
 | `UI/MarkdownView.swift` | The Markdown renderer |
 | `UI/WelcomeScreen.swift`, `SettingsScreen.swift`, `MetricsScreen.swift`, `ModelSetupScreen.swift`, `MemoryScreen.swift`, `DeveloperScreen.swift` | The rest of the screens |
 

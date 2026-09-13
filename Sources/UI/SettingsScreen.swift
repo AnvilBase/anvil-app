@@ -419,8 +419,8 @@ struct SettingsScreen: View {
   private var voiceSection: some View {
     Section("Voice") {
       Toggle("Send when you stop talking", isOn: $settings.values.autoSendVoice)
-      proGated("Talk mode") {
-        Toggle("Talk mode", isOn: $settings.values.talkMode)
+      proGated("Respond with audio") {
+        Toggle("Respond with audio", isOn: $settings.values.talkMode)
       }
     }
   }

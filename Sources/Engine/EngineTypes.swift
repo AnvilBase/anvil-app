@@ -30,7 +30,8 @@ struct ConversationOptions: Equatable, Sendable {
   var memories: [String]
   /// Gives the model the generate_image tool: Anvil Dream is installed and Pro is active.
   var imageGeneration = false
-  /// Talk mode: the reply is going to be spoken, so it should be written to be heard.
+  /// Respond with audio, or voice mode: the reply is going to be spoken, so it should be written
+  /// to be heard.
   var spokenReplies = false
 }
 
