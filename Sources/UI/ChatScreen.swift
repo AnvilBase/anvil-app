@@ -38,10 +38,9 @@ struct ChatScreen: View {
           chat.newChat()
           closeSidebar()
         },
-        onOpenSettings: {
-          closeSidebar()
-          showingSettings = true
-        })
+        // The drawer stays open under the sheet: Settings is a page over the sidebar, and closing
+        // it should put the sidebar back, not the chat.
+        onOpenSettings: { showingSettings = true })
     } content: {
       GeometryReader { proxy in
         // The drawer runs the chat to the screen's edges, which leaves everything inside it a safe
