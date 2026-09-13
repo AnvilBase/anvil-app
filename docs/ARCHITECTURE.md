@@ -96,7 +96,10 @@ The system prompt is the one piece of configuration that is a file rather than a
 proprietary, so it lives in a private repository and `Scripts/bootstrap.sh` copies it into
 `Sources/Prompt/DefaultPrompt.txt`, git-ignored and picked up by the synchronised folder.
 `AppSettings.defaultSystemPrompt` reads it from the bundle and falls back to a built-in line, so a
-build without the file is a working build.
+build without the file is a working build. The `systemPrompt` setting holds only a prompt of the
+user's own; empty means the default, and `AppSettings.prompt(for:)` resolves it at the moment a
+chat is sent. So the proprietary text is never shown in Settings, written to the settings file, or
+stored with a chat — those all say "default" by saying nothing.
 
 ## Anvil Pro
 

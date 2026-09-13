@@ -67,13 +67,22 @@ struct AppSettings: Codable, Equatable, Sendable {
       + "iPhone. Answer clearly and concisely."
   }()
 
+  /// The prompt a chat runs on, given what was set for it: the custom prompt when there is one,
+  /// and Anvil's own when the setting is empty. Empty is how "the default" is spelled everywhere
+  /// the prompt is stored — the settings file, a chat — so the proprietary text is never written
+  /// out where it could be read, and Settings can show the word rather than the prompt.
+  static func prompt(for custom: String) -> String {
+    custom.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? defaultSystemPrompt : custom
+  }
+
   static let contextSizes = [2048, 4096, 8192, 16384, 32768]
   static let replyLengthLimits = [0, 256, 512, 1024, 2048, 4096]
   static let retentionChoices = [1, 3, 7, 30, 0]
   static let searchResultCounts = [3, 5, 8]
 
-  /// Used for new chats; each chat keeps the prompt it started with.
-  var systemPrompt = AppSettings.defaultSystemPrompt
+  /// A prompt of your own for new chats, or empty for Anvil's own; each chat keeps the one it
+  /// started with. Resolved by `AppSettings.prompt(for:)`, never read straight.
+  var systemPrompt = ""
   var useModelSamplerDefaults = true
   var sampler = SamplerValues(temperature: 1.0, topK: 64, topP: 0.95)
   /// Maximum tokens per reply (thinking included); 0 means no limit.
@@ -126,6 +135,11 @@ struct AppSettings: Codable, Equatable, Sendable {
       try container.decodeIfPresent(T.self, forKey: key) ?? fallback
     }
     systemPrompt = try value(.systemPrompt, defaults.systemPrompt)
+    // Earlier versions wrote the default prompt itself into the file; that is the default, and
+    // the file should say so the short way.
+    if systemPrompt.trimmingCharacters(in: .whitespacesAndNewlines) == Self.defaultSystemPrompt {
+      systemPrompt = ""
+    }
     useModelSamplerDefaults = try value(.useModelSamplerDefaults, defaults.useModelSamplerDefaults)
     sampler = try value(.sampler, defaults.sampler)
     maxReplyTokens = try value(.maxReplyTokens, defaults.maxReplyTokens)

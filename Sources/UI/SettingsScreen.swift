@@ -212,7 +212,7 @@ struct SettingsScreen: View {
         }
       } else if file.kind == .image {
         LabeledContent(file.displayName) {
-          Text("Pictures")
+          Text("Image Enabled")
             .foregroundStyle(.secondary)
         }
       } else {
@@ -323,13 +323,15 @@ struct SettingsScreen: View {
     }
   }
 
+  /// The field holds a prompt of your own and nothing else: empty, it reads Default, and that is
+  /// the whole of what is shown of Anvil's own prompt. Restore default empties it.
   private var systemPromptSection: some View {
     Section("System prompt") {
       if pro.isUnlocked {
-        TextField("System prompt", text: $settings.values.systemPrompt, axis: .vertical)
+        TextField("Default", text: $settings.values.systemPrompt, axis: .vertical)
           .lineLimit(3...10)
-        Button("Restore default") { settings.values.systemPrompt = AppSettings.defaultSystemPrompt }
-          .disabled(settings.values.systemPrompt == AppSettings.defaultSystemPrompt)
+        Button("Restore default") { settings.values.systemPrompt = "" }
+          .disabled(usesDefaultPrompt)
       } else {
         NavigationLink {
           ProScreen()
@@ -344,6 +346,10 @@ struct SettingsScreen: View {
         }
       }
     }
+  }
+
+  private var usesDefaultPrompt: Bool {
+    settings.values.systemPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
   }
 
   private var memorySection: some View {

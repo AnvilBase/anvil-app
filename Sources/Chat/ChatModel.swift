@@ -89,6 +89,10 @@ final class ChatModel {
   /// place, so it is asked again here.
   var canGenerateImages: Bool { pro.isUnlocked && imageModel != nil }
 
+  /// Set when a reply asked for a picture and Pro isn't active: the chat screen shows the Pro
+  /// page, and clears this when it goes.
+  var showingPro = false
+
   // MARK: - What the screens ask
 
   var messages: [ChatMessage] { openChat.messages }
@@ -713,6 +717,11 @@ final class ChatModel {
     case .imageGenerationFailed(let message):
       updateMessage(replyID) { $0.imagePrompt = nil }
       chatNotice = "Anvil Dream couldn't make the picture: \(message)"
+    case .imageUnavailable(let why):
+      switch why {
+      case .needsPro: showingPro = true
+      case .needsDream: chatNotice = "Download Anvil Dream in Settings › Models to make pictures."
+      }
     }
   }
 
@@ -766,7 +775,7 @@ final class ChatModel {
     let values = settings.values
     let isPro = pro.isUnlocked
     return ConversationOptions(
-      systemPrompt: isPro ? openChat.systemPrompt : AppSettings.defaultSystemPrompt,
+      systemPrompt: isPro ? AppSettings.prompt(for: openChat.systemPrompt) : AppSettings.defaultSystemPrompt,
       sampler: isPro && !values.useModelSamplerDefaults ? values.sampler : nil,
       thinking: isPro && values.thinkingEnabled && (modelDetails?.supportsThinking ?? false),
       webSearch: webSearchOn,

@@ -67,7 +67,8 @@ The prompt Anvil ships with is proprietary and lives in a private repository,
 it into `Sources/Prompt/DefaultPrompt.txt` if that repository is checked out next to this one; the
 file is git-ignored and bundled by the synchronised `Sources` folder. Without it — which is every
 build from this repository alone — the app uses a short built-in prompt, so it always runs. It just
-isn't Anvil's.
+isn't Anvil's. Either way the app never shows it: the System prompt field in Settings holds only a
+prompt of your own, reads "Default" when empty, and Restore default empties it.
 
 ### Signing and bundle identifiers
 
