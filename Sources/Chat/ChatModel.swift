@@ -112,10 +112,13 @@ final class ChatModel {
   /// it declines.
   var isUnrestricted: Bool { loadedModel?.isPro == true && loadedModel?.kind == .text }
 
-  /// Whether a reply can come with a picture: Anvil Dream is on the phone, and Pro is active. The
-  /// library only ever hands over a Pro model while Pro is active, but this is decided in one
-  /// place, so it is asked again here.
-  var canGenerateImages: Bool { pro.isUnlocked && imageModel != nil }
+  /// Whether a reply can come with a picture: Anvil Dream is on the phone and switched on, and Pro
+  /// is active. The library only ever hands over a Pro model while Pro is active, but this is
+  /// decided in one place, so it is asked again here. Every way a picture gets made asks this, so
+  /// the switch in Settings › Image turns off all of them at once.
+  var canGenerateImages: Bool {
+    pro.isUnlocked && imageModel != nil && settings.values.imageGenerationEnabled
+  }
 
   /// Set when a message asked for a picture and Pro isn't active: the chat screen shows the Pro
   /// page, and clears this when it goes. See `ImageRequest` for what counts as asking.
@@ -274,7 +277,8 @@ final class ChatModel {
     // decided by the model. Where one can be made it is made straight away, below. Where none
     // can be: without Pro the message stays in the field and the Pro page opens, so what was
     // asked for is one tap away and the words are still there to send once it is; with Pro and
-    // no Anvil Dream the message goes, and a notice says where the download is.
+    // no Anvil Dream, or Anvil Dream switched off, the message goes, and a notice says where the
+    // download, or the switch, is.
     let typedNow = draft.trimmingCharacters(in: .whitespacesAndNewlines)
     let asksForPicture = pendingImage == nil && ImageRequest.isAsking(typedNow)
     // With Anvil Raw, a picture asked for is made without asking the model, and "make it
@@ -286,7 +290,10 @@ final class ChatModel {
       && ImageRequest.isFollowUp(typedNow)
     if asksForPicture, !canGenerateImages {
       if pro.isUnlocked {
-        chatNotice = "Download Anvil Dream in Settings › Models to make pictures."
+        chatNotice =
+          imageModel == nil
+          ? "Download Anvil Dream in Settings › Image to make pictures."
+          : "Anvil Dream is off. Turn it on in Settings › Image to make pictures."
       } else {
         showingPro = true
         return

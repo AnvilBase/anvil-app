@@ -138,6 +138,9 @@ struct AppSettings: Codable, Equatable, Sendable {
   var appLockEnabled = false
   /// Replies read aloud, and the microphone open again when they finish.
   var talkMode = false
+  /// Anvil Dream making pictures, while it is installed. On unless it is turned off: downloading
+  /// it is asking for it, and this is how to keep it on the phone without it being used.
+  var imageGenerationEnabled = true
   /// Asks the development app to present itself as the public one. Meaningless in the public app,
   /// which has no way to be handed it — see `AppFlavor.showsDevelopmentFeatures`.
   var previewAsPublic = false
@@ -174,6 +177,7 @@ struct AppSettings: Codable, Equatable, Sendable {
     appIcon = try value(.appIcon, defaults.appIcon)
     appLockEnabled = try value(.appLockEnabled, defaults.appLockEnabled)
     talkMode = try value(.talkMode, defaults.talkMode)
+    imageGenerationEnabled = try value(.imageGenerationEnabled, defaults.imageGenerationEnabled)
     previewAsPublic = try value(.previewAsPublic, defaults.previewAsPublic)
   }
 }
