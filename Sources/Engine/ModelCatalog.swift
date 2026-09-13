@@ -10,6 +10,8 @@ struct CatalogModel: Codable, Identifiable, Hashable, Sendable {
   let name: String
   let version: String
   let summary: String
+  /// How big the model is, the way models are sized: "2B", "4B". Shown after the summary.
+  let parameters: String?
   /// What the assembled file is called on the phone, e.g. `anvil-forge.litertlm`.
   let fileName: String
   let sizeBytes: Int64

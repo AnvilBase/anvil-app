@@ -24,8 +24,10 @@ final class SpeechOutput: NSObject, AVSpeechSynthesizerDelegate {
   func speak(_ text: String) async {
     stop()
     let utterance = AVSpeechUtterance(string: text)
+    // The user's first preferred language, as the BCP-47 tag the synthesiser wants ("en-US",
+    // not the locale's "en_US"), and English only if there is no voice for it.
     utterance.voice =
-      AVSpeechSynthesisVoice(language: Locale.current.identifier)
+      Locale.preferredLanguages.first.flatMap { AVSpeechSynthesisVoice(language: $0) }
       ?? AVSpeechSynthesisVoice(language: "en-US")
     utterance.rate = AVSpeechUtteranceDefaultSpeechRate
     // Playback rather than record, and mixed rather than exclusive, so speaking a reply doesn't

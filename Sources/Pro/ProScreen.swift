@@ -52,6 +52,13 @@ struct ProScreen: View {
     .navigationBarTitleDisplayMode(.inline)
   }
 
+  /// The policy the app is built to, and Apple's standard terms for a subscription. Both are what
+  /// App Review asks a subscription screen to link to.
+  private static let privacyURL = URL(
+    string: "https://github.com/AnvilBase/anvil-app/blob/main/PRIVACY.md")!
+  private static let termsURL = URL(
+    string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
+
   private static let features: [(symbol: String, title: String, line: String)] = [
     ("text.quote", "Your own system prompt", "Tell Anvil who it is and how to answer."),
     ("slider.horizontal.3", "Sampling controls", "Temperature, top-K, top-P and thinking."),
@@ -113,10 +120,14 @@ struct ProScreen: View {
 
         // Grey, like every other secondary line in the app, rather than the system's blue: the
         // one coloured thing on this screen is the button that buys.
-        Button("Restore purchases") { Task { await pro.restore() } }
-          .font(.subheadline)
-          .foregroundStyle(.secondary)
-          .disabled(pro.isPurchasing)
+        HStack(spacing: 18) {
+          Button("Restore purchases") { Task { await pro.restore() } }
+            .disabled(pro.isPurchasing)
+          Link("Privacy", destination: Self.privacyURL)
+          Link("Terms", destination: Self.termsURL)
+        }
+        .font(.subheadline)
+        .foregroundStyle(.secondary)
 
         if let error = pro.lastError {
           Text(error)

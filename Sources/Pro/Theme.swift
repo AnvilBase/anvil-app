@@ -131,8 +131,6 @@ enum AppIconChoice: String, Codable, CaseIterable, Identifiable, Sendable {
     }
   }
 
-  var isFree: Bool { self == .anvil }
-
   /// What iOS is asked for: nil means the primary icon.
   var alternateIconName: String? {
     self == .anvil ? nil : "AppIcon-\(label)"

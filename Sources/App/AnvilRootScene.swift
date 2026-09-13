@@ -77,12 +77,12 @@ private struct RootView: View {
     // Over everything, and only while locked. What it covers is this view; the sheets a screen may
     // have up are closed by that screen when the lock comes down — see `ChatScreen`.
     .overlay {
-      if lock.isLocked {
+      if lock.isShowing {
         LockScreen(lock: lock)
           .transition(.opacity)
       }
     }
-    .animation(Self.screenChange, value: lock.isLocked)
+    .animation(Self.screenChange, value: lock.isShowing)
     .task {
       // Locked from the first frame if that is what was asked for, before anything is drawn under
       // it that shouldn't be seen.
@@ -116,18 +116,23 @@ private struct RootView: View {
       icon.apply()
     }
     .onChange(of: scenePhase) { _, phase in
+      guard chat.settings.values.appLockEnabled || phase == .active else { return }
       switch phase {
+      case .inactive:
+        // Control Centre, a notification pulled down, the app switcher: the screen is covered so
+        // the snapshot iOS takes shows the mark and not the chat, but nothing is owed to get back.
+        lock.cover()
       case .background:
-        // Leaving the screen is what locks it. Not `inactive`, which is Control Centre and a
-        // notification pulled down, and would be a lock that fires when nothing has happened.
-        if chat.settings.values.appLockEnabled { lock.lock() }
+        // Leaving is what locks it.
+        lock.lock()
       case .active:
+        lock.uncover()
         Task {
           if lock.isLocked { await lock.unlock() }
           await library.refresh()
           await chat.purgeExpiredChats()
         }
-      default:
+      @unknown default:
         break
       }
     }

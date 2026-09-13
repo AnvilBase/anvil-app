@@ -243,8 +243,9 @@ final class ChatModel {
     speechOutput.stop()
     guard loadState == .ready, !isGenerating else { return }
     let existing = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-    // Talk mode always sends when you stop talking; that is what makes it hands-free.
-    let autoSend = autoSend ?? settings.values.autoSendVoice
+    // Talk mode always sends when you stop talking, whoever started the microphone; that is what
+    // makes it hands-free.
+    let autoSend = autoSend ?? (talkModeOn || settings.values.autoSendVoice)
     let session = dictationSession
     Task {
       do {
@@ -496,8 +497,6 @@ final class ChatModel {
     let prompt = searchNote.map { "\($0)\n\n\(basePrompt)" } ?? basePrompt
     let contextLimit = modelDetails?.contextSize ?? settings.values.engine.contextSize
     let maxReplyTokens = settings.values.maxReplyTokens
-    let sampler = settings.values.useModelSamplerDefaults ? nil : settings.values.sampler
-    let thinkingRequested = settings.values.thinkingEnabled
     let deviceBackend = modelDetails?.backend ?? "Unknown"
     let chatID = openChat.id
 

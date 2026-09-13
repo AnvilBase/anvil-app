@@ -16,7 +16,14 @@ import Observation
 @Observable
 final class AppLock {
   private(set) var isLocked = false
+  /// The screen hidden but nothing owed: the app is inactive, not gone. iOS takes the app
+  /// switcher's snapshot in that state, and a notification pulled down shouldn't need Face ID to
+  /// put back up — so the cover goes on without a prompt and comes off the same way.
+  private(set) var isCovered = false
   private(set) var isAuthenticating = false
+
+  /// Whether anything should be on top of the app right now.
+  var isShowing: Bool { isLocked || isCovered }
 
   /// What stands in the way of unlocking, when something does: no passcode set, say.
   private(set) var problem: String?
@@ -27,7 +34,16 @@ final class AppLock {
 
   func lock() {
     isLocked = true
+    isCovered = false
     problem = nil
+  }
+
+  func cover() {
+    if !isLocked { isCovered = true }
+  }
+
+  func uncover() {
+    isCovered = false
   }
 
   func unlock() async {

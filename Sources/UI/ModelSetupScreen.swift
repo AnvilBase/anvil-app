@@ -116,7 +116,7 @@ struct ModelSetupScreen: View {
           .overlay(Capsule().strokeBorder(.primary.opacity(0.55), lineWidth: 1))
       }
 
-      Text(model.summary)
+      Text(model.parameters.map { "\(model.summary) (\($0))" } ?? model.summary)
         .font(.subheadline)
         .foregroundStyle(.secondary)
 

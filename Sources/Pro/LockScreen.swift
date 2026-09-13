@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// What is on screen while the app is locked: the mark, one line, and the way in. It asks Face ID
-/// itself the moment it appears, so the button is only for the second try.
+/// itself the moment it appears, so the button is only for the second try. While the app is merely
+/// covered — inactive, not gone — it is the mark alone: nothing to ask, nothing to press.
 struct LockScreen: View {
   let lock: AppLock
 
@@ -11,8 +12,10 @@ struct LockScreen: View {
     VStack(spacing: 28) {
       Spacer()
       PixelAnvil(size: 56)
-      Text("Anvil is locked")
-        .font(.title3.weight(.semibold))
+      if lock.isLocked {
+        Text("Anvil is locked")
+          .font(.title3.weight(.semibold))
+      }
       if let problem = lock.problem {
         Text(problem)
           .font(.subheadline)
@@ -21,23 +24,25 @@ struct LockScreen: View {
           .padding(.horizontal, 32)
       }
       Spacer()
-      Button {
-        Task { await lock.unlock() }
-      } label: {
-        Text("Unlock")
-          .font(.headline)
-          .frame(maxWidth: .infinity)
-          .frame(height: ChatStyle.control)
-          .background(theme.sendFill, in: Capsule())
-          .foregroundStyle(theme.sendGlyph)
+      if lock.isLocked {
+        Button {
+          Task { await lock.unlock() }
+        } label: {
+          Text("Unlock")
+            .font(.headline)
+            .frame(maxWidth: .infinity)
+            .frame(height: ChatStyle.control)
+            .background(theme.sendFill, in: Capsule())
+            .foregroundStyle(theme.sendGlyph)
+        }
+        .buttonStyle(.plain)
+        .disabled(lock.isAuthenticating)
+        .padding(.horizontal, 24)
+        .padding(.bottom, 8)
       }
-      .buttonStyle(.plain)
-      .disabled(lock.isAuthenticating)
-      .padding(.horizontal, 24)
-      .padding(.bottom, 8)
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(theme.page.ignoresSafeArea())
-    .task { await lock.unlock() }
+    .task { if lock.isLocked { await lock.unlock() } }
   }
 }
