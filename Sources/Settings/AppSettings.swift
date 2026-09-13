@@ -134,8 +134,11 @@ struct AppSettings: Codable, Equatable, Sendable {
   }
   var useModelSamplerDefaults = true
   var sampler = SamplerValues(temperature: 1.0, topK: 64, topP: 0.95)
-  /// Maximum tokens per reply; 0 means no limit.
-  var maxReplyTokens = 0
+  /// Maximum tokens per reply; 0 means no limit. A thousand to begin with: about seven hundred
+  /// and fifty words, room for a full answer with code in it, and a stop before a small model on
+  /// a phone runs on for minutes. Every reply is written at a few tokens a second, so the limit is
+  /// also the longest anyone waits.
+  var maxReplyTokens = 1024
   var engine = EngineOptions()
   /// Days without activity before a chat is deleted; 0, the default, keeps chats until they are
   /// deleted by hand.
