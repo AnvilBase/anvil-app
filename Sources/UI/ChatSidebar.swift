@@ -376,7 +376,7 @@ struct ChatSidebar: View {
 
   private func caption(for saved: Chat) -> String {
     let updated = saved.updatedAt.formatted(.relative(presentation: .named))
-    let days = chat.settings.values.historyRetentionDays
+    let days = chat.settings.historyRetentionDays
     guard days > 0 else { return "Updated \(updated)" }
     let expiry = saved.updatedAt.addingTimeInterval(Double(days) * 86_400)
     return "Updated \(updated) · deleted \(expiry.formatted(.relative(presentation: .named)))"

@@ -29,7 +29,7 @@ struct SettingsScreen: View {
   }
 
   private var showsDevelopmentFeatures: Bool {
-    AppFlavor.showsDevelopmentFeatures(settings.values)
+    AppFlavor.showsDevelopmentFeatures(settings)
   }
 
   var body: some View {
@@ -78,7 +78,7 @@ struct SettingsScreen: View {
       // the first time it was, Settings closed instead of the sheet opening over it.
       .sheet(item: $passcodeSheet) { mode in
         PasscodeSheet(mode: mode) {
-          settings.values.appLockEnabled = true
+          settings.appLockEnabled = true
           settings.save()
         }
       }
@@ -277,10 +277,10 @@ struct SettingsScreen: View {
         // Anvil Dream is never the active model; it works beside whichever one is. So its row is
         // a switch rather than a mark: on, replies can come with pictures; off, it stays on the
         // phone, nothing makes a picture with it, and the memory it had loaded is let go.
-        Toggle(isOn: $settings.values.imageGenerationEnabled) {
+        Toggle(isOn: $settings.imageGenerationEnabled) {
           modelName(file.displayName, pro: file.isPro, image: true)
         }
-        .onChange(of: settings.values.imageGenerationEnabled) { _, on in
+        .onChange(of: settings.imageGenerationEnabled) { _, on in
           if !on { Task { await chat.unloadImageModel() } }
         }
       } else {
@@ -402,18 +402,18 @@ struct SettingsScreen: View {
 
   /// The field holds a prompt of your own and nothing else: empty, it reads Default, and that is
   /// the whole of what is shown of Anvil's own prompt. Restore default empties it. One line while
-  /// it is empty, and as many as the words need after that, up to ten; a hundred words at most,
-  /// with the count under the field once there is something to count.
+  /// it is empty, and as many as the words need after that, up to ten; a hundred words and five
+  /// line breaks at most, with the word count under the field once there is something to count.
   private var systemPromptSection: some View {
     Section {
       if pro.isUnlocked {
-        TextField("Default", text: $settings.values.systemPrompt, axis: .vertical)
+        TextField("Default", text: $settings.systemPrompt, axis: .vertical)
           .lineLimit(1...10)
-          .onChange(of: settings.values.systemPrompt) { _, text in
+          .onChange(of: settings.systemPrompt) { _, text in
             let limited = AppSettings.withinPromptLimit(text)
-            if limited != text { settings.values.systemPrompt = limited }
+            if limited != text { settings.systemPrompt = limited }
           }
-        Button("Restore default") { settings.values.systemPrompt = "" }
+        Button("Restore default") { settings.systemPrompt = "" }
           .disabled(usesDefaultPrompt)
       } else {
         NavigationLink {
@@ -433,19 +433,19 @@ struct SettingsScreen: View {
     } footer: {
       if pro.isUnlocked, !usesDefaultPrompt {
         Text(
-          "\(AppSettings.wordCount(settings.values.systemPrompt)) of "
+          "\(AppSettings.wordCount(settings.systemPrompt)) of "
             + "\(AppSettings.maxSystemPromptWords) words")
       }
     }
   }
 
   private var usesDefaultPrompt: Bool {
-    settings.values.systemPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    settings.systemPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
   }
 
   private var memorySection: some View {
     Section("Memory") {
-      Toggle("Memory", isOn: $settings.values.memoryEnabled)
+      Toggle("Memory", isOn: $settings.memoryEnabled)
       NavigationLink {
         MemoryScreen(memory: chat.memory)
       } label: {
@@ -461,21 +461,21 @@ struct SettingsScreen: View {
       } label: {
         LabeledContent("Voice", value: currentVoiceName)
       }
-      Toggle("Send when you stop talking", isOn: $settings.values.autoSendVoice)
+      Toggle("Send when you stop talking", isOn: $settings.autoSendVoice)
       proGated("Respond with audio") {
-        Toggle("Respond with audio", isOn: $settings.values.talkMode)
+        Toggle("Respond with audio", isOn: $settings.talkMode)
       }
     }
   }
 
   /// The voice replies are read in, by name — what "Automatic" resolved to as much as a choice.
   private var currentVoiceName: String {
-    SpeechVoices.voice(for: settings.values.voiceIdentifier)?.name ?? "None"
+    SpeechVoices.voice(for: settings.voiceIdentifier)?.name ?? "None"
   }
 
   private var webSearchSection: some View {
     Section("Web search") {
-      Picker("Results per search", selection: $settings.values.webSearchResultCount) {
+      Picker("Results per search", selection: $settings.webSearchResultCount) {
         ForEach(AppSettings.searchResultCounts, id: \.self) { count in
           Text("\(count)").tag(count)
         }
@@ -485,7 +485,7 @@ struct SettingsScreen: View {
 
   private var personalizationSection: some View {
     Section("Personalization") {
-      Picker("Max reply length", selection: $settings.values.maxReplyTokens) {
+      Picker("Max reply length", selection: $settings.maxReplyTokens) {
         ForEach(AppSettings.replyLengthLimits, id: \.self) { limit in
           Text(limit == 0 ? "No limit" : "\(limit.formatted()) tokens").tag(limit)
         }
@@ -496,31 +496,31 @@ struct SettingsScreen: View {
 
   @ViewBuilder
   private var sampling: some View {
-    Toggle("Use the model's default sampling", isOn: $settings.values.useModelSamplerDefaults)
-      .onChange(of: settings.values.useModelSamplerDefaults) { _, useDefaults in
+    Toggle("Use the model's default sampling", isOn: $settings.useModelSamplerDefaults)
+      .onChange(of: settings.useModelSamplerDefaults) { _, useDefaults in
         // Start custom values from the model's own defaults rather than from nothing.
         if !useDefaults, let defaults = chat.modelDetails?.defaultSampler {
-          settings.values.sampler = defaults
+          settings.sampler = defaults
         }
       }
-    if !settings.values.useModelSamplerDefaults {
+    if !settings.useModelSamplerDefaults {
       VStack(alignment: .leading) {
         LabeledContent(
-          "Temperature", value: String(format: "%.2f", settings.values.sampler.temperature))
-        Slider(value: $settings.values.sampler.temperature, in: 0...2, step: 0.05)
+          "Temperature", value: String(format: "%.2f", settings.sampler.temperature))
+        Slider(value: $settings.sampler.temperature, in: 0...2, step: 0.05)
       }
       Stepper(
-        "Top-K: \(settings.values.sampler.topK)", value: $settings.values.sampler.topK, in: 1...200)
+        "Top-K: \(settings.sampler.topK)", value: $settings.sampler.topK, in: 1...200)
       VStack(alignment: .leading) {
-        LabeledContent("Top-P", value: String(format: "%.2f", settings.values.sampler.topP))
-        Slider(value: $settings.values.sampler.topP, in: 0.05...1, step: 0.01)
+        LabeledContent("Top-P", value: String(format: "%.2f", settings.sampler.topP))
+        Slider(value: $settings.sampler.topP, in: 0.05...1, step: 0.01)
       }
     }
   }
 
   private var historySection: some View {
     Section("Chat history") {
-      Picker("Delete chats after", selection: $settings.values.historyRetentionDays) {
+      Picker("Delete chats after", selection: $settings.historyRetentionDays) {
         ForEach(AppSettings.retentionChoices, id: \.self) { days in
           Text(Self.retentionLabel(days)).tag(days)
         }
@@ -543,7 +543,7 @@ struct SettingsScreen: View {
       // As tall as an inline control — it is the one control in the section you press rather than
       // look at — which the system's segmented picker refuses to be: it keeps its own thin height
       // inside whatever frame it is given. So the control is the app's own.
-      SegmentedControl(AppearancePreference.allCases, selection: $settings.values.appearance) {
+      SegmentedControl(AppearancePreference.allCases, selection: $settings.appearance) {
         $0.label
       }
       .padding(.vertical, 4)
@@ -563,8 +563,8 @@ struct SettingsScreen: View {
       ForEach(AppTheme.allCases) { choice in
         let palette = choice.palette
         swatch(
-          label: choice.label, selected: settings.values.theme == choice,
-          action: { settings.values.theme = choice }
+          label: choice.label, selected: settings.theme == choice,
+          action: { settings.theme = choice }
         ) {
           RoundedRectangle(cornerRadius: 12, style: .continuous)
             .fill(palette.page)
@@ -592,8 +592,8 @@ struct SettingsScreen: View {
     chooserRow("App icon") {
       ForEach(AppIconChoice.allCases) { choice in
         swatch(
-          label: choice.label, selected: settings.values.appIcon == choice,
-          action: { settings.values.appIcon = choice }
+          label: choice.label, selected: settings.appIcon == choice,
+          action: { settings.appIcon = choice }
         ) {
           RoundedRectangle(cornerRadius: 13, style: .continuous)
             .fill(
@@ -704,12 +704,12 @@ struct SettingsScreen: View {
   /// the sheet, and switching it off clears the passcode so a stale one can't lock a later switch-on.
   private var lockBinding: Binding<Bool> {
     Binding(
-      get: { settings.values.appLockEnabled && AppLock.hasPasscode },
+      get: { settings.appLockEnabled && AppLock.hasPasscode },
       set: { on in
         if on {
           passcodeSheet = .set
         } else {
-          settings.values.appLockEnabled = false
+          settings.appLockEnabled = false
           settings.save()
           AppLock.clearPasscode()
         }
@@ -722,7 +722,7 @@ struct SettingsScreen: View {
   private var backToDevelopmentSection: some View {
     Section("Developer") {
       Button("Show developer features again") {
-        settings.values.previewAsPublic = false
+        settings.previewAsPublic = false
         settings.save()
       }
     }

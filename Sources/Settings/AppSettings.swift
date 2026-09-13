@@ -98,7 +98,7 @@ struct AppSettings: Codable, Equatable, Sendable {
 
   /// A prompt of your own for new chats, or empty for Anvil's own; each chat keeps the one it
   /// started with. Resolved by `AppSettings.prompt(for:)`, never read straight. At most
-  /// `maxSystemPromptWords` long — see `withinPromptLimit`.
+  /// `maxSystemPromptWords` long and `maxSystemPromptLineBreaks` deep — see `withinPromptLimit`.
   var systemPrompt = ""
 
   /// How long a prompt of your own can be. A small model's context is short and Anvil's own
@@ -111,11 +111,23 @@ struct AppSettings: Codable, Equatable, Sendable {
     text.split(whereSeparator: \.isWhitespace).count
   }
 
-  /// The text cut after its hundredth word, with everything up to there left exactly as typed.
+  /// How many line breaks a prompt of your own can have. Five: room to set a few things apart,
+  /// and not for the field to become a page.
+  static let maxSystemPromptLineBreaks = 5
+
+  /// The text cut after its hundredth word or its fifth line break, whichever comes first, with
+  /// everything up to there left exactly as typed. A sixth return is simply not taken.
   static func withinPromptLimit(_ text: String) -> String {
-    let words = text.matches(of: /\S+/)
-    guard words.count > maxSystemPromptWords else { return text }
-    return String(text[..<words[maxSystemPromptWords - 1].range.upperBound])
+    var limited = Substring(text)
+    let words = limited.matches(of: /\S+/)
+    if words.count > maxSystemPromptWords {
+      limited = limited[..<words[maxSystemPromptWords - 1].range.upperBound]
+    }
+    let breaks = limited.indices.filter { limited[$0] == "\n" }
+    if breaks.count > maxSystemPromptLineBreaks {
+      limited = limited[..<breaks[maxSystemPromptLineBreaks]]
+    }
+    return String(limited)
   }
   var useModelSamplerDefaults = true
   var sampler = SamplerValues(temperature: 1.0, topK: 64, topP: 0.95)
@@ -204,18 +216,64 @@ struct AppSettings: Codable, Equatable, Sendable {
 
 /// Holds the settings and writes them to a protected JSON file, the same way chats are stored: the
 /// system prompt can be personal.
+///
+/// Observed a field at a time. The settings are one struct, and a store that published the struct
+/// as one property told every view that had read any setting about every keystroke in the system
+/// prompt and every tick of a slider — the root scene, the chat and its sidebar under the sheet,
+/// the whole of Settings — which is what made editing them drag. Reading `settings.systemPrompt`,
+/// through the dynamic member subscript, subscribes that view to the prompt and nothing else, and
+/// writing it tells only the prompt's readers. `values` is still there for what needs the whole
+/// struct — the file, a snapshot for the conversation, a reset — and a write to it tells everyone.
 @MainActor
 @Observable
+@dynamicMemberLookup
 final class SettingsStore {
-  var values: AppSettings
+  @ObservationIgnored private var storage: AppSettings
+  /// How to reach the readers of each field that has been touched, so a write to `values` as a
+  /// whole can tell them: the registrar wants the field's own key path, typed, and this keeps one.
+  @ObservationIgnored private var fieldNotices: [AnyKeyPath: () -> Void] = [:]
 
   init() {
-    values = Self.load() ?? AppSettings()
+    storage = Self.load() ?? AppSettings()
+  }
+
+  /// The whole struct. For the file, a snapshot, a reset. A view should read the field it needs
+  /// instead, or it is redrawn for every setting that changes.
+  var values: AppSettings {
+    get {
+      access(keyPath: \.values)
+      return storage
+    }
+    set {
+      withMutation(keyPath: \.values) { storage = newValue }
+      for notice in fieldNotices.values { notice() }
+    }
+  }
+
+  subscript<Field>(dynamicMember field: WritableKeyPath<AppSettings, Field>) -> Field {
+    get {
+      let path = (\SettingsStore.storage).appending(path: field)
+      remember(path)
+      access(keyPath: path)
+      return storage[keyPath: field]
+    }
+    set {
+      let path = (\SettingsStore.storage).appending(path: field)
+      remember(path)
+      withMutation(keyPath: path) { storage[keyPath: field] = newValue }
+      // Whoever holds the whole struct hears of the field too.
+      withMutation(keyPath: \.values) {}
+    }
+  }
+
+  private func remember<Field>(_ path: KeyPath<SettingsStore, Field>) {
+    guard fieldNotices[path] == nil else { return }
+    fieldNotices[path] = { [weak self] in self?.withMutation(keyPath: path) {} }
   }
 
   func save() {
     // A failed write (for example, while the phone is locked) is retried on the next save.
-    try? PrivateFiles.writeJSON(values, to: Self.fileURL())
+    try? PrivateFiles.writeJSON(storage, to: Self.fileURL())
   }
 
   private static func fileURL() throws -> URL {

@@ -26,7 +26,7 @@ struct ChatScreen: View {
   /// Whether to show what only the development app has. False in the public app always, and false
   /// in the development app while it is being looked at as the public one.
   private var showsDevelopmentFeatures: Bool {
-    AppFlavor.showsDevelopmentFeatures(chat.settings.values)
+    AppFlavor.showsDevelopmentFeatures(chat.settings)
   }
 
   var body: some View {

@@ -24,7 +24,8 @@ enum AppFlavor: String, Sendable {
   /// looked at the way it will ship without swapping apps. The switch only ever takes things away:
   /// it is `&&`, not `||`, so the public app cannot be handed development features by editing a
   /// settings file — `isDevelopment` is compiled in and false there whatever this says.
-  static func showsDevelopmentFeatures(_ settings: AppSettings) -> Bool {
+  @MainActor
+  static func showsDevelopmentFeatures(_ settings: SettingsStore) -> Bool {
     isDevelopment && !settings.previewAsPublic
   }
 

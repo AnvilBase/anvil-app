@@ -81,11 +81,11 @@ final class ChatModel {
   init(settings: SettingsStore, pro: ProAccess) {
     self.settings = settings
     self.pro = pro
-    openChat = Chat(systemPrompt: settings.values.systemPrompt)
+    openChat = Chat(systemPrompt: settings.systemPrompt)
   }
 
   /// Replies read aloud, and the microphone open again when they finish. Pro, and on.
-  var talkModeOn: Bool { pro.isUnlocked && settings.values.talkMode }
+  var talkModeOn: Bool { pro.isUnlocked && settings.talkMode }
 
   /// Voice mode: the conversation held out loud, over the chat, until it is closed. Not a setting
   /// and not remembered; it is a thing you are doing, and it ends when you stop.
@@ -117,7 +117,7 @@ final class ChatModel {
   /// decided in one place, so it is asked again here. Every way a picture gets made asks this, so
   /// the switch in Settings › Image turns off all of them at once.
   var canGenerateImages: Bool {
-    pro.isUnlocked && imageModel != nil && settings.values.imageGenerationEnabled
+    pro.isUnlocked && imageModel != nil && settings.imageGenerationEnabled
   }
 
   /// Set when a message asked for a picture and Pro isn't active: the chat screen shows the Pro
@@ -136,7 +136,7 @@ final class ChatModel {
 
   /// Whether replies can search right now. Your preference is kept while offline, and search comes
   /// back on by itself when the connection returns.
-  var webSearchOn: Bool { settings.values.webSearchEnabled && network.isOnline }
+  var webSearchOn: Bool { settings.webSearchEnabled && network.isOnline }
 
   var canSend: Bool {
     loadState == .ready && !isGenerating && !isPreparingImage
@@ -146,7 +146,7 @@ final class ChatModel {
 
   /// True when engine settings have changed since the model was loaded.
   var needsReload: Bool {
-    loadedEngineOptions.map { $0 != settings.values.engine } ?? false
+    loadedEngineOptions.map { $0 != settings.engine } ?? false
   }
 
   // MARK: - The model on this iPhone
@@ -162,14 +162,14 @@ final class ChatModel {
     // If the last load never finished, it took the whole process with it — almost always by running
     // out of memory. Trying the same thing again would do the same thing again, and the app would
     // never stay up long enough to change a setting, so back something off first.
-    var options = settings.values.engine
+    var options = settings.engine
     if let abandoned = LoadAttempt.abandoned(), abandoned == options {
       if let reduced = options.afterRunningOutOfMemory() {
         // Backed off quietly. Saying "the model ran this iPhone out of memory, so image input is
         // off" reads as the app having gone wrong on the one screen where nothing has: the model
         // loads, and what changed is sitting in Settings › Models for anyone who looks.
         options = reduced
-        settings.values.engine = reduced
+        settings.engine = reduced
         settings.save()
       } else {
         LoadAttempt.succeeded()
@@ -240,7 +240,7 @@ final class ChatModel {
   }
 
   func setWebSearch(_ enabled: Bool) {
-    settings.values.webSearchEnabled = enabled
+    settings.webSearchEnabled = enabled
     settings.save()
   }
 
@@ -361,7 +361,7 @@ final class ChatModel {
     let existing = draft.trimmingCharacters(in: .whitespacesAndNewlines)
     // Talk mode always sends when you stop talking, whoever started the microphone; that is what
     // makes it hands-free.
-    let autoSend = autoSend ?? (talkModeOn || settings.values.autoSendVoice)
+    let autoSend = autoSend ?? (talkModeOn || settings.autoSendVoice)
     let session = dictationSession
     Task {
       do {
@@ -572,7 +572,7 @@ final class ChatModel {
   }
 
   func purgeExpiredChats() async {
-    let deleted = await archive.purge(olderThanDays: settings.values.historyRetentionDays)
+    let deleted = await archive.purge(olderThanDays: settings.historyRetentionDays)
     if deleted.contains(openChat.id), !isGenerating { startNewChat() }
     savedChats = await archive.loadAll()
   }
@@ -658,7 +658,7 @@ final class ChatModel {
   /// Saves settings and applies the parts that don't need the model reloaded.
   func settingsDidClose() async {
     settings.save()
-    if openChat.messages.isEmpty { openChat.systemPrompt = settings.values.systemPrompt }
+    if openChat.messages.isEmpty { openChat.systemPrompt = settings.systemPrompt }
     await purgeExpiredChats()
   }
 
@@ -714,7 +714,7 @@ final class ChatModel {
   ) {
     guard let imageModel else { return }
     if openChat.messages.isEmpty {
-      openChat.systemPrompt = settings.values.systemPrompt
+      openChat.systemPrompt = settings.systemPrompt
       openChat.title = Self.title(for: typed)
     }
     let user = ChatMessage(role: .user, text: typed)
@@ -782,7 +782,7 @@ final class ChatModel {
   ) {
     if openChat.messages.isEmpty {
       // An empty chat picks up the latest system prompt from Settings.
-      openChat.systemPrompt = settings.values.systemPrompt
+      openChat.systemPrompt = settings.systemPrompt
       openChat.title = Self.title(for: typed.isEmpty ? (file?.name ?? "") : typed)
     }
 
@@ -799,7 +799,7 @@ final class ChatModel {
     let webSearch =
       webSearchOn
       ? WebSearchConfig(
-        apiKey: AppSecrets.braveSearchAPIKey, resultCount: settings.values.webSearchResultCount)
+        apiKey: AppSecrets.braveSearchAPIKey, resultCount: settings.webSearchResultCount)
       : nil
     var options = conversationOptions()
     // Anvil Dream stays out of a turn that carries a photo or a file: the message is about what
@@ -818,8 +818,8 @@ final class ChatModel {
       history.isEmpty || !searchChanged
       ? nil : PromptBuilder.searchChangeNote(webSearchOn: options.webSearch)
     let prompt = searchNote.map { "\($0)\n\n\(basePrompt)" } ?? basePrompt
-    let contextLimit = modelDetails?.contextSize ?? settings.values.engine.contextSize
-    let maxReplyTokens = settings.values.maxReplyTokens
+    let contextLimit = modelDetails?.contextSize ?? settings.engine.contextSize
+    let maxReplyTokens = settings.maxReplyTokens
     let deviceBackend = modelDetails?.backend ?? "Unknown"
     let chatID = openChat.id
     // Anvil Dream, for this reply, if it can be used: the picture comes back as a JPEG, the way a
@@ -945,11 +945,11 @@ final class ChatModel {
     if voiceModeOn {
       // Read first, listen after: the microphone stays shut while the voice is going, so the
       // phone never takes down its own reply.
-      await speechOutput.speak(Self.spokenForm(of: text), voice: settings.values.voiceIdentifier)
+      await speechOutput.speak(Self.spokenForm(of: text), voice: settings.voiceIdentifier)
       if voiceModeOn { listenInVoiceMode() }
       return
     }
-    await speechOutput.speak(Self.spokenForm(of: text), voice: settings.values.voiceIdentifier)
+    await speechOutput.speak(Self.spokenForm(of: text), voice: settings.voiceIdentifier)
     guard talkModeOn, loadState == .ready, !isGenerating, !speechInput.isActive,
       draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     else { return }
@@ -1050,7 +1050,7 @@ final class ChatModel {
 
   private func startNewChat() {
     endDictation()
-    openChat = Chat(systemPrompt: settings.values.systemPrompt)
+    openChat = Chat(systemPrompt: settings.systemPrompt)
     images = [:]
     pendingImage = nil
     pendingFile = nil

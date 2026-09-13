@@ -93,7 +93,7 @@ struct DeveloperScreen: View {
 
       Section {
         Button("Switch to the public build") {
-          chat.settings.values.previewAsPublic = true
+          chat.settings.previewAsPublic = true
           chat.settings.save()
           dismiss()
         }
@@ -161,7 +161,7 @@ struct DeveloperScreen: View {
       systemPrompt: "",
       sampler: nil,
       webSearch: chat.webSearchOn,
-      memoryEnabled: chat.settings.values.memoryEnabled,
+      memoryEnabled: chat.settings.memoryEnabled,
       memories: [],
       imageGeneration: chat.canGenerateImages)
   }

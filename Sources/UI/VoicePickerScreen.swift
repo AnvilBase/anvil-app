@@ -11,7 +11,7 @@ struct VoicePickerScreen: View {
   @Environment(\.theme) private var theme
   @State private var voices = SpeechVoices.installed()
 
-  private var chosen: String { settings.values.voiceIdentifier }
+  private var chosen: String { settings.voiceIdentifier }
 
   var body: some View {
     List {
@@ -50,7 +50,7 @@ struct VoicePickerScreen: View {
 
   /// Chosen, and heard: the sample line in that voice, so the choice can be made by ear.
   private func choose(_ identifier: String) {
-    settings.values.voiceIdentifier = identifier
+    settings.voiceIdentifier = identifier
     Task { await speech.speak(SpeechVoices.sample, voice: identifier) }
   }
 

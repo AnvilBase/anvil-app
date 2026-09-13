@@ -65,14 +65,14 @@ private struct RootView: View {
   /// The theme the settings ask for, if Pro says so; Ink otherwise. Decided here, once, so a lapsed
   /// subscription falls back everywhere at the same moment and nothing downstream has to ask.
   private var theme: AppTheme {
-    pro.isUnlocked ? chat.settings.values.theme : .ink
+    pro.isUnlocked ? chat.settings.theme : .ink
   }
 
   /// Skip on the model screen, in the development app only. nil — no button — everywhere else,
   /// including the development app when it is showing itself as the public one.
   private var skipModelSetup: (() -> Void)? {
     #if ANVIL_DEV
-      guard AppFlavor.showsDevelopmentFeatures(chat.settings.values) else { return nil }
+      guard AppFlavor.showsDevelopmentFeatures(chat.settings) else { return nil }
       return { withAnimation(Self.screenChange) { skippedModelSetup = true } }
     #else
       return nil
@@ -98,11 +98,11 @@ private struct RootView: View {
 
   var body: some View {
     Group {
-      if !chat.settings.values.hasSeenWelcome {
+      if !chat.settings.hasSeenWelcome {
         WelcomeScreen {
           // Written down straight away rather than on the next save: whatever happens after this,
           // the welcome has been seen and should not come back.
-          withAnimation(Self.screenChange) { chat.settings.values.hasSeenWelcome = true }
+          withAnimation(Self.screenChange) { chat.settings.hasSeenWelcome = true }
           chat.settings.save()
         }
         .transition(.opacity)
@@ -130,7 +130,7 @@ private struct RootView: View {
       // Locked from the first frame if that is what was asked for, before anything is drawn under
       // it that shouldn't be seen.
       // Nothing happens without a passcode to lock behind: `lock()` sees to that.
-      if chat.settings.values.appLockEnabled {
+      if chat.settings.appLockEnabled {
         lock.lock()
       }
       // Lets iOS hand over anything a background download finished while the app was closed.
@@ -148,7 +148,7 @@ private struct RootView: View {
     // and down the side would be one more thing over the content to look at.
     .scrollIndicators(.hidden)
     // Nothing for "System", which leaves SwiftUI following the phone.
-    .preferredColorScheme(chat.settings.values.appearance.colorScheme)
+    .preferredColorScheme(chat.settings.appearance.colorScheme)
     // The theme, for every view that draws the chat, and Pro and the lock for the few that ask.
     // Ink keeps the system tint for controls; a coloured theme tints them in its own hue.
     .environment(\.theme, theme.palette)
@@ -160,17 +160,17 @@ private struct RootView: View {
     .onChange(of: pro.isUnlocked, initial: true) { _, unlocked in
       library.proUnlocked = unlocked
     }
-    .onChange(of: chat.settings.values.appIcon) { _, icon in
+    .onChange(of: chat.settings.appIcon) { _, icon in
       icon.apply()
     }
     // A sheet is its own presentation, which `preferredColorScheme` on the root does not reach:
     // Settings stayed as it was while the chat behind it changed, and caught up only when reopened.
     // The window is told as well, and so is every presentation up in it, at once.
-    .onChange(of: chat.settings.values.appearance, initial: true) { _, appearance in
+    .onChange(of: chat.settings.appearance, initial: true) { _, appearance in
       appearance.applyToWindows()
     }
     .onChange(of: scenePhase) { _, phase in
-      guard chat.settings.values.appLockEnabled || phase == .active else { return }
+      guard chat.settings.appLockEnabled || phase == .active else { return }
       switch phase {
       case .inactive:
         // Control Centre, a notification pulled down, the app switcher: the screen is covered so
