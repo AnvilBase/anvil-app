@@ -14,20 +14,23 @@ struct ProScreen: View {
 
   var body: some View {
     VStack(spacing: 0) {
-      Spacer(minLength: 12)
-      GoldAnvil(size: 84)
+      Spacer(minLength: 8)
+      // The modelled gold block, and large: this is the page that sells Pro, and the block is
+      // what it is selling. The rest is drawn a size down so the whole page still fits without
+      // scrolling.
+      GoldBlock(size: 136)
       Text("Anvil Pro")
-        .font(.system(size: 40, weight: .bold))
-        .padding(.top, 22)
-      VStack(alignment: .leading, spacing: 22) {
+        .font(.system(size: 34, weight: .bold))
+        .padding(.top, 14)
+      VStack(alignment: .leading, spacing: 14) {
         ForEach(Self.features, id: \.title) { feature in
-          HStack(spacing: 18) {
+          HStack(spacing: 16) {
             Image(systemName: feature.symbol)
-              .font(.title2)
-              .frame(width: 34)
+              .font(.title3)
+              .frame(width: 30)
               .foregroundStyle(.secondary)
             Text(feature.title)
-              .font(.title3.weight(.semibold))
+              .font(.body.weight(.semibold))
             if let tag = feature.tag {
               Text(tag)
                 .font(.caption.weight(.semibold))
@@ -40,8 +43,8 @@ struct ProScreen: View {
           }
         }
       }
-      .padding(.top, 40)
-      Spacer(minLength: 12)
+      .padding(.top, 26)
+      Spacer(minLength: 8)
     }
     .frame(maxWidth: .infinity)
     .padding(.horizontal, 24)
