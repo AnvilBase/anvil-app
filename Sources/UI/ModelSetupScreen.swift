@@ -153,6 +153,10 @@ struct ModelSetupScreen: View {
     }
     .padding(18)
     .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+    // A model that needs Pro, without it, stands back from the one that can be downloaded now.
+    // Faded, not disabled: the lock on it still leads to the Pro page.
+    .opacity(model.isPro && !pro.isUnlocked ? 0.55 : 1)
+    .animation(.easeInOut(duration: 0.2), value: pro.isUnlocked)
   }
 
   /// What a card lets you do: download the model — or watch it come, stop it, carry it on after
