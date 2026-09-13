@@ -46,7 +46,6 @@ struct SettingsScreen: View {
         historySection
         securitySection
         appearanceSection
-        if AppFlavor.isDevelopment, !showsDevelopmentFeatures { backToDevelopmentSection }
         communitySection
         feedbackSection
         aboutSection
@@ -716,18 +715,6 @@ struct SettingsScreen: View {
       })
   }
 
-  /// The way back out of showing the development app as the public one. It lives here because the
-  /// hammer that would otherwise lead to it is one of the things being hidden, and Settings is
-  /// always reachable. The public app never compiles a path to it: see the call site.
-  private var backToDevelopmentSection: some View {
-    Section("Developer") {
-      Button("Show developer features again") {
-        settings.previewAsPublic = false
-        settings.save()
-      }
-    }
-  }
-
   /// The developer screen, at the very bottom, where the development app keeps what the public
   /// app doesn't have. It used to be a hammer in the chat's top bar; that spot is voice mode's now.
   private var developerSection: some View {
@@ -772,18 +759,36 @@ struct SettingsScreen: View {
   }
 
   /// Why the app is, what it is bound by, and which one this is. Last, as it is in every app.
+  ///
+  /// In the development app the Version row is also the way back out of showing the app as the
+  /// public one: hold it for a second and the developer features return. A button for that sat
+  /// in a section of its own, which was one more thing on the screen that the public app doesn't
+  /// have — the point of the preview being to see the screen without those. The public app never
+  /// compiles the gesture.
   private var aboutSection: some View {
     Section("About") {
       link("Manifesto", systemImage: "text.quote", to: AppLinks.manifesto)
       link("Terms & Conditions", systemImage: "doc.text", to: AppLinks.terms)
       link("Privacy Policy", systemImage: "hand.raised", to: AppLinks.privacy)
       link("Licenses", systemImage: "checkmark.seal", to: AppLinks.licenses)
-      LabeledContent {
-        Text(AppFlavor.version)
-      } label: {
-        Label("Version", systemImage: "info.circle")
-      }
+      versionRow
     }
+  }
+
+  private var versionRow: some View {
+    LabeledContent {
+      Text(AppFlavor.version)
+    } label: {
+      Label("Version", systemImage: "info.circle")
+    }
+    #if ANVIL_DEV
+      .contentShape(Rectangle())
+      .onLongPressGesture(minimumDuration: 1) {
+        guard settings.previewAsPublic else { return }
+        settings.previewAsPublic = false
+        settings.save()
+      }
+    #endif
   }
 
   /// A row that opens a page in Safari. In ink like the rows around it rather than the tint a
