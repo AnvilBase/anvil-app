@@ -236,7 +236,7 @@ the context this chat is using; and totals across every reply, which survive del
 
 ## Anvil Pro
 
-Anvil Pro is a monthly subscription, bought through the App Store, that unlocks the settings the
+Anvil Pro is a subscription, by the month or by the year, bought through the App Store, that unlocks the settings the
 free app keeps simple: your own system prompt, the model's sampling values, themes,
 alternate app icons, a passcode lock, and Respond with audio — replies read aloud on the phone,
 with the microphone open again when they finish. The paywall is the **Anvil Pro** row at the top of

@@ -4,8 +4,8 @@ import StoreKit
 
 /// Whether this iPhone has Anvil Pro, and the way to get it.
 ///
-/// Pro is an auto-renewing subscription bought through the App Store, and the App Store is the only
-/// thing that can say whether it is active: `isUnlocked` is read from StoreKit's current
+/// Pro is an auto-renewing subscription bought through the App Store, by the month or by the year,
+/// and the App Store is the only thing that can say whether it is active: `isUnlocked` is read from StoreKit's current
 /// entitlements at launch and again whenever a transaction lands, never from a settings file. A
 /// self-built copy of the app can't buy Anvil's product, because the product belongs to Anvil's App
 /// Store record, not to the code. The development app can preview Pro — see `previewUnlocked` —
@@ -19,14 +19,18 @@ import StoreKit
 @MainActor
 @Observable
 final class ProAccess {
-  /// The product as set up in App Store Connect: one monthly subscription in the Anvil Pro group.
-  static let productID = "com.anvilbase.anvil.pro.monthly"
+  /// The products as set up in App Store Connect: a monthly and a yearly subscription, both in the
+  /// Anvil Pro group, so either one is Pro and the App Store handles moving between them.
+  static let monthlyID = "com.anvilbase.anvil.pro.monthly"
+  static let yearlyID = "com.anvilbase.anvil.pro.yearly"
+  static let productIDs = [monthlyID, yearlyID]
 
   /// Whether the App Store says this iPhone has an active subscription.
   private(set) var isEntitled = false
-  /// The product, once the App Store has answered. Nil until then, and nil for good on a build the
-  /// App Store has no record of — an open-source build, or a sandbox without the product set up.
-  private(set) var product: Product?
+  /// The products, once the App Store has answered. Nil until then, and nil for good on a build the
+  /// App Store has no record of — an open-source build, or a sandbox without the products set up.
+  private(set) var monthly: Product?
+  private(set) var yearly: Product?
   private(set) var isPurchasing = false
   /// What went wrong the last time a purchase or restore was tried, for the paywall to show.
   private(set) var lastError: String?
@@ -47,9 +51,19 @@ final class ProAccess {
     #endif
   }
 
-  /// What a month costs, as the App Store phrases it for this storefront, or nothing until it has
-  /// been asked.
-  var displayPrice: String? { product?.displayPrice }
+  /// Whether there is anything to buy: false until the App Store answers, and for good on a build it
+  /// has no products for.
+  var isAvailable: Bool { monthly != nil || yearly != nil }
+
+  /// How much cheaper a year is than twelve months, as a whole percentage — the number the yearly
+  /// button wears. Nil until both prices are known, or if a year isn't actually cheaper.
+  var yearlySavingsPercent: Int? {
+    guard let monthly, let yearly else { return nil }
+    let twelveMonths = monthly.price * 12
+    guard twelveMonths > 0, yearly.price < twelveMonths else { return nil }
+    let fraction = (twelveMonths - yearly.price) / twelveMonths
+    return Int((NSDecimalNumber(decimal: fraction).doubleValue * 100).rounded())
+  }
 
   private var updates: Task<Void, Never>?
 
@@ -74,23 +88,26 @@ final class ProAccess {
   }
 
   private func loadProduct() async {
-    // No product is not an error worth showing: it is what an open-source build looks like.
-    product = try? await Product.products(for: [Self.productID]).first
+    // No products is not an error worth showing: it is what an open-source build looks like.
+    let products = (try? await Product.products(for: Self.productIDs)) ?? []
+    monthly = products.first { $0.id == Self.monthlyID }
+    yearly = products.first { $0.id == Self.yearlyID }
   }
 
   private func refreshEntitlement() async {
     var entitled = false
     for await result in Transaction.currentEntitlements {
       guard case .verified(let transaction) = result else { continue }
-      if transaction.productID == Self.productID, transaction.revocationDate == nil {
+      if Self.productIDs.contains(transaction.productID), transaction.revocationDate == nil {
         entitled = true
       }
     }
     isEntitled = entitled
   }
 
-  func purchase() async {
-    guard let product, !isPurchasing else { return }
+  /// Buys one of the two products. Which one is the paywall's choice; both are Pro.
+  func purchase(_ product: Product) async {
+    guard !isPurchasing else { return }
     isPurchasing = true
     lastError = nil
     defer { isPurchasing = false }
