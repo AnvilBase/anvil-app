@@ -30,6 +30,8 @@ struct ConversationOptions: Equatable, Sendable {
   /// Gives the model the save_memory tool, and the facts it has already saved.
   var memoryEnabled: Bool
   var memories: [String]
+  /// Talk mode: the reply is going to be spoken, so it should be written to be heard.
+  var spokenReplies = false
 }
 
 /// One past message, trimmed to text, as it is given back to a model.

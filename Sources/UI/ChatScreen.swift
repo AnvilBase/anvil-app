@@ -3,6 +3,8 @@ import SwiftUI
 /// The chat itself: the drawer of saved chats behind it, the bar across the top, the conversation,
 /// and the composer under it.
 struct ChatScreen: View {
+  @Environment(\.theme) private var theme
+  @Environment(AppLock.self) private var lock
   @Bindable var chat: ChatModel
   let model: ModelFile
   let onRemoveModel: () -> Void
@@ -51,7 +53,7 @@ struct ChatScreen: View {
         let missing = WindowInsets.missing(from: proxy.safeAreaInsets)
         content
           // The colour runs to the screen edges; the content itself stays inside the safe area.
-          .background(ChatStyle.page.ignoresSafeArea())
+          .background(theme.page.ignoresSafeArea())
           .safeAreaInset(edge: .top, spacing: 0) { topBar.padding(.top, missing.top) }
           // The composer adds itself below this, so it clears the home indicator without the
           // keyboard, and sits straight on the keyboard when there is one.
@@ -72,6 +74,16 @@ struct ChatScreen: View {
       if isOpen { inputFocused = false }
     }
     .task(id: model) { await chat.load(model) }
+    // The lock screen is laid over this view, and a sheet is presented above the view — so a sheet
+    // left up would be a sheet left up over the lock. Nothing that was open stays open.
+    .onChange(of: lock.isLocked) { _, locked in
+      guard locked else { return }
+      showingSettings = false
+      showingDeveloper = false
+      statsMessage = nil
+      textToSelect = nil
+      fullScreenPhoto = nil
+    }
     .sheet(isPresented: $showingSettings, onDismiss: { Task { await chat.settingsDidClose() } }) {
       SettingsScreen(
         chat: chat, model: model, settings: chat.settings, onRemoveModel: onRemoveModel)
@@ -279,6 +291,11 @@ struct ChatScreen: View {
       // this screen still puts the keyboard away.
       .overlay {
         emptyGuide
+          // Nothing inside the guide takes the page's spring: the page arrives and leaves under
+          // `sendMotion`, and a guide that assembled itself, or slid into place, as that spring
+          // settled would be one more thing moving on a screen that should have nothing moving.
+          // The fade below is the whole of its entrance and exit.
+          .transaction { $0.animation = nil }
           .offset(y: -proxy.size.height * 0.06)
           .allowsHitTesting(false)
           // It leaves with the first message, the same way the message arrives.

@@ -59,6 +59,15 @@ from the bundle at runtime. Anyone with a copy of a build can still extract a ke
 so don't share builds that carry yours, and set a monthly limit in the
 [Brave dashboard](https://api-dashboard.search.brave.com).
 
+### Anvil's system prompt
+
+The prompt Anvil ships with is proprietary and lives in a private repository,
+[AnvilBase/anvil-prompt](https://github.com/AnvilBase/anvil-prompt). `./Scripts/bootstrap.sh` copies
+it into `Sources/Prompt/DefaultPrompt.txt` if that repository is checked out next to this one; the
+file is git-ignored and bundled by the synchronised `Sources` folder. Without it — which is every
+build from this repository alone — the app uses a short built-in prompt, so it always runs. It just
+isn't Anvil's.
+
 ### Signing and bundle identifiers
 
 | | Public app | Development app |
@@ -194,6 +203,26 @@ the context this chat is using; and totals across every reply, which survive del
   No fixed benchmark token counts are set, so the engine still tokenizes the real prompt and stops at
   the model's own stop tokens: replies are unaffected.
 
+## Anvil Pro
+
+Anvil Pro is a monthly subscription, bought through the App Store, that unlocks the settings the
+free app keeps simple: your own system prompt, the model's sampling values and thinking, themes,
+alternate app icons, a Face ID or passcode lock, and Talk mode — replies read aloud on the phone,
+with the microphone open again when they finish. The paywall is the **Anvil Pro** row at the top of
+Settings.
+
+Whether Pro is active is read from the App Store's entitlements, in `Sources/Pro/ProAccess.swift`,
+and from nowhere else. The settings Pro unlocks are stored either way and honoured only while the App
+Store says so. The development app has a **Preview Pro** switch on its developer screen for looking
+at the screens; like the rest of that screen, it is compiled out of the public app.
+
+Two things follow from the app being open source. The Pro machinery is in this repository, so a
+build made from it will show the paywall and, with no App Store product behind it, say that
+subscriptions aren't available. And nothing in a client can stop someone who compiles the source
+from changing what it does — which is why what Pro ships, rather than what the code can do, is what
+is kept private: the prompt above, in its own repository, and the same route is open for anything
+else.
+
 ## Two apps: public and development
 
 Both targets compile everything in `Sources/`. The only difference is that `AnvilAIDev` defines
@@ -237,7 +266,10 @@ Support/         per-app Info.plist and entitlements
 | File | Role |
 | --- | --- |
 | `App/AppFlavor.swift` | Public or development build: app name, URL scheme, storage namespace |
-| `App/AnvilRootScene.swift` | Switches between welcome, installing a model and chatting; history and foreground work |
+| `App/AnvilRootScene.swift` | Switches between welcome, installing a model and chatting; the theme, the lock, foreground work |
+| `Pro/ProAccess.swift`, `ProScreen.swift` | Whether Anvil Pro is active, read from the App Store, and the paywall |
+| `Pro/Theme.swift` | The themes and app icons, and the `Theme` every view reads from the environment |
+| `Pro/AppLock.swift`, `LockScreen.swift` | Face ID or passcode when the app comes back |
 | `Chat/ChatModel.swift` | The observable state every screen reads; decides where each reply runs |
 | `Chat/ChatTranscript.swift` | Chat, message, reply-stats, and usage-totals models |
 | `Chat/ChatArchive.swift` | Saves chats, photos, and totals as protected files |
@@ -265,7 +297,8 @@ Support/         per-app Info.plist and entitlements
 | `UI/ChatSidebar.swift` | What's in the drawer: search, new chat, chats by day, settings |
 | `UI/Composer.swift` | Input card: photos, web search, field, Send/Stop/microphone |
 | `UI/MessageRow.swift` | One message, with thinking, searches, sources, and metrics |
-| `UI/ChatStyle.swift` | Shared colours and the Liquid Glass helpers |
+| `UI/ChatStyle.swift` | Shared sizes and motion, and the Liquid Glass helpers |
+| `System/SpeechOutput.swift` | Talk mode's voice: replies read aloud with the voices iOS ships |
 | `UI/MarkdownView.swift` | The Markdown renderer |
 | `UI/WelcomeScreen.swift`, `SettingsScreen.swift`, `MetricsScreen.swift`, `ModelSetupScreen.swift`, `MemoryScreen.swift`, `DeveloperScreen.swift` | The rest of the screens |
 

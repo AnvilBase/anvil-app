@@ -3,6 +3,7 @@ import SwiftUI
 /// The first screen, shown until a model has been installed. It offers the models Anvil publishes
 /// and downloads the chosen one.
 struct ModelSetupScreen: View {
+  @Environment(\.theme) private var theme
   let library: ModelLibrary
 
   @State private var catalog: [CatalogModel] = []
@@ -134,8 +135,8 @@ struct ModelSetupScreen: View {
           .font(.headline)
           .frame(maxWidth: .infinity)
           .frame(height: ChatStyle.inlineControl)
-          .background(ChatStyle.sendFill, in: Capsule())
-          .foregroundStyle(ChatStyle.sendGlyph)
+          .background(theme.sendFill, in: Capsule())
+          .foregroundStyle(theme.sendGlyph)
       }
       .buttonStyle(.plain)
     }
@@ -194,7 +195,7 @@ struct ModelSetupScreen: View {
         ProgressView(value: downloader.fraction)
           // The same ink Download is filled with, rather than the accent: on this screen the one
           // thing you started is the one thing that should be showing its progress in it.
-          .tint(ChatStyle.sendFill)
+          .tint(theme.sendFill)
         HStack {
           Text(transferred)
           Spacer()

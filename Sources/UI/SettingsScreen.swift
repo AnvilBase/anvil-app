@@ -1,8 +1,13 @@
 import SwiftUI
 
-/// Everything you can change, in the order it matters: which model is running and how, what it is
-/// told, what it remembers, how you talk to it, what it can reach, how long chats are kept, and how
-/// it looks.
+/// Everything you can change, in the order it matters: Pro, which model is loaded, what it is told,
+/// what it remembers, how you talk to it, what it can reach, how long chats are kept, how it looks,
+/// and whether it locks.
+///
+/// Short on purpose. Each section is its controls and nothing under them: a setting whose name
+/// needs a paragraph is a setting with the wrong name. What Anvil Pro adds sits in the section it
+/// belongs to — the prompt under System prompt, sampling under Generation — as the control itself
+/// when Pro is active, and as the same row marked Pro, leading to the paywall, when it isn't.
 struct SettingsScreen: View {
   let chat: ChatModel
   let model: ModelFile
@@ -11,6 +16,7 @@ struct SettingsScreen: View {
   /// load, and this is the only place it can be reached from.
   let onRemoveModel: () -> Void
 
+  @Environment(ProAccess.self) private var pro
   @Environment(\.dismiss) private var dismiss
   @State private var confirmingDeleteAll = false
 
@@ -21,6 +27,7 @@ struct SettingsScreen: View {
   var body: some View {
     NavigationStack {
       Form {
+        proSection
         modelSection
         systemPromptSection
         memorySection
@@ -30,6 +37,7 @@ struct SettingsScreen: View {
         generationSection
         historySection
         appearanceSection
+        securitySection
         if AppFlavor.isDevelopment, !showsDevelopmentFeatures { backToDevelopmentSection }
       }
       .navigationTitle("Settings")
@@ -51,83 +59,120 @@ struct SettingsScreen: View {
     }
   }
 
-  private var systemPromptSection: some View {
+  // MARK: - Pro
+
+  private var proSection: some View {
     Section {
-      TextField("System prompt", text: $settings.values.systemPrompt, axis: .vertical)
-        .lineLimit(3...10)
-      Button("Restore default") { settings.values.systemPrompt = AppSettings.defaultSystemPrompt }
-        .disabled(settings.values.systemPrompt == AppSettings.defaultSystemPrompt)
-    } header: {
-      Text("System prompt")
-    } footer: {
-      Text(
-        "Instructions the model follows in every reply. Used for new chats; each chat keeps the "
-          + "prompt it started with.")
+      NavigationLink {
+        ProScreen()
+      } label: {
+        HStack(spacing: 12) {
+          PixelAnvil(size: 20)
+          Text("Anvil Pro")
+          Spacer()
+          Text(proStatus)
+            .foregroundStyle(.secondary)
+        }
+      }
+    }
+  }
+
+  private var proStatus: String {
+    if pro.isUnlocked { return "Active" }
+    if let price = pro.displayPrice { return "\(price) a month" }
+    return ""
+  }
+
+  /// The small outline that marks a Pro row, in the shape Recommended takes on the model screen.
+  private var proBadge: some View {
+    Text("Pro")
+      .font(.caption.weight(.semibold))
+      .foregroundStyle(.secondary)
+      .padding(.horizontal, 7)
+      .padding(.vertical, 2)
+      .overlay(Capsule().strokeBorder(.secondary.opacity(0.6), lineWidth: 1))
+  }
+
+  /// A row that is the control when Pro is active and the paywall's door when it isn't. The locked
+  /// row keeps the control's name and shows the badge where its value would be, so the list reads
+  /// the same either way and nothing jumps when Pro arrives.
+  @ViewBuilder
+  private func proGated<Control: View>(
+    _ title: String, @ViewBuilder control: () -> Control
+  ) -> some View {
+    if pro.isUnlocked {
+      control()
+    } else {
+      NavigationLink {
+        ProScreen()
+      } label: {
+        LabeledContent(title) { proBadge }
+      }
+    }
+  }
+
+  // MARK: - Sections
+
+  private var modelSection: some View {
+    Section("Model") {
+      LabeledContent("Loaded", value: model.displayName)
+      Button("Remove model", role: .destructive) {
+        dismiss()
+        onRemoveModel()
+      }
+    }
+  }
+
+  private var systemPromptSection: some View {
+    Section("System prompt") {
+      if pro.isUnlocked {
+        TextField("System prompt", text: $settings.values.systemPrompt, axis: .vertical)
+          .lineLimit(3...10)
+        Button("Restore default") { settings.values.systemPrompt = AppSettings.defaultSystemPrompt }
+          .disabled(settings.values.systemPrompt == AppSettings.defaultSystemPrompt)
+      } else {
+        NavigationLink {
+          ProScreen()
+        } label: {
+          LabeledContent("Prompt") {
+            HStack(spacing: 8) {
+              Text("Default")
+                .foregroundStyle(.secondary)
+              proBadge
+            }
+          }
+        }
+      }
     }
   }
 
   private var memorySection: some View {
-    Section {
+    Section("Memory") {
       Toggle("Memory", isOn: $settings.values.memoryEnabled)
       NavigationLink {
         MemoryScreen(memory: chat.memory)
       } label: {
         LabeledContent("Saved memories", value: chat.memory.items.count.formatted())
       }
-    } header: {
-      Text("Memory")
-    } footer: {
-      Text(
-        "When on, \(AppFlavor.appName) remembers details you share, like your name or preferences, "
-          + "and uses them in new chats. Memories are stored only on this iPhone.")
     }
   }
 
   private var voiceSection: some View {
-    Section {
+    Section("Voice") {
       Toggle("Send when you stop talking", isOn: $settings.values.autoSendVoice)
-    } header: {
-      Text("Voice input")
-    } footer: {
-      Text(
-        "Tap the microphone to talk and your words are typed into the message field. Speech is "
-          + "recognized on this iPhone and the audio never leaves it. Replies are never read aloud.")
+      proGated("Talk mode") {
+        Toggle("Talk mode", isOn: $settings.values.talkMode)
+      }
     }
   }
 
   private var webSearchSection: some View {
-    Section {
-      Toggle(
-        "Web search",
-        isOn: Binding(get: { chat.webSearchOn }, set: { settings.values.webSearchEnabled = $0 })
-      )
-      .disabled(!chat.hasSearchKey || chat.isOffline)
-
-      if !chat.hasSearchKey {
-        Text(
-          "This build has no Brave Search key, so web search is unavailable. Add one in "
-            + "Config/Local.xcconfig and rebuild."
-        )
-        .font(.footnote)
-        .foregroundStyle(.secondary)
-      } else if chat.isOffline {
-        Text("Internet connection is offline, so web search is unavailable.")
-          .font(.footnote)
-          .foregroundStyle(.secondary)
-      }
-
+    Section("Web search") {
       Picker("Results per search", selection: $settings.values.webSearchResultCount) {
         ForEach(AppSettings.searchResultCounts, id: \.self) { count in
           Text("\(count)").tag(count)
         }
       }
-    } header: {
-      Text("Web search")
-    } footer: {
-      Text(
-        "When on, the model can search the web with Brave Search if it needs current information. "
-          + "Only the queries it writes are sent to Brave; your chats stay on this iPhone. More "
-          + "results use more of the model's context.")
     }
   }
 
@@ -140,123 +185,44 @@ struct SettingsScreen: View {
   }
 
   private var generationSection: some View {
-    Section {
-      Toggle("Use the model's default sampling", isOn: $settings.values.useModelSamplerDefaults)
-        .onChange(of: settings.values.useModelSamplerDefaults) { _, useDefaults in
-          // Start custom values from the model's own defaults rather than from nothing.
-          if !useDefaults, let defaults = chat.modelDetails?.defaultSampler {
-            settings.values.sampler = defaults
-          }
-        }
-
-      if !settings.values.useModelSamplerDefaults {
-        VStack(alignment: .leading) {
-          LabeledContent(
-            "Temperature", value: String(format: "%.2f", settings.values.sampler.temperature))
-          Slider(value: $settings.values.sampler.temperature, in: 0...2, step: 0.05)
-        }
-        Stepper(
-          "Top-K: \(settings.values.sampler.topK)", value: $settings.values.sampler.topK, in: 1...200)
-        VStack(alignment: .leading) {
-          LabeledContent("Top-P", value: String(format: "%.2f", settings.values.sampler.topP))
-          Slider(value: $settings.values.sampler.topP, in: 0.05...1, step: 0.01)
-        }
-      }
-
+    Section("Generation") {
       Picker("Max reply length", selection: $settings.values.maxReplyTokens) {
         ForEach(AppSettings.replyLengthLimits, id: \.self) { limit in
           Text(limit == 0 ? "No limit" : "\(limit.formatted()) tokens").tag(limit)
         }
       }
-
-      Toggle("Thinking", isOn: $settings.values.thinkingEnabled)
-        .disabled(chat.modelDetails?.supportsThinking != true)
-    } header: {
-      Text("Generation")
-    } footer: {
-      Text(generationFooter)
+      proGated("Sampling") { sampling }
     }
   }
 
-  private var generationFooter: String {
-    var text = "Lower temperature gives focused, predictable answers; higher gives more varied ones. "
-    if chat.modelDetails?.supportsThinking == true {
-      text += "Thinking lets the model reason before answering (slower, uses more context). "
-    } else if chat.modelDetails != nil {
-      text += "This model doesn't support thinking. "
-    }
-    return text + "Changes apply from your next message."
-  }
-
-  private var modelSection: some View {
-    Section {
-      LabeledContent("Loaded", value: model.displayName)
-      Picker("Backend", selection: $settings.values.engine.backend) {
-        ForEach(EngineBackendPreference.allCases) { preference in
-          Text(preference.label).tag(preference)
+  @ViewBuilder
+  private var sampling: some View {
+    Toggle("Use the model's default sampling", isOn: $settings.values.useModelSamplerDefaults)
+      .onChange(of: settings.values.useModelSamplerDefaults) { _, useDefaults in
+        // Start custom values from the model's own defaults rather than from nothing.
+        if !useDefaults, let defaults = chat.modelDetails?.defaultSampler {
+          settings.values.sampler = defaults
         }
       }
-      Picker("Context size", selection: $settings.values.engine.contextSize) {
-        ForEach(AppSettings.contextSizes, id: \.self) { size in
-          Text("\(size.formatted()) tokens").tag(size)
-        }
+    if !settings.values.useModelSamplerDefaults {
+      VStack(alignment: .leading) {
+        LabeledContent(
+          "Temperature", value: String(format: "%.2f", settings.values.sampler.temperature))
+        Slider(value: $settings.values.sampler.temperature, in: 0...2, step: 0.05)
       }
-      Toggle("Image input", isOn: $settings.values.engine.imageInput)
-
-      // Always here, not only when something above has been changed: this is also the way back
-      // from a model that wouldn't load, and that screen says nothing but what happened.
-      Button(chat.needsReload ? "Reload model to apply" : "Reload model") {
-        Task { await chat.reloadModel() }
-        dismiss()
+      Stepper(
+        "Top-K: \(settings.values.sampler.topK)", value: $settings.values.sampler.topK, in: 1...200)
+      VStack(alignment: .leading) {
+        LabeledContent("Top-P", value: String(format: "%.2f", settings.values.sampler.topP))
+        Slider(value: $settings.values.sampler.topP, in: 0.05...1, step: 0.01)
       }
-      Button("Remove model", role: .destructive) {
-        dismiss()
-        onRemoveModel()
-      }
-    } header: {
-      Text("Model")
-    } footer: {
-      Text(
-        "Settings for the model on this iPhone. A larger context remembers more of the chat but "
-          + "uses more memory; if iOS closes the app, go back to 4,096. Turning off image input "
-          + "saves memory too. If the model won't load, reload it here; removing it lets you "
-          + "download one again.")
     }
-  }
-
-  /// The way back out of showing the development app as the public one. It lives here because the
-  /// hammer that would otherwise lead to it is one of the things being hidden, and Settings is
-  /// always reachable. The public app never compiles a path to it: see the call site.
-  private var backToDevelopmentSection: some View {
-    Section {
-      Button("Show developer features again") {
-        settings.values.previewAsPublic = false
-        settings.save()
-      }
-    } header: {
-      Text("Developer")
-    } footer: {
-      Text("This is the development app being shown as the public one.")
-    }
-  }
-
-  private var appearanceSection: some View {
-    Section {
-      Picker("Appearance", selection: $settings.values.appearance) {
-        ForEach(AppearancePreference.allCases) { preference in
-          Text(preference.label).tag(preference)
-        }
-      }
-      .pickerStyle(.segmented)
-    } header: {
-      Text("Appearance")
-    } footer: {
-      Text("System follows whatever this iPhone is set to.")
-    }
+    Toggle("Thinking", isOn: $settings.values.thinkingEnabled)
+      .disabled(chat.modelDetails?.supportsThinking != true)
   }
 
   private var historySection: some View {
-    Section {
+    Section("Chat history") {
       Picker("Delete chats after", selection: $settings.values.historyRetentionDays) {
         ForEach(AppSettings.retentionChoices, id: \.self) { days in
           Text(Self.retentionLabel(days)).tag(days)
@@ -264,12 +230,70 @@ struct SettingsScreen: View {
       }
       Button("Delete all chats", role: .destructive) { confirmingDeleteAll = true }
         .disabled(chat.savedChats.isEmpty)
-    } header: {
-      Text("Chat history")
-    } footer: {
-      Text(
-        "Chats stay on this iPhone, can't be read while it's locked, and aren't included in "
-          + "backups. A chat is deleted this long after its last message.")
+    }
+  }
+
+  private var appearanceSection: some View {
+    Section("Appearance") {
+      Picker("Appearance", selection: $settings.values.appearance) {
+        ForEach(AppearancePreference.allCases) { preference in
+          Text(preference.label).tag(preference)
+        }
+      }
+      .pickerStyle(.segmented)
+
+      proGated("Theme") {
+        Picker("Theme", selection: $settings.values.theme) {
+          ForEach(AppTheme.allCases) { theme in
+            HStack(spacing: 10) {
+              Circle()
+                .fill(theme.swatch)
+                .frame(width: 14, height: 14)
+              Text(theme.label)
+            }
+            .tag(theme)
+          }
+        }
+      }
+
+      proGated("App icon") {
+        Picker("App icon", selection: $settings.values.appIcon) {
+          ForEach(AppIconChoice.allCases) { icon in
+            HStack(spacing: 10) {
+              RoundedRectangle(cornerRadius: 5, style: .continuous)
+                .fill(icon.colors.background)
+                .frame(width: 22, height: 22)
+                .overlay(PixelAnvil(size: 12, color: icon.colors.mark))
+                .overlay(
+                  RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .strokeBorder(.secondary.opacity(0.3), lineWidth: 0.5))
+              Text(icon.label)
+            }
+            .tag(icon)
+          }
+        }
+      }
+    }
+  }
+
+  private var securitySection: some View {
+    Section("Security") {
+      proGated("Face ID lock") {
+        Toggle("Lock with Face ID or passcode", isOn: $settings.values.appLockEnabled)
+          .disabled(!AppLock.isAvailable)
+      }
+    }
+  }
+
+  /// The way back out of showing the development app as the public one. It lives here because the
+  /// hammer that would otherwise lead to it is one of the things being hidden, and Settings is
+  /// always reachable. The public app never compiles a path to it: see the call site.
+  private var backToDevelopmentSection: some View {
+    Section("Developer") {
+      Button("Show developer features again") {
+        settings.values.previewAsPublic = false
+        settings.save()
+      }
     }
   }
 

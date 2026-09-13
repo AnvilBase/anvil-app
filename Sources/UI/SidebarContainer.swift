@@ -8,6 +8,7 @@ import SwiftUI
 /// works everywhere else on iOS: tap the button, swipe in from the left edge, or swipe the chat
 /// back to put it away.
 struct SidebarContainer<Sidebar: View, Content: View>: View {
+  @Environment(\.theme) private var theme
   @Binding var isOpen: Bool
   @ViewBuilder var sidebar: Sidebar
   @ViewBuilder var content: Content
@@ -60,7 +61,7 @@ struct SidebarContainer<Sidebar: View, Content: View>: View {
         // the conversation means rendering the whole screen off-screen again on every frame of the
         // drag, and on a long chat that is what made the drawer stutter.
         shape
-          .fill(ChatStyle.page)
+          .fill(theme.page)
           .frame(width: proxy.size.width, height: proxy.size.height)
           // Two soft ones rather than one dark one. A single 28% shadow at this size reads as a
           // grey band painted down the edge of the page — and it no longer has to carry the
@@ -90,7 +91,7 @@ struct SidebarContainer<Sidebar: View, Content: View>: View {
             // the edge of the chat. It arrives with the slide and is gone by the time the chat is
             // closed and its corners are back outside the screen.
             shape
-              .strokeBorder(ChatStyle.hairline, lineWidth: 0.75)
+              .strokeBorder(theme.hairline, lineWidth: 0.75)
               .opacity(progress)
               .allowsHitTesting(false)
           }
@@ -99,7 +100,7 @@ struct SidebarContainer<Sidebar: View, Content: View>: View {
       }
       // What the rounded corners cut away, and the strips above and below the drawer, open onto
       // this rather than onto the black of the window behind everything.
-      .background(ChatStyle.page.ignoresSafeArea())
+      .background(theme.page.ignoresSafeArea())
       #if canImport(UIKit)
         // One recogniser does both directions. A zero-sized view is the only way to reach into the
         // view hierarchy from here; it takes no touches of its own.

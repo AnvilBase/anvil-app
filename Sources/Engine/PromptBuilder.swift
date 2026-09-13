@@ -43,10 +43,20 @@ enum PromptBuilder {
         something or shares a clearly lasting detail; don't save trivial or temporary things.
         """
       if !options.memories.isEmpty {
-        prompt += "\n\nWhat you remember about the user from earlier chats:\n"
+        prompt +=
+          "\n\nWhat you remember about the user from earlier chats:\n"
           + options.memories.map { "- \($0)" }.joined(separator: "\n")
           + "\nUse these when they're relevant."
       }
+    }
+
+    if options.spokenReplies {
+      prompt += """
+
+
+        Your reply will be read aloud. Keep it short and conversational, in plain sentences: no \
+        markdown, headings, lists, tables or code.
+        """
     }
 
     return prompt.trimmingCharacters(in: .whitespacesAndNewlines)

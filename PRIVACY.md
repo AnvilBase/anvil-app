@@ -27,8 +27,8 @@ by default), and **Delete all chats** removes them immediately.
 
 ## What can leave the phone
 
-The app has two pieces of networking. Both use a `URLSession` with no cookies, no cache, and no
-stored credentials, and both are visible in the UI while they're in use.
+The app has three pieces of networking. The first two use a `URLSession` with no cookies, no cache,
+and no stored credentials, and are visible in the UI while they're in use; the third is Apple's.
 
 **1. Web search — `api.search.brave.com`.** Only when web search is on *and* the model decides to
 call the tool. What's sent is the query the model wrote, which can include details drawn from your
@@ -46,8 +46,19 @@ and which model you chose. Nothing about your chats, your settings, or your phon
 use Wi-Fi unless you turn on **Download over cellular**. A build can be pointed at a different host
 with `ANVIL_MODELS_HOST`.
 
+**3. Anvil Pro — the App Store.** Buying, restoring or checking the subscription goes through
+StoreKit, which is Apple talking to Apple: what Apple learns is what it learns from any in-app
+purchase, under [Apple's privacy policy](https://www.apple.com/legal/privacy/). The app sends it
+nothing of its own, and Apple's answer — whether Pro is active — is the only thing that comes back.
+Nothing about your chats is involved.
+
 `NWPathMonitor` (`Sources/System/NetworkStatus.swift`) reads whether the phone is online and
 transmits nothing. The app has no web views and opens no sockets.
+
+Two Pro features touch the phone's own hardware and nothing beyond it. **Face ID lock** asks iOS to
+authenticate you; the app is told yes or no and never sees your face or your passcode. **Talk mode**
+reads replies aloud with the voices built into iOS, on the phone, and then listens with the same
+on-device speech recognition as the microphone button.
 
 Two things are worth knowing because they aren't the app:
 

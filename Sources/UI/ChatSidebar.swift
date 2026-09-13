@@ -7,6 +7,7 @@ import SwiftUI
 /// The drawer behind the chat: the name and settings across the top, every saved chat newest first
 /// under the day it was last used, and the three things you can do to that list along the bottom.
 struct ChatSidebar: View {
+  @Environment(\.theme) private var theme
   let chat: ChatModel
   let onOpenChat: () -> Void
   let onNewChat: () -> Void
@@ -50,7 +51,7 @@ struct ChatSidebar: View {
       }
       actionBar
     }
-    .background(ChatStyle.sidebar)
+    .background(theme.sidebar)
     .onChange(of: isSearching) { _, searching in
       // Nothing to lift once search is closed, and the field that raised the keyboard is gone.
       if !searching { keyboardOverlap = 0 }
@@ -175,7 +176,7 @@ struct ChatSidebar: View {
       .padding(.horizontal, 12)
       .padding(.vertical, 10)
       .background(
-        isOpen ? ChatStyle.sidebarRowHighlight : .clear,
+        isOpen ? theme.sidebarRowHighlight : .clear,
         in: RoundedRectangle(cornerRadius: 10)
       )
       .contentShape(Rectangle())

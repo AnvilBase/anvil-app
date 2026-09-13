@@ -8,9 +8,19 @@ struct DeveloperScreen: View {
   let chat: ChatModel
 
   @Environment(\.dismiss) private var dismiss
+  @Environment(ProAccess.self) private var pro
 
   var body: some View {
+    @Bindable var pro = pro
     List {
+      #if ANVIL_DEV
+        // Pro without buying it, for looking at the screens. Compiled into the development app
+        // only, like the rest of this screen's reasons to exist; the public app has no such switch.
+        Section("Anvil Pro") {
+          Toggle("Preview Pro", isOn: $pro.previewUnlocked)
+        }
+      #endif
+
       Section {
         LabeledContent("Flavor", value: AppFlavor.current.rawValue)
         LabeledContent("App name", value: AppFlavor.appName)

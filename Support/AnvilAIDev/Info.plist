@@ -6,6 +6,8 @@
 	<string>Anvil Dev uses the camera to take a photo for your message. Photos stay on this iPhone.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Anvil Dev uses the microphone so you can talk to it. Audio is processed on this iPhone and never leaves it.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Anvil uses Face ID to unlock the app. Nothing about your face leaves this iPhone.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Anvil Dev turns your speech into text on this iPhone. Audio is never sent off the device.</string>
 	<!-- Empty unless you put a key in Config/Local.xcconfig. Web search is off without one. -->

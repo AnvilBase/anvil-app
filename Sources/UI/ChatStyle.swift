@@ -52,26 +52,18 @@ enum ChatStyle {
   /// A confirmation sliding up out of the button that asked for it, and back into it.
   static let confirmMotion: Animation = .snappy(duration: 0.25)
 
-  static let page = adaptive(light: .white, dark: Color(white: 0.078))
-  static let userBubble = adaptive(light: Color(white: 0.945), dark: Color(white: 0.188))
-  static let fieldFill = adaptive(light: Color(white: 0.949), dark: Color(white: 0.145))
-  /// The drawer is not a different surface from the chat, it is the same one seen from further
-  /// down. What tells them apart is the chat lifting off it as it slides — see `pageLift`, the
-  /// hairline and the shadow in `SidebarContainer` — not a change of colour.
-  static let sidebar = page
+  // The colours — the page, the bubbles, the hairline, the one filled button — are a `Theme`, read
+  // from the environment by every view that draws with them, so Anvil Pro's themes change the whole
+  // app together. `AppTheme.ink` is the look these used to be.
+
   /// Laid over the chat as it slides, in step with how far it has gone, so the page lightens off
   /// the drawer behind it. White, so it only ever lifts: in the light theme the page is already
   /// white and stays put, and the hairline and the shadow do the separating instead.
   static let pageLift = Color.white
-  static let sidebarRowHighlight = adaptive(light: Color(white: 0.886), dark: Color(white: 0.208))
-  static let hairline = adaptive(light: Color(white: 0.886), dark: Color(white: 0.231))
-  /// The filled circle Send sits in, and the colour of the arrow inside it.
-  static let sendFill = adaptive(light: .black, dark: .white)
-  static let sendGlyph = adaptive(light: .white, dark: .black)
 
   /// A colour that follows light and dark mode. Outside UIKit there's nothing to resolve it
-  /// against, so the light value stands in.
-  private static func adaptive(light: Color, dark: Color) -> Color {
+  /// against, so the light value stands in. `Theme` builds its palettes with this too.
+  static func adaptive(light: Color, dark: Color) -> Color {
     #if canImport(UIKit)
       Color(uiColor: UIColor { $0.userInterfaceStyle == .dark ? UIColor(dark) : UIColor(light) })
     #else

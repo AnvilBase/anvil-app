@@ -15,6 +15,7 @@ import SwiftUI
 /// throwing the first away — and the keyboard went down with it, on the very keystroke that needed
 /// it, every time a message reached a second line.
 struct Composer: View {
+  @Environment(\.theme) private var theme
   @Bindable var chat: ChatModel
   @FocusState.Binding var isInputFocused: Bool
   let onShowPhoto: (CGImage) -> Void
@@ -163,7 +164,7 @@ struct Composer: View {
       }
       .padding(8)
       .liquidGlass(in: containerShape)
-      .overlay(containerShape.strokeBorder(ChatStyle.hairline, lineWidth: 0.5))
+      .overlay(containerShape.strokeBorder(theme.hairline, lineWidth: 0.5))
       .animation(.snappy(duration: 0.18), value: hasSomethingToSend)
       // Only on the empty-to-typing boundary, which is sending and starting again — not on every
       // keystroke that grows the field a line.
@@ -326,9 +327,9 @@ struct Composer: View {
     Button(action: action) {
       Image(systemName: systemImage)
         .font(.system(size: ChatStyle.inlineControlGlyph - 3, weight: .semibold))
-        .foregroundStyle(tint == nil ? ChatStyle.sendGlyph : .white)
+        .foregroundStyle(tint == nil ? theme.sendGlyph : .white)
         .frame(width: Self.filledControl, height: Self.filledControl)
-        .background(tint ?? ChatStyle.sendFill, in: Circle())
+        .background(tint ?? theme.sendFill, in: Circle())
         .frame(width: ChatStyle.inlineControl, height: ChatStyle.inlineControl)
         .contentShape(Circle())
         // `dimmed` looks like `disabled` and isn't: Send waits for the model rather than dying

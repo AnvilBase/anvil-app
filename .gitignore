@@ -25,3 +25,7 @@ build/
 # Queued tasks for claude-queue. Local scratch, and it names files after the task text, so anything
 # pasted into /q — a key, a token — would otherwise land in the repository as a filename.
 .claude-queue/
+
+# Anvil's own system prompt, copied in by Scripts/bootstrap.sh from the private AnvilBase/anvil-prompt
+# repository. Proprietary, so it never lands here; a build without it uses a short built-in default.
+Sources/Prompt/DefaultPrompt.txt

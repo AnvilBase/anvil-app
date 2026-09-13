@@ -8,6 +8,7 @@ import SwiftUI
 /// and runs the full width of the page, with everything the model did along the way — searches,
 /// saved memories, thinking, sources — above it and the actions you can take underneath.
 struct MessageRow: View {
+  @Environment(\.theme) private var theme
   let message: ChatMessage
   let image: CGImage?
   let isStreaming: Bool
@@ -52,7 +53,7 @@ struct MessageRow: View {
           Text(message.text)
             .padding(.horizontal, 18)
             .padding(.vertical, 13)
-            .background(ChatStyle.userBubble, in: bubbleShape)
+            .background(theme.userBubble, in: bubbleShape)
             .contentShape(bubbleShape)
             .contentShape(.contextMenuPreview, bubbleShape)
             .onTapGesture { if canEdit { onEdit() } }
@@ -156,7 +157,7 @@ struct MessageRow: View {
     .font(.subheadline)
     .padding(.horizontal, 14)
     .padding(.vertical, 10)
-    .background(ChatStyle.fieldFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    .background(theme.fieldFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
   }
 
   /// What the model is busy with before any words arrive. Thinking is the pixels alone — there is
@@ -208,7 +209,7 @@ struct MessageRow: View {
     .font(.subheadline)
     .padding(.horizontal, 14)
     .padding(.vertical, 10)
-    .background(ChatStyle.fieldFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    .background(theme.fieldFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
   }
 
   // MARK: - Under the reply

@@ -49,10 +49,23 @@ struct SamplerValues: Codable, Equatable, Sendable {
 }
 
 struct AppSettings: Codable, Equatable, Sendable {
-  static var defaultSystemPrompt: String {
-    "You are \(AppFlavor.appName), a helpful assistant running privately on the user's iPhone. "
-      + "Answer clearly and concisely."
-  }
+  /// What the model is told about itself before anything else.
+  ///
+  /// Anvil's own prompt is proprietary and lives in a private repository, AnvilBase/anvil-prompt.
+  /// `Scripts/bootstrap.sh` copies it into `Sources/Prompt/DefaultPrompt.txt`, which this repository
+  /// ignores and the synchronised `Sources` folder bundles. A build without the file — anyone's
+  /// build of the open-source app — gets the line below, so the app always has a prompt; it just
+  /// isn't Anvil's.
+  static let defaultSystemPrompt: String = {
+    if let url = Bundle.main.url(forResource: "DefaultPrompt", withExtension: "txt"),
+      let text = try? String(contentsOf: url, encoding: .utf8)
+    {
+      let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+      if !trimmed.isEmpty { return trimmed }
+    }
+    return "You are \(AppFlavor.productName), a helpful assistant running privately on the user's "
+      + "iPhone. Answer clearly and concisely."
+  }()
 
   static let contextSizes = [2048, 4096, 8192, 16384, 32768]
   static let replyLengthLimits = [0, 256, 512, 1024, 2048, 4096]
@@ -82,6 +95,20 @@ struct AppSettings: Codable, Equatable, Sendable {
   var appearance = AppearancePreference.system
   /// Whether the welcome screen has been shown. It is shown once, on the first launch.
   var hasSeenWelcome = false
+
+  // MARK: - Anvil Pro
+  //
+  // Stored like everything else, and read like everything else — but only honoured while the App
+  // Store says Pro is active (see `ProAccess`). Nothing here unlocks anything.
+
+  /// The look of the app: the page, the bubbles, the one filled button.
+  var theme = AppTheme.ink
+  /// Which of the app's icons is on the Home Screen.
+  var appIcon = AppIconChoice.anvil
+  /// Face ID or passcode when the app comes back to the screen.
+  var appLockEnabled = false
+  /// Replies read aloud, and the microphone open again when they finish.
+  var talkMode = false
   /// Asks the development app to present itself as the public one. Meaningless in the public app,
   /// which has no way to be handed it — see `AppFlavor.showsDevelopmentFeatures`.
   var previewAsPublic = false
@@ -109,6 +136,10 @@ struct AppSettings: Codable, Equatable, Sendable {
     autoSendVoice = try value(.autoSendVoice, defaults.autoSendVoice)
     appearance = try value(.appearance, defaults.appearance)
     hasSeenWelcome = try value(.hasSeenWelcome, defaults.hasSeenWelcome)
+    theme = try value(.theme, defaults.theme)
+    appIcon = try value(.appIcon, defaults.appIcon)
+    appLockEnabled = try value(.appLockEnabled, defaults.appLockEnabled)
+    talkMode = try value(.talkMode, defaults.talkMode)
     previewAsPublic = try value(.previewAsPublic, defaults.previewAsPublic)
   }
 }

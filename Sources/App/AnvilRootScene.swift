@@ -1,14 +1,27 @@
 import SwiftUI
 
+#if canImport(UIKit)
+  import UIKit
+#endif
+
 /// The whole app, shared by both targets. `Apps/AnvilAI` and `Apps/AnvilAIDev` each declare an
 /// `@main` App that shows nothing but this scene.
 struct AnvilRootScene: Scene {
+  @State private var pro: ProAccess
+  @State private var lock = AppLock()
   @State private var library = ModelLibrary()
-  @State private var chat = ChatModel(settings: SettingsStore())
+  @State private var chat: ChatModel
+
+  init() {
+    // The chat needs to know about Pro, so the two are made together.
+    let pro = ProAccess()
+    _pro = State(initialValue: pro)
+    _chat = State(initialValue: ChatModel(settings: SettingsStore(), pro: pro))
+  }
 
   var body: some Scene {
     WindowGroup {
-      RootView(library: library, chat: chat)
+      RootView(library: library, chat: chat, pro: pro, lock: lock)
     }
     // Takes delivery of model parts that finished downloading while the app wasn't running.
     .backgroundTask(.urlSession(ModelDownloadSession.identifier)) {
@@ -19,16 +32,24 @@ struct AnvilRootScene: Scene {
 
 /// Switches between welcoming you, installing a model and chatting with it, and handles the work
 /// that belongs to the app as a whole rather than to one screen: restoring history, picking up a
-/// download that finished in the background, and deleting expired chats.
+/// download that finished in the background, deleting expired chats, the theme, the lock.
 private struct RootView: View {
   let library: ModelLibrary
   let chat: ChatModel
+  let pro: ProAccess
+  let lock: AppLock
 
   @Environment(\.scenePhase) private var scenePhase
 
   /// One screen going and the next arriving. Short, and eased in rather than sprung: this is the
   /// app moving you on, not something you did being acknowledged.
   private static let screenChange: Animation = .easeIn(duration: 0.22)
+
+  /// The theme the settings ask for, if Pro says so; Ink otherwise. Decided here, once, so a lapsed
+  /// subscription falls back everywhere at the same moment and nothing downstream has to ask.
+  private var theme: AppTheme {
+    pro.isUnlocked ? chat.settings.values.theme : .ink
+  }
 
   var body: some View {
     Group {
@@ -53,7 +74,22 @@ private struct RootView: View {
           .transition(.opacity)
       }
     }
+    // Over everything, and only while locked. What it covers is this view; the sheets a screen may
+    // have up are closed by that screen when the lock comes down — see `ChatScreen`.
+    .overlay {
+      if lock.isLocked {
+        LockScreen(lock: lock)
+          .transition(.opacity)
+      }
+    }
+    .animation(Self.screenChange, value: lock.isLocked)
     .task {
+      // Locked from the first frame if that is what was asked for, before anything is drawn under
+      // it that shouldn't be seen.
+      if chat.settings.values.appLockEnabled {
+        lock.lock()
+        await lock.unlock()
+      }
       // Lets iOS hand over anything a background download finished while the app was closed.
       ModelDownloadSession.shared.activate()
       await chat.restoreHistory()
@@ -70,12 +106,43 @@ private struct RootView: View {
     .scrollIndicators(.hidden)
     // Nothing for "System", which leaves SwiftUI following the phone.
     .preferredColorScheme(chat.settings.values.appearance.colorScheme)
-    .onChange(of: scenePhase) {
-      guard scenePhase == .active else { return }
-      Task {
-        await library.refresh()
-        await chat.purgeExpiredChats()
+    // The theme, for every view that draws the chat, and Pro and the lock for the few that ask.
+    // Ink keeps the system tint for controls; a coloured theme tints them in its own hue.
+    .environment(\.theme, theme.palette)
+    .tint(theme.isFree ? nil : theme.palette.accent)
+    .environment(pro)
+    .environment(lock)
+    .onChange(of: chat.settings.values.appIcon) { _, icon in
+      icon.apply()
+    }
+    .onChange(of: scenePhase) { _, phase in
+      switch phase {
+      case .background:
+        // Leaving the screen is what locks it. Not `inactive`, which is Control Centre and a
+        // notification pulled down, and would be a lock that fires when nothing has happened.
+        if chat.settings.values.appLockEnabled { lock.lock() }
+      case .active:
+        Task {
+          if lock.isLocked { await lock.unlock() }
+          await library.refresh()
+          await chat.purgeExpiredChats()
+        }
+      default:
+        break
       }
     }
+  }
+}
+
+extension AppIconChoice {
+  /// Asks iOS for this icon. iOS puts up its own "You have changed the icon" alert, which is the
+  /// system's confirmation and not something to duplicate.
+  func apply() {
+    #if canImport(UIKit)
+      guard UIApplication.shared.supportsAlternateIcons,
+        UIApplication.shared.alternateIconName != alternateIconName
+      else { return }
+      UIApplication.shared.setAlternateIconName(alternateIconName)
+    #endif
   }
 }

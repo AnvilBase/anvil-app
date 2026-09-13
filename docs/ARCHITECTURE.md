@@ -92,6 +92,29 @@ should follow the same route: an `ANVIL_*` build setting, an `Info.plist` key, a
 `ANVIL_MODELS_HOST` → `ModelCatalogHost` → `ModelCatalog.endpoint` is the second example. Note that an
 xcconfig reads `//` as the start of a comment, which is why that setting is a host and not a URL.
 
+The system prompt is the one piece of configuration that is a file rather than a setting: it is
+proprietary, so it lives in a private repository and `Scripts/bootstrap.sh` copies it into
+`Sources/Prompt/DefaultPrompt.txt`, git-ignored and picked up by the synchronised folder.
+`AppSettings.defaultSystemPrompt` reads it from the bundle and falls back to a built-in line, so a
+build without the file is a working build.
+
+## Anvil Pro
+
+`ProAccess` is the only thing that knows whether Pro is active, and it learns it from StoreKit's
+current entitlements — at launch and whenever a transaction lands — not from the settings file. The
+settings Pro unlocks (`systemPrompt`, `sampler`, `thinkingEnabled`, `theme`, `appIcon`,
+`appLockEnabled`, `talkMode`) are ordinary `AppSettings` fields, stored either way; the places that
+honour them ask `pro.isUnlocked` first. `ChatModel.conversationOptions()` does it for the model,
+`RootView` does it for the theme. The gate is in a few well-named places rather than in every view,
+so a lapsed subscription falls back everywhere at once.
+
+The theme reaches views through the environment (`\.theme`, a `Theme` of colours) rather than
+through `ChatStyle`'s statics, which is what lets it change while the app is running. `ChatStyle`
+keeps the numbers — sizes, corners, motion — and the Liquid Glass helpers.
+
+The development app's **Preview Pro** switch is inside `#if ANVIL_DEV`, the same way the developer
+screen is: the public app doesn't compile it.
+
 ## Getting a model onto the phone
 
 `ModelCatalog` reads the list at `https://$(ANVIL_MODELS_HOST)/api/models`; `ModelDownloader` walks a

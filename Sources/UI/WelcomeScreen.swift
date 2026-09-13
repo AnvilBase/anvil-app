@@ -8,6 +8,7 @@ import SwiftUI
 /// leaves the phone, and that is easier to say plainly on an empty screen than to discover later in
 /// Settings.
 struct WelcomeScreen: View {
+  @Environment(\.theme) private var theme
   let onContinue: () -> Void
 
   /// Anvil in both builds: this screen is the product introducing itself, and the development app
@@ -29,7 +30,7 @@ struct WelcomeScreen: View {
       .padding(.bottom, 24)
       .frame(maxWidth: .infinity, alignment: .leading)
     }
-    .background(ChatStyle.page)
+    .background(theme.page)
     .safeAreaInset(edge: .bottom) { continueButton }
   }
 
@@ -119,13 +120,13 @@ struct WelcomeScreen: View {
         .font(.headline)
         .frame(maxWidth: .infinity)
         .frame(height: ChatStyle.control)
-        .background(ChatStyle.sendFill, in: Capsule())
-        .foregroundStyle(ChatStyle.sendGlyph)
+        .background(theme.sendFill, in: Capsule())
+        .foregroundStyle(theme.sendGlyph)
     }
     .buttonStyle(.plain)
     .padding(.horizontal, 24)
     .padding(.top, 12)
     .padding(.bottom, 8)
-    .background(ChatStyle.page)
+    .background(theme.page)
   }
 }

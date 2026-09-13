@@ -7,6 +7,7 @@ import SwiftUI
 ///
 /// Reachable from the developer screen, which is the development app only.
 struct PerformanceHistory: View {
+  @Environment(\.theme) private var theme
   let chat: ChatModel
 
   @State private var metric = Metric.decodeSpeed
@@ -113,14 +114,14 @@ struct PerformanceHistory: View {
           y: .value(metric.axisLabel, metric.value(point.stats) ?? 0)
         )
         .interpolationMethod(.monotone)
-        .foregroundStyle(ChatStyle.sendFill)
+        .foregroundStyle(theme.sendFill)
 
         PointMark(
           x: .value("Reply", point.number),
           y: .value(metric.axisLabel, metric.value(point.stats) ?? 0)
         )
         .symbolSize(plotted.count > 40 ? 6 : 22)
-        .foregroundStyle(ChatStyle.sendFill)
+        .foregroundStyle(theme.sendFill)
       }
       if let average {
         RuleMark(y: .value("Average", average))

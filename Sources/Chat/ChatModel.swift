@@ -56,9 +56,13 @@ final class ChatModel {
   private var momentaryNoticeTask: Task<Void, Never>?
 
   let settings: SettingsStore
+  /// Whether Anvil Pro is active. The settings it unlocks are stored either way and honoured only
+  /// while this says so: `conversationOptions()` is where that is decided.
+  let pro: ProAccess
   let network = NetworkStatus()
   let memory = MemoryStore()
   let speechInput = SpeechInput()
+  let speechOutput = SpeechOutput()
   private let device = OnDeviceEngine()
   private let archive = ChatArchive()
   private var loadedModel: ModelFile?
@@ -67,10 +71,14 @@ final class ChatModel {
   /// chat, so the next send rebuilds one from history.
   private var activeConversation: ConversationOptions?
 
-  init(settings: SettingsStore) {
+  init(settings: SettingsStore, pro: ProAccess) {
     self.settings = settings
+    self.pro = pro
     openChat = Chat(systemPrompt: settings.values.systemPrompt)
   }
+
+  /// Replies read aloud, and the microphone open again when they finish. Pro, and on.
+  var talkModeOn: Bool { pro.isUnlocked && settings.values.talkMode }
 
   // MARK: - What the screens ask
 
@@ -157,6 +165,7 @@ final class ChatModel {
   }
 
   func unload() async {
+    speechOutput.stop()
     await stopGeneration()
     loadedModel = nil
     loadState = .idle
@@ -200,6 +209,7 @@ final class ChatModel {
 
   func send() {
     guard canSend else { return }
+    speechOutput.stop()
     // The message has gone, so the microphone's work is done. Without this the recogniser carries
     // on — and its next result, or the final one still owed from a stop a moment ago, lands in the
     // field that has just been emptied, which is the text you thought you had sent sitting there
@@ -224,14 +234,17 @@ final class ChatModel {
   /// Stopping is not the same as ending it: tapping stop still wants the last words the recogniser
   /// owes you, so the field keeps filling until they arrive. Sending is what ends it — see
   /// `endDictation`.
-  func toggleDictation() {
+  func toggleDictation(autoSend: Bool? = nil) {
     if speechInput.isActive {
       speechInput.stop()
       return
     }
+    // Tapping the microphone while a reply is being read is asking for a turn: the reply stops.
+    speechOutput.stop()
     guard loadState == .ready, !isGenerating else { return }
     let existing = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-    let autoSend = settings.values.autoSendVoice
+    // Talk mode always sends when you stop talking; that is what makes it hands-free.
+    let autoSend = autoSend ?? settings.values.autoSendVoice
     let session = dictationSession
     Task {
       do {
@@ -297,6 +310,7 @@ final class ChatModel {
   }
 
   func stop() {
+    speechOutput.stop()
     guard let task = generationTask, !isStopping else { return }
     isStopping = true
     Task {
@@ -547,10 +561,42 @@ final class ChatModel {
 
       openChat.updatedAt = Date()
       await save()
+      let wasStopped = isStopping
       isGenerating = false
       isStopping = false
       generationTask = nil
+
+      // Talk mode: read the reply, then listen for the next thing. Not a stopped reply — stopping
+      // it was the point — and not an error, which is for reading, not hearing.
+      if talkModeOn, !wasStopped,
+        let reply = messages.first(where: { $0.id == reply.id }), !reply.isError, !reply.text.isEmpty
+      {
+        Task { await speakThenListen(reply.text) }
+      }
     }
+  }
+
+  /// One turn of talk mode. The reply is spoken in full unless something interrupts it — sending,
+  /// stopping, or tapping the microphone all do — and only a reply that finished on its own opens
+  /// the microphone again, so an interruption is the end of the turn and not the start of another.
+  private func speakThenListen(_ text: String) async {
+    await speechOutput.speak(Self.spokenForm(of: text))
+    guard talkModeOn, loadState == .ready, !isGenerating, !speechInput.isActive,
+      draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    else { return }
+    toggleDictation(autoSend: true)
+  }
+
+  /// A reply as it should be heard rather than seen: code blocks out, markdown marks off, citation
+  /// numbers gone, links as their text.
+  static func spokenForm(of markdown: String) -> String {
+    var text = markdown
+    text = text.replacingOccurrences(of: #"```[\s\S]*?```"#, with: " ", options: .regularExpression)
+    text = text.replacingOccurrences(
+      of: #"\[([^\]]+)\]\([^)]*\)"#, with: "$1", options: .regularExpression)
+    text = text.replacingOccurrences(of: #"\[\d+\]"#, with: "", options: .regularExpression)
+    text = text.replacingOccurrences(of: #"[`*_#>]+"#, with: "", options: .regularExpression)
+    return text.trimmingCharacters(in: .whitespacesAndNewlines)
   }
 
   /// Streams a reply from the model on this iPhone, starting a new engine conversation when the chat
@@ -652,15 +698,21 @@ final class ChatModel {
     savedChats.insert(snapshot, at: 0)
   }
 
+  /// What the model is told and how it samples. The prompt a chat carries, custom sampling and
+  /// thinking are Anvil Pro: without it the chat runs on the default prompt and the model's own
+  /// sampling, whatever the settings file says — the file is where a Pro subscriber's choices
+  /// wait, not where Pro is decided.
   private func conversationOptions() -> ConversationOptions {
     let values = settings.values
+    let isPro = pro.isUnlocked
     return ConversationOptions(
-      systemPrompt: openChat.systemPrompt,
-      sampler: values.useModelSamplerDefaults ? nil : values.sampler,
-      thinking: values.thinkingEnabled && (modelDetails?.supportsThinking ?? false),
+      systemPrompt: isPro ? openChat.systemPrompt : AppSettings.defaultSystemPrompt,
+      sampler: isPro && !values.useModelSamplerDefaults ? values.sampler : nil,
+      thinking: isPro && values.thinkingEnabled && (modelDetails?.supportsThinking ?? false),
       webSearch: webSearchOn,
       memoryEnabled: values.memoryEnabled,
-      memories: values.memoryEnabled ? memory.promptItems : [])
+      memories: values.memoryEnabled ? memory.promptItems : [],
+      spokenReplies: talkModeOn)
   }
 
   private func updateMessage(_ id: ChatMessage.ID, _ change: (inout ChatMessage) -> Void) {
