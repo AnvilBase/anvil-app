@@ -26,11 +26,13 @@ enum SpeechInputError: LocalizedError {
   }
 }
 
-/// Dictation with Apple's speech recognizer, restricted to on-device recognition so audio never
-/// leaves the phone.
+/// Dictation, on this iPhone, so audio never leaves the phone.
 ///
-/// If the language can't be recognized on-device, dictation is refused rather than quietly sent to
-/// Apple's servers. Speech goes into the message field; replies are never read aloud.
+/// On iOS 26 the words come from Apple's `SpeechAnalyzer`, the recogniser behind the system's own
+/// dictation: faster than the old one, far fewer wrong words, and no limit on how long it will
+/// listen. Older phones get `SFSpeechRecognizer`, restricted to on-device recognition. Either way,
+/// if the language can't be recognised on the phone, dictation is refused rather than quietly sent
+/// to Apple's servers. Speech goes into the message field; replies are never read here.
 @MainActor
 @Observable
 final class SpeechInput {
@@ -55,17 +57,16 @@ final class SpeechInput {
   private static let startTimeout: Duration = .seconds(8)
 
   private let audioEngine = AVAudioEngine()
-  private var request: SFSpeechAudioBufferRecognitionRequest?
-  private var task: SFSpeechRecognitionTask?
+  private var backend: (any TranscriptionBackend)?
   private var timer: Task<Void, Never>?
   private var transcript = ""
   private var stopAfterSilence = false
   private var onUpdate: ((String) -> Void)?
   private var onFinish: ((String) -> Void)?
 
-  /// Voice mode keeps the microphone open while a reply is being read, so the voice and the
-  /// microphone share one session — set for a conversation, with the phone cancelling its own
-  /// voice out of what the microphone hears — and stopping leaves that session as it is.
+  /// Voice mode takes turns between the voice and the microphone many times a minute, so the two
+  /// share one audio session, set for a conversation, and stopping leaves that session as it is
+  /// rather than tearing it down and building it back for the next turn.
   private var sharedSession = false
 
   /// Starts listening. `onUpdate` receives the live transcript; `onFinish` receives the final text
@@ -76,11 +77,7 @@ final class SpeechInput {
     onFinish: @escaping (String) -> Void
   ) async throws {
     guard state == .idle else { return }
-    try await Self.requestPermissions()
-    guard let recognizer = SFSpeechRecognizer(), recognizer.isAvailable else {
-      throw SpeechInputError.unavailable
-    }
-    guard recognizer.supportsOnDeviceRecognition else { throw SpeechInputError.onDeviceUnavailable }
+    let backend = try await Self.makeBackend()
 
     let session = AVAudioSession.sharedInstance()
     self.sharedSession = sharedSession
@@ -92,16 +89,11 @@ final class SpeechInput {
     }
     try session.setActive(true, options: .notifyOthersOnDeactivation)
 
-    let request = SFSpeechAudioBufferRecognitionRequest()
-    request.requiresOnDeviceRecognition = true
-    request.shouldReportPartialResults = true
-    request.addsPunctuation = true
-
     let input = audioEngine.inputNode
     let format = input.outputFormat(forBus: 0)
     guard format.sampleRate > 0 else { throw SpeechInputError.unavailable }
     input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
-      request.append(buffer)
+      backend.append(buffer)
       let loudness = Self.loudness(of: buffer)
       Task { @MainActor in self?.absorb(loudness) }
     }
@@ -113,7 +105,7 @@ final class SpeechInput {
       throw error
     }
 
-    self.request = request
+    self.backend = backend
     self.stopAfterSilence = stopAfterSilence
     self.onUpdate = onUpdate
     self.onFinish = onFinish
@@ -121,13 +113,14 @@ final class SpeechInput {
     state = .listening
     if stopAfterSilence { scheduleStop(after: Self.startTimeout) }
 
-    task = recognizer.recognitionTask(with: request) { [weak self] result, error in
-      let text = result?.bestTranscription.formattedString
-      let isFinal = result?.isFinal ?? false
-      let failed = error != nil
-      Task { @MainActor in
-        self?.handle(text: text, isFinal: isFinal, failed: failed)
+    do {
+      try await backend.begin { [weak self] text, finished, failed in
+        Task { @MainActor in self?.handle(text: text, finished: finished, failed: failed) }
       }
+    } catch {
+      stopAudio()
+      complete()
+      throw error
     }
   }
 
@@ -136,7 +129,7 @@ final class SpeechInput {
     guard state == .listening else { return }
     state = .finishing
     stopAudio()
-    request?.endAudio()
+    backend?.endAudio()
     // The final result usually arrives within a moment; don't wait longer than that.
     scheduleCompletion(after: .seconds(1))
   }
@@ -158,14 +151,14 @@ final class SpeechInput {
     complete()
   }
 
-  private func handle(text: String?, isFinal: Bool, failed: Bool) {
+  private func handle(text: String?, finished: Bool, failed: Bool) {
     guard state != .idle else { return }
-    if let text, !text.isEmpty {
+    if let text, !text.isEmpty, text != transcript {
       transcript = text
       onUpdate?(text)
       if state == .listening, stopAfterSilence { scheduleStop(after: Self.pauseLength) }
     }
-    if isFinal || failed {
+    if finished || failed {
       if state == .listening { stopAudio() }
       complete()
     }
@@ -229,9 +222,8 @@ final class SpeechInput {
     state = .idle
     timer?.cancel()
     timer = nil
-    task?.cancel()
-    task = nil
-    request = nil
+    backend?.cancel()
+    backend = nil
     if !sharedSession {
       try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
@@ -242,13 +234,184 @@ final class SpeechInput {
     finish?(text)
   }
 
-  private static func requestPermissions() async throws {
+  /// The recogniser for this phone: Apple's analyzer on iOS 26, the older one before it. Both
+  /// need the microphone; only the older one needs speech-recognition permission of its own.
+  private static func makeBackend() async throws -> any TranscriptionBackend {
+    guard await AVAudioApplication.requestRecordPermission() else {
+      throw SpeechInputError.microphoneDenied
+    }
+    if #available(iOS 26.0, *) {
+      return try await AnalyzerTranscription.make()
+    }
     let status = await withCheckedContinuation { continuation in
       SFSpeechRecognizer.requestAuthorization { continuation.resume(returning: $0) }
     }
     guard status == .authorized else { throw SpeechInputError.speechDenied }
-    guard await AVAudioApplication.requestRecordPermission() else {
-      throw SpeechInputError.microphoneDenied
+    return try LegacyTranscription()
+  }
+}
+
+// MARK: - The recognisers
+
+/// What turns microphone buffers into words. `begin` starts reporting: the transcript so far, then
+/// `finished` once, when there will be no more, or `failed`. Buffers can arrive from the audio
+/// thread; everything else is called on the main actor.
+private protocol TranscriptionBackend: AnyObject, Sendable {
+  typealias Report = @Sendable (_ text: String?, _ finished: Bool, _ failed: Bool) -> Void
+  func begin(_ report: @escaping Report) async throws
+  func append(_ buffer: AVAudioPCMBuffer)
+  /// No more audio is coming; finish what there is.
+  func endAudio()
+  func cancel()
+}
+
+/// Apple's `SpeechAnalyzer`, from iOS 26: the phone's own dictation, on the phone.
+///
+/// Results arrive as pieces of the transcript. A piece is volatile until the analyzer is sure of
+/// it, and a later piece for the same stretch of audio replaces it; once final, it stays. The
+/// transcript shown is everything final so far and the latest volatile piece after it.
+@available(iOS 26.0, *)
+private final class AnalyzerTranscription: TranscriptionBackend, @unchecked Sendable {
+  private let transcriber: SpeechTranscriber
+  private let analyzer: SpeechAnalyzer
+  private let format: AVAudioFormat
+  private let input: AsyncStream<AnalyzerInput>
+  private let feed: AsyncStream<AnalyzerInput>.Continuation
+  private var converter: AVAudioConverter?
+  private let lock = NSLock()
+  private var results: Task<Void, Never>?
+  private var finalized = ""
+  private var volatile = ""
+
+  static func make() async throws -> AnalyzerTranscription {
+    var chosen = await SpeechTranscriber.supportedLocale(equivalentTo: .current)
+    if chosen == nil { chosen = await SpeechTranscriber.supportedLocales.first }
+    guard let locale = chosen else { throw SpeechInputError.onDeviceUnavailable }
+    let transcriber = SpeechTranscriber(
+      locale: locale,
+      transcriptionOptions: [],
+      reportingOptions: [.volatileResults, .fastResults],
+      attributeOptions: [])
+    // The language's model lives on the phone. The first time, iOS fetches it; after that this
+    // returns nothing and there is nothing to wait for.
+    if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
+      try await request.downloadAndInstall()
     }
+    guard let format = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [transcriber])
+    else { throw SpeechInputError.unavailable }
+    return AnalyzerTranscription(transcriber: transcriber, format: format)
+  }
+
+  private init(transcriber: SpeechTranscriber, format: AVAudioFormat) {
+    self.transcriber = transcriber
+    self.format = format
+    analyzer = SpeechAnalyzer(modules: [transcriber])
+    (input, feed) = AsyncStream<AnalyzerInput>.makeStream()
+  }
+
+  func begin(_ report: @escaping Report) async throws {
+    results = Task { [transcriber] in
+      do {
+        for try await result in transcriber.results {
+          let text = String(result.text.characters)
+          let whole: String
+          lock.lock()
+          if result.isFinal {
+            finalized += text
+            volatile = ""
+          } else {
+            volatile = text
+          }
+          whole = finalized + volatile
+          lock.unlock()
+          report(whole, false, false)
+        }
+        lock.lock()
+        let whole = finalized + volatile
+        lock.unlock()
+        report(whole, true, false)
+      } catch {
+        report(nil, true, true)
+      }
+    }
+    try await analyzer.start(inputSequence: input)
+  }
+
+  /// From the microphone's format to the analyzer's, on the audio thread.
+  func append(_ buffer: AVAudioPCMBuffer) {
+    lock.lock()
+    if converter == nil { converter = AVAudioConverter(from: buffer.format, to: format) }
+    let converter = converter
+    lock.unlock()
+    guard let converter else { return }
+    if buffer.format == format {
+      feed.yield(AnalyzerInput(buffer: buffer))
+      return
+    }
+    let ratio = format.sampleRate / buffer.format.sampleRate
+    let capacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio) + 16
+    guard let converted = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: capacity) else { return }
+    var handed = false
+    var error: NSError?
+    let status = converter.convert(to: converted, error: &error) { _, outStatus in
+      if handed {
+        outStatus.pointee = .noDataNow
+        return nil
+      }
+      handed = true
+      outStatus.pointee = .haveData
+      return buffer
+    }
+    guard status != .error, converted.frameLength > 0 else { return }
+    feed.yield(AnalyzerInput(buffer: converted))
+  }
+
+  func endAudio() {
+    feed.finish()
+    Task { [analyzer] in try? await analyzer.finalizeAndFinishThroughEndOfInput() }
+  }
+
+  func cancel() {
+    feed.finish()
+    results?.cancel()
+    Task { [analyzer] in await analyzer.cancelAndFinishNow() }
+  }
+}
+
+/// `SFSpeechRecognizer`, for phones before iOS 26, held to on-device recognition.
+private final class LegacyTranscription: TranscriptionBackend, @unchecked Sendable {
+  private let recognizer: SFSpeechRecognizer
+  private let request: SFSpeechAudioBufferRecognitionRequest
+  private var task: SFSpeechRecognitionTask?
+
+  init() throws {
+    guard let recognizer = SFSpeechRecognizer(), recognizer.isAvailable else {
+      throw SpeechInputError.unavailable
+    }
+    guard recognizer.supportsOnDeviceRecognition else { throw SpeechInputError.onDeviceUnavailable }
+    self.recognizer = recognizer
+    request = SFSpeechAudioBufferRecognitionRequest()
+    request.requiresOnDeviceRecognition = true
+    request.shouldReportPartialResults = true
+    request.addsPunctuation = true
+  }
+
+  func begin(_ report: @escaping Report) async throws {
+    task = recognizer.recognitionTask(with: request) { result, error in
+      report(result?.bestTranscription.formattedString, result?.isFinal ?? false, error != nil)
+    }
+  }
+
+  func append(_ buffer: AVAudioPCMBuffer) {
+    request.append(buffer)
+  }
+
+  func endAudio() {
+    request.endAudio()
+  }
+
+  func cancel() {
+    task?.cancel()
+    task = nil
   }
 }
