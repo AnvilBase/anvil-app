@@ -451,13 +451,32 @@ enum ModelDownloadFiles {
     return values.volumeAvailableCapacityForImportantUsage
   }
 
-  /// Checks there is room for what is left to download, plus the one part being staged.
-  static func requireSpace(for model: CatalogModel, from nextPart: Int) throws {
+  /// Room left over once a model is installed. Two gigabytes: enough that iOS isn't warning about
+  /// space the moment the download lands, and the camera and everything else still have room.
+  static let storageBuffer: Int64 = 2_000_000_000
+
+  /// What a download needs free to start or carry on: what is left to fetch, the one part being
+  /// staged, and the buffer. Nil when there is room, or when the phone won't say how much there is.
+  static func storageShortfall(for model: CatalogModel, from nextPart: Int) -> (needed: Int64, free: Int64)? {
     let remaining = model.parts.dropFirst(nextPart).reduce(Int64(0)) { $0 + $1.sizeBytes }
     let largestPart = model.parts.map(\.sizeBytes).max() ?? 0
-    var needed = remaining + largestPart
+    var needed = remaining + largestPart + storageBuffer
     if nextPart == 0 { needed = max(needed, model.requiredFreeBytes) }
-    guard let free = freeBytes() else { return }
-    guard free >= needed else { throw Failure.notEnoughSpace(needed: needed, free: free) }
+    guard let free = freeBytes(), free < needed else { return nil }
+    return (needed, free)
+  }
+
+  /// Checks there is room for what is left to download, plus the one part being staged.
+  static func requireSpace(for model: CatalogModel, from nextPart: Int) throws {
+    if let short = storageShortfall(for: model, from: nextPart) {
+      throw Failure.notEnoughSpace(needed: short.needed, free: short.free)
+    }
+  }
+
+  /// The words for the alert, for `name`: what it needs, what there is, and what to do.
+  static func storageMessage(for name: String, needed: Int64, free: Int64) -> String {
+    let format = { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) }
+    return "\(name) needs \(format(needed)) free, including \(format(storageBuffer)) to spare, "
+      + "and this iPhone has \(format(free)). Free up some space and try again."
   }
 }

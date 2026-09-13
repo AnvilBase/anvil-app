@@ -25,6 +25,12 @@ struct SettingsScreen: View {
   /// What anvilai.com publishes, for the models that aren't on the phone yet.
   @State private var catalog: [CatalogModel] = []
 
+  private var storageAlertShowing: Binding<Bool> {
+    Binding(
+      get: { library.storageWarning != nil },
+      set: { if !$0 { library.storageWarning = nil } })
+  }
+
   private var showsDevelopmentFeatures: Bool {
     AppFlavor.showsDevelopmentFeatures(settings.values)
   }
@@ -63,6 +69,11 @@ struct SettingsScreen: View {
       } message: {
         Text("This can't be undone.")
       }
+    .alert("Not enough storage on your phone", isPresented: storageAlertShowing) {
+      Button("OK", role: .cancel) {}
+    } message: {
+      Text(library.storageWarning ?? "")
+    }
       .alert("No mail app", isPresented: $showingNoMailApp) {
         #if os(iOS)
           Button("Copy address") { UIPasteboard.general.string = AppLinks.supportEmail }

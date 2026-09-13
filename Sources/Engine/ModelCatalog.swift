@@ -46,7 +46,10 @@ struct CatalogModel: Codable, Identifiable, Hashable, Sendable {
   var modelKind: ModelKind { kind ?? .text }
   var isImage: Bool { modelKind == .image }
 
-  var requiredFreeBytes: Int64 { minimumFreeBytes ?? (sizeBytes + 1_000_000_000) }
+  /// The model, and two gigabytes to spare — iOS gets unhappy well before a phone is actually
+  /// full, and a model that lands on a full phone is a phone that can't take a photo. The catalog
+  /// can ask for more; it can't ask for less.
+  var requiredFreeBytes: Int64 { max(minimumFreeBytes ?? 0, sizeBytes + ModelDownloadFiles.storageBuffer) }
 
   var formattedSize: String {
     ByteCountFormatter.string(fromByteCount: sizeBytes, countStyle: .file)

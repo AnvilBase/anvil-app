@@ -73,8 +73,20 @@ final class ModelLibrary {
   }
 
   /// Downloads a model from anvilai.com. Whatever is already installed stays; the new one joins it.
+  /// Why the last install didn't start: not enough room on the phone. The screens put it in an
+  /// alert and clear it when the alert is dismissed.
+  var storageWarning: String?
+
   func install(_ model: CatalogModel) {
     guard !downloader.isActive, !model.isComingSoon else { return }
+    // Room is checked before anything starts, so a phone that is nearly full hears about it in a
+    // sentence rather than watching a download begin and stop.
+    let resumeFrom = min(ModelDownloadFiles.loadState()?.nextPart ?? 0, model.parts.count)
+    if let short = ModelDownloadFiles.storageShortfall(for: model, from: resumeFrom) {
+      storageWarning = ModelDownloadFiles.storageMessage(
+        for: model.name, needed: short.needed, free: short.free)
+      return
+    }
     installTask?.cancel()
     installTask = Task { [self] in
       await downloader.run(model)

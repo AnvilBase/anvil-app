@@ -48,6 +48,17 @@ struct ModelSetupScreen: View {
       }
     }
     .task { await loadCatalog() }
+    .alert("Not enough storage on your phone", isPresented: storageAlertShowing) {
+      Button("OK", role: .cancel) {}
+    } message: {
+      Text(library.storageWarning ?? "")
+    }
+  }
+
+  private var storageAlertShowing: Binding<Bool> {
+    Binding(
+      get: { library.storageWarning != nil },
+      set: { if !$0 { library.storageWarning = nil } })
   }
 
   // MARK: - Installing from anvilai.com
