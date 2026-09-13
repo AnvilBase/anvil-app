@@ -4,10 +4,10 @@
 //
 // Each is the seven-by-seven mark at exactly the size and position of the icon the app shipped
 // with — 76-point cells starting at (246, 246) on a 1024 canvas — so switching icons changes the
-// colour and nothing else. The public app's primary is the white mark on black and the development
-// app's is its inverse. The coloured alternates are the same in both catalogs; Inverse is not — it
-// is the inverse of whichever primary the app has, or the development app would offer an Inverse
-// that looks exactly like the icon it already wears.
+// colour and nothing else. Both apps carry the same icons the same way round — the white mark on
+// black, and Inverse the other way — since the name under the icon is what tells them apart. Pro
+// is the exception to flat black: the gold block sits on a warm dark ground, lit from the corner
+// its face is lit from, so the gold looks lit rather than pasted on.
 
 import CoreGraphics
 import Foundation
@@ -37,14 +37,8 @@ let coloured = [
   Icon(set: "AppIcon-Pro", background: black, mark: (0.98, 0.80, 0.30), gold: true),
 ]
 
-/// The alternates for one app: its Inverse first, then the colours.
-func alternates(for app: String) -> [Icon] {
-  let inverse =
-    app == "AnvilAIDev"
-    ? Icon(set: "AppIcon-Inverse", background: black, mark: white)
-    : Icon(set: "AppIcon-Inverse", background: white, mark: black)
-  return [inverse] + coloured
-}
+/// The alternates: Inverse first, then the colours. The same for both apps.
+let alternates = [Icon(set: "AppIcon-Inverse", background: white, mark: black)] + coloured
 
 /// The mark's cells as one path, at a vertical offset. Core Graphics counts from the bottom; the
 /// rows are written from the top.
@@ -57,6 +51,26 @@ func markPath(dy: Int = 0) -> CGPath {
     }
   }
   return path
+}
+
+/// The ground under the gold: a warm dark brown, brightest a little up and to the left of centre
+/// — where the light on the face comes from — and falling to near-black at the corners. Not flat
+/// black, which the gold sat on like a sticker; not so light that the icon stops reading as dark
+/// beside the others. The same gradient `GoldAnvil.ground` draws under the picker's Pro tile.
+func renderGround(in context: CGContext) {
+  let space = CGColorSpaceCreateDeviceRGB()
+  let ground = CGGradient(
+    colorsSpace: space,
+    colors: [
+      CGColor(red: 0.24, green: 0.18, blue: 0.09, alpha: 1),
+      CGColor(red: 0.13, green: 0.10, blue: 0.05, alpha: 1),
+      CGColor(red: 0.06, green: 0.045, blue: 0.025, alpha: 1),
+    ] as CFArray,
+    locations: [0, 0.55, 1])!
+  let centre = CGPoint(x: CGFloat(canvas) * 0.38, y: CGFloat(canvas) * 0.66)
+  context.drawRadialGradient(
+    ground, startCenter: centre, startRadius: 0, endCenter: centre,
+    endRadius: CGFloat(canvas) * 0.92, options: [.drawsAfterEndLocation])
 }
 
 /// The gold block: the mark stepped down in bronze, and the top face in a gold gradient with a
@@ -116,6 +130,7 @@ func render(_ icon: Icon, to url: URL) throws {
   context.setFillColor(red: icon.background.0, green: icon.background.1, blue: icon.background.2, alpha: 1)
   context.fill(CGRect(x: 0, y: 0, width: canvas, height: canvas))
   if icon.gold {
+    renderGround(in: context)
     renderGold(in: context)
   } else {
     context.setFillColor(red: icon.mark.0, green: icon.mark.1, blue: icon.mark.2, alpha: 1)
@@ -132,7 +147,7 @@ func render(_ icon: Icon, to url: URL) throws {
 let root = URL(fileURLWithPath: CommandLine.arguments[0]).deletingLastPathComponent().deletingLastPathComponent()
 for app in ["AnvilAI", "AnvilAIDev"] {
   let catalog = root.appendingPathComponent("Apps/\(app)/Assets.xcassets")
-  for icon in alternates(for: app) {
+  for icon in alternates {
     let set = catalog.appendingPathComponent("\(icon.set).appiconset")
     try FileManager.default.createDirectory(at: set, withIntermediateDirectories: true)
     try render(icon, to: set.appendingPathComponent("\(icon.set).png"))
