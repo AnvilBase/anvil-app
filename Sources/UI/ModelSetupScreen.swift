@@ -249,7 +249,7 @@ struct ModelSetupScreen: View {
   /// Anvil Dream makes pictures from words. The free model keeps the catalog's summary.
   private func blurb(for model: CatalogModel) -> String {
     if model.isImage { return "Pictures from words" }
-    if model.isPro { return "Unrestricted." }
+    if model.isPro { return "Unrestricted" }
     return model.summary
   }
 
