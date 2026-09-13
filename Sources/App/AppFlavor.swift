@@ -44,6 +44,14 @@ enum AppFlavor: String, Sendable {
   /// matters: the Home Screen, and anything telling you which of the two you are looking at.
   static let productName = "Anvil"
 
+  /// The marketing version and the build number, as Xcode stamps them: "1.2 (34)".
+  static let version: String = {
+    let info = Bundle.main.infoDictionary
+    let short = info?["CFBundleShortVersionString"] as? String ?? "0"
+    let build = info?["CFBundleVersion"] as? String ?? "0"
+    return "\(short) (\(build))"
+  }()
+
   /// Marks stored items that must not be shared between the two apps.
   static let storageNamespace: String = Bundle.main.bundleIdentifier ?? "com.anvilbase.AnvilAI"
 }

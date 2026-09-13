@@ -86,6 +86,7 @@ struct ChatScreen: View {
     }
     .sheet(isPresented: $showingSettings, onDismiss: { Task { await chat.settingsDidClose() } }) {
       SettingsScreen(chat: chat, library: library, settings: chat.settings)
+        .scrollIndicators(.hidden)
     }
     .sheet(isPresented: $showingDeveloper) {
       NavigationStack {
@@ -100,15 +101,18 @@ struct ChatScreen: View {
             }
           }
       }
+      .scrollIndicators(.hidden)
     }
     .sheet(item: $statsMessage) { message in
       if let stats = message.stats {
         ReplyStatsSheet(stats: stats)
+          .scrollIndicators(.hidden)
       }
     }
     #if canImport(UIKit)
       .sheet(item: $textToSelect) { message in
         MessageTextSheet(text: message.text)
+          .scrollIndicators(.hidden)
       }
     #endif
     .fullScreenCover(item: $fullScreenPhoto) { photo in
@@ -196,7 +200,7 @@ struct ChatScreen: View {
     }
   }
 
-  /// The mark and the sentence, and nothing else. What to do about it lives in Settings › Model,
+  /// The mark and the sentence, and nothing else. What to do about it lives in Settings › Models,
   /// which the bar across the top can still reach from here.
   ///
   /// The composer stays, because the screen is still the chat and taking it away would say the app

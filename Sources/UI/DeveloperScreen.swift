@@ -25,7 +25,7 @@ struct DeveloperScreen: View {
         LabeledContent("Flavor", value: AppFlavor.current.rawValue)
         LabeledContent("App name", value: AppFlavor.appName)
         LabeledContent("Bundle identifier", value: AppFlavor.storageNamespace)
-        LabeledContent("Version", value: Self.version)
+        LabeledContent("Version", value: AppFlavor.version)
         LabeledContent("Brave Search key", value: AppSecrets.hasBraveSearchKey ? "Present" : "None")
       } header: {
         Text("Build")
@@ -117,10 +117,4 @@ struct DeveloperScreen: View {
       memories: [])
   }
 
-  private static var version: String {
-    let info = Bundle.main.infoDictionary
-    let short = info?["CFBundleShortVersionString"] as? String ?? "0"
-    let build = info?["CFBundleVersion"] as? String ?? "0"
-    return "\(short) (\(build))"
-  }
 }

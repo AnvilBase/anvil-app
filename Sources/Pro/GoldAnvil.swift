@@ -1,14 +1,16 @@
 import SwiftUI
 
-/// The mark in gold, as a block that sparkles: Anvil Pro's mark, on the row that sells it and
-/// the page that does.
+/// The mark in gold, as a block that catches the light: Anvil Pro's mark, on the row that sells
+/// it and the page that does.
 ///
 /// The same ``AnvilShape`` as everywhere else, given a body: the shape is stepped down in dark
 /// bronze so it stands off the surface, the top face is a gold gradient with a bevel — light
-/// along its upper edges, shade along its lower — and a few small points of light on that face
-/// each come and go on their own slow clock, never more than one or two at once, so it reads as
-/// gold catching the light rather than as anything shining or blinking. Drawn, not modelled: a
-/// pixel mark extruded is still a pixel mark. Reduce Motion gets the gold and no sparkle.
+/// along its upper edges, shade along its lower — and every few seconds a broad, soft band of
+/// light crosses the face from its bottom-left corner to its top-right, the way a sheen moves
+/// over metal as it tilts. The band is wider than the mark and fades to nothing well outside it,
+/// so what shows is light passing over the gold and never the band's own edge. Drawn, not
+/// modelled: a pixel mark extruded is still a pixel mark. Reduce Motion gets the gold and no
+/// sheen.
 struct GoldAnvil: View {
   var size: CGFloat = 56
 
@@ -28,22 +30,25 @@ struct GoldAnvil: View {
     colors: [Color(red: 0.62, green: 0.42, blue: 0.10), Color(red: 0.40, green: 0.26, blue: 0.05)],
     startPoint: .top, endPoint: .bottom)
 
-  /// Where the sparkles sit on the face, as fractions of it, and when in the cycle each one
-  /// lights. Every point lands on a filled cell of the seven-by-seven mark, and the phases are
-  /// spread so the points take turns rather than lighting together.
-  private static let sparkles: [(x: CGFloat, y: CGFloat, phase: Double)] = [
-    (0.22, 0.17, 0.00),
-    (0.79, 0.32, 0.38),
-    (0.50, 0.58, 0.71),
-    (0.31, 0.86, 0.19),
-    (0.72, 0.84, 0.55),
-    (0.58, 0.12, 0.87),
-  ]
+  /// How often the sheen crosses, and how long a crossing takes. Rare and unhurried: gold
+  /// catching the light now and then, not something that glitters.
+  private static let period = 5.5
+  private static let crossing = 1.8
 
-  /// How long one full round of sparkles takes, and how long any one of them is lit for. Slow
-  /// and short-lived: a point catching the light, not a flash.
-  private static let period = 7.0
-  private static let life = 1.3
+  /// The band of light, as it lies across a square much larger than the face. The gradient runs
+  /// corner to corner — the way the band travels — and is clear for most of its length, so the
+  /// square's own edges are never anything but clear wherever they fall over the mark.
+  private static let sheen = LinearGradient(
+    stops: [
+      .init(color: .clear, location: 0),
+      .init(color: .clear, location: 0.36),
+      .init(color: .white.opacity(0.22), location: 0.46),
+      .init(color: .white.opacity(0.62), location: 0.5),
+      .init(color: .white.opacity(0.22), location: 0.54),
+      .init(color: .clear, location: 0.64),
+      .init(color: .clear, location: 1),
+    ],
+    startPoint: .bottomLeading, endPoint: .topTrailing)
 
   var body: some View {
     if reduceMotion {
@@ -55,16 +60,17 @@ struct GoldAnvil: View {
     }
   }
 
-  /// How lit a sparkle with `phase` is at `time`, 0 to 1: rises and falls once per period, and
-  /// sits dark the rest of the time.
-  private static func brightness(phase: Double, at time: Double) -> Double {
-    let t = (time - phase * period).truncatingRemainder(dividingBy: period)
-    let u = (t < 0 ? t + period : t) / life
-    guard u < 1 else { return 0 }
-    return sin(u * .pi)
+  /// How far across the face the sheen is at `time`, 0 at the bottom-left corner to 1 past the
+  /// top-right — or nil between crossings, when there is nothing to draw. Eased at both ends, so
+  /// the band slows into view and away again rather than snapping.
+  private static func sweep(at time: Double) -> Double? {
+    let t = time.truncatingRemainder(dividingBy: period)
+    guard t < crossing else { return nil }
+    let u = t / crossing
+    return 0.5 - cos(u * .pi) / 2
   }
 
-  /// The block, and its sparkles as they stand at `time` — or, with no time, none.
+  /// The block, and the sheen where it stands at `time` — or, with no time, no sheen.
   private func mark(at time: Double?) -> some View {
     // The face takes the top of the frame; the depth below it is the body.
     let depth = max(2, (size * 0.11).rounded())
@@ -87,27 +93,18 @@ struct GoldAnvil: View {
         )
         .frame(width: faceSize, height: faceSize)
         .overlay {
-          if let time {
-            // Small and quiet: each sparkle is a four-point star no wider than a cell, at most
-            // about half strength, growing a little as it brightens and shrinking as it goes,
-            // with a soft dot behind it so the points don't read as a hard mark.
-            ForEach(Array(Self.sparkles.enumerated()), id: \.offset) { _, sparkle in
-              let level = Self.brightness(phase: sparkle.phase, at: time)
-              if level > 0 {
-                let extent = faceSize * 0.13 * (0.6 + 0.4 * level)
-                ZStack {
-                  Circle()
-                    .fill(.white.opacity(0.35 * level))
-                    .frame(width: extent * 0.45, height: extent * 0.45)
-                    .blur(radius: extent * 0.12)
-                  SparkleShape()
-                    .fill(.white.opacity(0.6 * level))
-                    .frame(width: extent, height: extent)
-                }
-                .position(x: faceSize * sparkle.x, y: faceSize * sparkle.y)
-                .blendMode(.screen)
-              }
-            }
+          if let time, let progress = Self.sweep(at: time) {
+            // The band, on a square three times the face, slid along the diagonal from well
+            // below and left of the mark to well above and right of it. At either end of the
+            // trip the lit part of the band is more than a face's width outside the mark, and
+            // the square still covers the face throughout, so no edge of anything ever shows.
+            let extent = faceSize * 3
+            let travel = faceSize * 1.7 * CGFloat(progress * 2 - 1)
+            Rectangle()
+              .fill(Self.sheen)
+              .frame(width: extent, height: extent)
+              .offset(x: travel, y: -travel)
+              .blendMode(.screen)
           }
         }
         .mask(AnvilShape().frame(width: faceSize, height: faceSize))
@@ -115,34 +112,5 @@ struct GoldAnvil: View {
     .frame(width: size, height: size, alignment: .top)
     .shadow(color: .black.opacity(0.35), radius: size * 0.08, y: size * 0.05)
     .accessibilityHidden(true)
-  }
-}
-
-/// A four-point star with drawn-in sides: the shape a point of light on metal takes.
-private struct SparkleShape: Shape {
-  func path(in rect: CGRect) -> Path {
-    let c = CGPoint(x: rect.midX, y: rect.midY)
-    let r = min(rect.width, rect.height) / 2
-    // How far in the sides pull toward the centre; smaller is a sharper star.
-    let waist = r * 0.18
-    let tips = [
-      CGPoint(x: c.x, y: c.y - r),
-      CGPoint(x: c.x + r, y: c.y),
-      CGPoint(x: c.x, y: c.y + r),
-      CGPoint(x: c.x - r, y: c.y),
-    ]
-    let waists = [
-      CGPoint(x: c.x + waist, y: c.y - waist),
-      CGPoint(x: c.x + waist, y: c.y + waist),
-      CGPoint(x: c.x - waist, y: c.y + waist),
-      CGPoint(x: c.x - waist, y: c.y - waist),
-    ]
-    var path = Path()
-    path.move(to: tips[0])
-    for i in 0..<4 {
-      path.addQuadCurve(to: tips[(i + 1) % 4], control: waists[i])
-    }
-    path.closeSubpath()
-    return path
   }
 }

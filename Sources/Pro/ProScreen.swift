@@ -49,13 +49,6 @@ struct ProScreen: View {
     ("waveform", "Talk mode"),
   ]
 
-  /// The policy the app is built to, and Apple's standard terms for a subscription: what App
-  /// Review asks a subscription screen to link to, along with the renewal line below.
-  private static let privacyURL = URL(
-    string: "https://github.com/AnvilBase/anvil-app/blob/main/PRIVACY.md")!
-  private static let termsURL = URL(
-    string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
-
   // MARK: - Subscribe
 
   @ViewBuilder
@@ -100,8 +93,9 @@ struct ProScreen: View {
         HStack(spacing: 18) {
           Button("Restore purchases") { Task { await pro.restore() } }
             .disabled(pro.isPurchasing)
-          Link("Privacy", destination: Self.privacyURL)
-          Link("Terms", destination: Self.termsURL)
+          // What App Review asks a subscription screen to link to, along with the renewal line.
+          Link("Privacy", destination: AppLinks.privacy)
+          Link("Terms", destination: AppLinks.terms)
         }
         .font(.footnote)
         .foregroundStyle(.secondary)

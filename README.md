@@ -87,7 +87,7 @@ has claimed.
 without which iOS may kill the app while a 3–4 GB model loads. Free Apple IDs can't sign it: if you
 see *"Personal development teams do not support the Increased Memory Limit capability"*, put
 `ANVIL_ENTITLEMENTS =` (empty) in `Config/Local.xcconfig`. Then, if iOS still closes the app while
-loading, lower **Settings › Model › Context size** to 2,048 or turn off **Image input**.
+loading, lower **Settings › Models › Context size** to 2,048 or turn off **Image input**.
 
 **Running from Xcode.** Turn on **Settings › Privacy & Security › Developer Mode** on the iPhone,
 connect it by cable, select it as the run destination, and press ⌘R. The first time, trust the
@@ -140,7 +140,7 @@ the model files are published from
 publishes them — point `ANVIL_MODELS_HOST` (see [Configuration](#configuration)) at your own
 deployment to serve your own.
 
-Models you download sit side by side. **Settings › Model** lists them with a mark against the one in
+Models you download sit side by side. **Settings › Models** lists them with a mark against the one in
 use — tap another to switch, swipe one to delete it — and offers the rest of the catalog to download
 from there. If loading fails, the screen says why and offers **Try again**; Settings has **Reload
 model** too. The first load is slow; engine caches go in `Library/Caches/EngineCache`, so later
@@ -195,7 +195,8 @@ image input — these need **Reload model**) · chat history (delete chats after
 never) · developer (development app only).
 
 **Metrics.** The caption under each reply — tokens, decode speed, time to first token, where it ran —
-opens the full breakdown. **Performance and usage** shows live app memory, memory left before the iOS
+opens the full breakdown. **Performance and usage**, on the development app's developer screen, shows
+live app memory, memory left before the iOS
 limit, GPU (Metal) memory, CPU, and thermal state, each explained; what the loaded model supports;
 the context this chat is using; and totals across every reply, which survive deleting chats.
 
@@ -217,7 +218,7 @@ with the microphone open again when they finish. The paywall is the **Anvil Pro*
 Settings.
 
 Pro also has its own model. **Anvil Core** is the catalog entry marked `pro`, a larger model with its
-refusals removed, offered in Settings › Model behind the Pro badge. It can be downloaded and switched
+refusals removed, offered in Settings › Models behind the Pro badge. It can be downloaded and switched
 to only while Pro is active; if the subscription lapses the chat moves to the free model, or back to
 the install screen if that is the only one on the phone. The install screen never offers it — the way
 in is the Anvil Model, and Pro is found in Settings.

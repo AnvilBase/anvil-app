@@ -17,6 +17,15 @@ struct AnvilRootScene: Scene {
     let pro = ProAccess()
     _pro = State(initialValue: pro)
     _chat = State(initialValue: ChatModel(settings: SettingsStore(), pro: pro))
+
+    #if canImport(UIKit)
+      // No scroll bars anywhere, at the level below SwiftUI. `.scrollIndicators(.hidden)` on the
+      // root view (below) covers every SwiftUI scroll view, list and form; this covers what that
+      // can't reach — the UIKit text views behind a multi-line field and the text sheet, and any
+      // UIScrollView SwiftUI makes on its own behalf.
+      UIScrollView.appearance().showsVerticalScrollIndicator = false
+      UIScrollView.appearance().showsHorizontalScrollIndicator = false
+    #endif
   }
 
   var body: some Scene {

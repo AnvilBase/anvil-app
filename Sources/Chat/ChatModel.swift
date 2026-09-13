@@ -123,7 +123,7 @@ final class ChatModel {
       if let reduced = options.afterRunningOutOfMemory() {
         // Backed off quietly. Saying "the model ran this iPhone out of memory, so image input is
         // off" reads as the app having gone wrong on the one screen where nothing has: the model
-        // loads, and what changed is sitting in Settings › Model for anyone who looks.
+        // loads, and what changed is sitting in Settings › Models for anyone who looks.
         options = reduced
         settings.values.engine = reduced
         settings.save()
@@ -142,7 +142,7 @@ final class ChatModel {
     guard FileManager.default.fileExists(atPath: model.url.path) else {
       modelDetails = nil
       loadedEngineOptions = nil
-      loadState = .failed("No model is installed. Download one in Settings › Model.")
+      loadState = .failed("No model is installed. Download one in Settings › Models.")
       return
     }
     LoadAttempt.begin(options)

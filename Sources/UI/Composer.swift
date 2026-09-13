@@ -17,7 +17,10 @@ import SwiftUI
 /// in the hierarchy and it is the buttons that come and go around it: they carry no state and can
 /// be rebuilt as often as they like. Whether the message has outgrown the line is measured from the
 /// text itself against the width the line has, not from how the field happened to lay out, so the
-/// two arrangements can't argue with each other and flicker.
+/// two arrangements can't argue with each other and flicker. The measuring is done in the same
+/// pass as the keystroke, by asking the font directly: an earlier version laid the text out
+/// off-screen and read its width back, which arrived one pass late, so the field wrapped on the
+/// line for a frame before the buttons stepped down under it — the very flicker this is for.
 struct Composer: View {
   @Environment(\.theme) private var theme
   @Bindable var chat: ChatModel
@@ -28,15 +31,29 @@ struct Composer: View {
   @State private var showingCamera = false
   @State private var showingPhotoLibrary = false
 
-  /// The message as one unwrapped line, and the room the line between the buttons has for it. The
-  /// second is remembered from the last time the line was there, which is what lets the message
-  /// come back down onto it once it is short enough again.
-  @State private var draftWidth: CGFloat = 0
+  /// The room the line between the buttons has for the message, and the room the whole capsule
+  /// has once the buttons have stepped down. The first is remembered from the last time the line
+  /// was there, which is what lets the message come back down onto it once it is short enough.
   @State private var lineWidth: CGFloat = 0
+  @State private var fullWidth: CGFloat = 0
+
+  /// The size the text is set at, so the draft is measured with the font it is drawn in.
+  @Environment(\.dynamicTypeSize) private var typeSize
 
   /// Whether the message has outgrown the line: a line break, or wider than the room it has.
+  /// Judged a little early — a few points before the text would actually wrap — so the field is
+  /// never caught wrapping on the line, which would be the one frame the eye reads as a glitch.
   private var isStacked: Bool {
-    chat.draft.contains("\n") || (lineWidth > 0 && draftWidth > lineWidth - 4)
+    chat.draft.contains("\n")
+      || (lineWidth > 0 && DraftMetrics.unwrappedWidth(of: chat.draft, at: typeSize) > lineWidth - 12)
+  }
+
+  /// How many lines the message takes in the room it currently has. It changes only when a line
+  /// is gained or lost, so the capsule's growth animates on those keystrokes and no others.
+  private var lineCount: Int {
+    let room = isStacked ? fullWidth - 16 : lineWidth
+    guard room > 0 else { return 1 }
+    return DraftMetrics.lineCount(of: chat.draft, in: room, at: typeSize)
   }
 
   /// A fixed radius rather than a true Capsule, whose ends would swell into half-circles as the
@@ -149,20 +166,13 @@ struct Composer: View {
       .font(.body)
       .focused($isInputFocused)
       .padding(.horizontal, 8)
-      // On the line, as tall as the buttons beside it so the text sits level with them; stacked,
-      // a little room above the text and the buttons' own row below it.
-      .frame(minHeight: isStacked ? 0 : ChatStyle.inlineControl)
-      .padding(.top, isStacked ? 8 : 0)
-      .padding(.bottom, isStacked ? 2 : 0)
-      // The message, unwrapped, measured out of sight: the width it would need on one line.
-      .background {
-        Text(chat.draft)
-          .font(.body)
-          .lineLimit(1)
-          .fixedSize()
-          .hidden()
-          .measuringWidth { draftWidth = $0 }
-      }
+      .padding(.vertical, 6)
+      // Never shorter than the buttons, on the line or off it: a line of text sits level with
+      // them, and a message that has stepped over them keeps the same height for its first line
+      // and grows from there. The same shape in both arrangements, so moving between them changes
+      // where the field is and how wide, and nothing about how tall — one thing to animate, not
+      // three.
+      .frame(minHeight: ChatStyle.inlineControl)
   }
 
   // MARK: - The controls around it
@@ -200,12 +210,17 @@ struct Composer: View {
           .measuringWidth { if !isStacked { lineWidth = $0 - 16 } }
         HStack(spacing: 6) { trailingButtons }
       }
+      .measuringWidth { fullWidth = $0 }
       .animation(.snappy(duration: 0.22), value: chat.speechInput.state)
       .animation(.snappy(duration: 0.28), value: chat.isOffline)
       .padding(9)
       .liquidGlass(in: containerShape)
       .overlay(containerShape.strokeBorder(theme.hairline, lineWidth: 0.5))
-      .animation(.snappy(duration: 0.26), value: isStacked)
+      // Smooth rather than snappy for the two ways the capsule changes shape under your thumb:
+      // the buttons stepping down and back up, and a line gained or lost. Nothing should
+      // overshoot while you are typing into it.
+      .animation(.smooth(duration: 0.28), value: isStacked)
+      .animation(.smooth(duration: 0.2), value: lineCount)
       .animation(.snappy(duration: 0.18), value: hasSomethingToSend)
       // Only on the empty-to-typing boundary, which is sending and starting again — not on every
       // keystroke that grows the field a line.
@@ -263,7 +278,7 @@ struct Composer: View {
     chat.settings.values.engine.imageInput
       ? "The model that's loaded can't read images. A model that can will show the photo options "
         + "here."
-      : "Image input is switched off. Turn it on in Settings › Model, then Reload model."
+      : "Image input is switched off. Turn it on in Settings › Models, then Reload model."
   }
 
   /// A plain globe when it's off, the same globe on a soft wash of the page's own ink when it's
@@ -387,6 +402,71 @@ struct Composer: View {
 
 }
 
+
+/// The draft measured the way the field will draw it, in the same pass as the keystroke.
+///
+/// The field is `.body` at whatever size the environment has set, and UIKit is asked for that
+/// same font, so what is measured here is what the field lays out. The answer is a few points
+/// off at most, which is why `Composer` leaves a margin rather than trusting it to the point.
+private enum DraftMetrics {
+  /// The width the message would take on one line.
+  static func unwrappedWidth(of draft: String, at size: DynamicTypeSize) -> CGFloat {
+    #if canImport(UIKit)
+      guard !draft.isEmpty else { return 0 }
+      return (draft as NSString).size(withAttributes: [.font: font(at: size)]).width.rounded(.up)
+    #else
+      return 0
+    #endif
+  }
+
+  /// How many lines the message takes wrapped to `width`. Never less than one.
+  static func lineCount(of draft: String, in width: CGFloat, at size: DynamicTypeSize) -> Int {
+    #if canImport(UIKit)
+      guard !draft.isEmpty else { return 1 }
+      let font = font(at: size)
+      // A trailing line break is a line of its own, which `boundingRect` does not count.
+      let measured = draft.hasSuffix("\n") ? draft + " " : draft
+      let bounds = (measured as NSString).boundingRect(
+        with: CGSize(width: width, height: .greatestFiniteMagnitude),
+        options: [.usesLineFragmentOrigin, .usesFontLeading],
+        attributes: [.font: font], context: nil)
+      return max(1, Int((bounds.height / font.lineHeight).rounded()))
+    #else
+      return max(1, draft.components(separatedBy: "\n").count)
+    #endif
+  }
+
+  #if canImport(UIKit)
+    private static func font(at size: DynamicTypeSize) -> UIFont {
+      UIFont.preferredFont(
+        forTextStyle: .body,
+        compatibleWith: UITraitCollection(preferredContentSizeCategory: size.contentSizeCategory))
+    }
+  #endif
+}
+
+#if canImport(UIKit)
+  extension DynamicTypeSize {
+    /// The same size as UIKit names it. SwiftUI converts the other way but not this one.
+    fileprivate var contentSizeCategory: UIContentSizeCategory {
+      switch self {
+      case .xSmall: .extraSmall
+      case .small: .small
+      case .medium: .medium
+      case .large: .large
+      case .xLarge: .extraLarge
+      case .xxLarge: .extraExtraLarge
+      case .xxxLarge: .extraExtraExtraLarge
+      case .accessibility1: .accessibilityMedium
+      case .accessibility2: .accessibilityLarge
+      case .accessibility3: .accessibilityExtraLarge
+      case .accessibility4: .accessibilityExtraExtraLarge
+      case .accessibility5: .accessibilityExtraExtraExtraLarge
+      @unknown default: .large
+      }
+    }
+  }
+#endif
 
 /// The composer's three pieces — the buttons on the left, the field, the buttons on the right —
 /// on one line, or with the field across the top and the buttons in a row beneath it. The same

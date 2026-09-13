@@ -43,6 +43,9 @@ import SwiftUI
       view.adjustsFontForContentSizeCategory = true
       view.textContainerInset = UIEdgeInsets(top: 16, left: 12, bottom: 16, right: 12)
       view.backgroundColor = .clear
+      // No scroll bar, like every other scrolling thing in the app.
+      view.showsVerticalScrollIndicator = false
+      view.showsHorizontalScrollIndicator = false
       return view
     }
 
