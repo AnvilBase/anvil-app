@@ -128,13 +128,12 @@ final class ChatModel {
   var supportsImages: Bool { modelDetails?.supportsImages ?? false }
 
   /// Whether this build carries a Brave Search key (Config/Local.xcconfig).
-  var hasSearchKey: Bool { AppSecrets.hasBraveSearchKey }
 
   var isOffline: Bool { !network.isOnline }
 
   /// Whether replies can search right now. Your preference is kept while offline, and search comes
   /// back on by itself when the connection returns.
-  var webSearchOn: Bool { settings.values.webSearchEnabled && hasSearchKey && network.isOnline }
+  var webSearchOn: Bool { settings.values.webSearchEnabled && network.isOnline }
 
   var canSend: Bool {
     loadState == .ready && !isGenerating && !isPreparingImage
@@ -370,6 +369,11 @@ final class ChatModel {
 
   // MARK: - Voice mode
 
+  /// The button in the bar: opens voice mode, or closes it if it is open.
+  func toggleVoiceMode() {
+    if voiceModeOn { endVoiceMode() } else { startVoiceMode() }
+  }
+
   /// Opens voice mode and starts listening. Pro's, like talk mode: without it the paywall opens.
   func startVoiceMode() {
     guard pro.isUnlocked else {
@@ -395,23 +399,27 @@ final class ChatModel {
     try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
   }
 
-  /// The circle, tapped: a reply being read is cut off and the floor is yours; silence is an
-  /// invitation to listen again.
+  /// The circle, tapped: a reply being read is cut off and the microphone opens for your turn;
+  /// listening, it stops and sends what it heard; idle, it listens.
   func tapVoiceCircle() {
     guard voiceModeOn else { return }
     if speechOutput.isSpeaking {
       speechOutput.stop()
-      if speechInput.isActive { speechInput.armSilenceStop() } else { listenInVoiceMode() }
-    } else if !speechInput.isActive, !isGenerating {
+      listenInVoiceMode()
+    } else if speechInput.isActive {
+      speechInput.stop()
+    } else if !isGenerating {
       listenInVoiceMode()
     }
   }
 
   /// Opens the microphone for a turn. It stays open until words arrive; from then a pause ends
-  /// the turn and sends it. Opened while a reply is being read, words are the person talking over
-  /// it: the reading stops, and the words go on being taken down as the next message.
+  /// the turn and sends it. Never while a reply is being read: the phone would hear its own voice
+  /// and answer itself. Talking over a reply is a tap on the circle.
   private func listenInVoiceMode() {
-    guard voiceModeOn, loadState == .ready, !speechInput.isActive else { return }
+    guard voiceModeOn, loadState == .ready, !speechInput.isActive, !speechOutput.isSpeaking else {
+      return
+    }
     let session = dictationSession
     var armed = false
     Task {
@@ -421,8 +429,7 @@ final class ChatModel {
           onUpdate: { [weak self] transcript in
             guard let self, session == dictationSession else { return }
             draft = transcript
-            if speechOutput.isSpeaking, transcript.count >= 3 { speechOutput.stop() }
-            if !armed, !speechOutput.isSpeaking {
+            if !armed {
               armed = true
               speechInput.armSilenceStop()
             }
@@ -906,11 +913,10 @@ final class ChatModel {
   /// the microphone again, so an interruption is the end of the turn and not the start of another.
   private func speakThenListen(_ text: String) async {
     if voiceModeOn {
-      // The microphone is open before the first word is read, so talking over the reply is heard.
-      listenInVoiceMode()
+      // Read first, listen after: the microphone stays shut while the voice is going, so the
+      // phone never takes down its own reply.
       await speechOutput.speak(Self.spokenForm(of: text))
-      // Read to the end with nothing said: a pause from here on is the end of a turn.
-      if voiceModeOn, speechInput.isActive { speechInput.armSilenceStop() }
+      if voiceModeOn { listenInVoiceMode() }
       return
     }
     await speechOutput.speak(Self.spokenForm(of: text))

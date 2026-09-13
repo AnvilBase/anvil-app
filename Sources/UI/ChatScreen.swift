@@ -54,15 +54,18 @@ struct ChatScreen: View {
           // The colour runs to the screen edges; the content itself stays inside the safe area.
           .background(theme.page.ignoresSafeArea())
           .safeAreaInset(edge: .top, spacing: 0) { topBar.padding(.top, missing.top) }
-          // Voice mode lies over the whole page, bar and composer included: the chat goes on
-          // underneath, readable through it, and the circle is the only thing to press.
-          .overlay {
+          // Voice mode is a small card that comes out from under its button, top right, over
+          // the conversation; the chat and the composer go on as they are around it.
+          .overlay(alignment: .topTrailing) {
             if chat.voiceModeOn {
               VoiceModeView(chat: chat)
-                .transition(.opacity.combined(with: .scale(scale: 0.97)))
+                .padding(.top, 10)
+                .padding(.trailing, 14 + ChatStyle.control + 10)
+                .transition(
+                  .scale(scale: 0.3, anchor: .topTrailing).combined(with: .opacity))
             }
           }
-          .animation(.easeInOut(duration: 0.22), value: chat.voiceModeOn)
+          .animation(.spring(duration: 0.32, bounce: 0.18), value: chat.voiceModeOn)
           // The composer adds itself below this, so it clears the home indicator without the
           // keyboard, and sits straight on the keyboard when there is one.
           .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -163,10 +166,14 @@ struct ChatScreen: View {
         withAnimation(ChatStyle.sidebarMotion) { isSidebarOpen = true }
       }
       Spacer(minLength: 0)
-      // Voice mode, just left of New chat: a circle, which is what it opens into.
-      barButton("Voice mode", systemImage: "circle.fill", disabled: chat.loadState != .ready) {
+      // Voice mode, just left of New chat: a circle, which is what it opens into. Filled with the
+      // send colour while it is open, and the same tap closes it.
+      barButton(
+        "Voice mode", systemImage: "circle.fill", disabled: chat.loadState != .ready,
+        tint: chat.voiceModeOn ? theme.sendFill : nil
+      ) {
         inputFocused = false
-        chat.startVoiceMode()
+        chat.toggleVoiceMode()
       }
       barButton(
         "New chat", systemImage: "square.and.pencil", disabled: chat.messages.isEmpty
@@ -179,7 +186,8 @@ struct ChatScreen: View {
   }
 
   private func barButton(
-    _ title: String, systemImage: String, disabled: Bool = false, action: @escaping () -> Void
+    _ title: String, systemImage: String, disabled: Bool = false, tint: Color? = nil,
+    action: @escaping () -> Void
   ) -> some View {
     Button(action: action) {
       Image(systemName: systemImage)
@@ -189,7 +197,7 @@ struct ChatScreen: View {
         .contentShape(Circle())
     }
     .buttonStyle(.plain)
-    .foregroundStyle(.primary)
+    .foregroundStyle(tint ?? Color.primary)
     .opacity(disabled ? 0.4 : 1)
     .disabled(disabled)
     .accessibilityLabel(title)
