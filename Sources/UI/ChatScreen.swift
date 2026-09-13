@@ -272,8 +272,12 @@ struct ChatScreen: View {
       }
     }
     // The first message of a chat doesn't slide into a list, it replaces the empty screen; this
-    // is what keeps that swap from being a cut.
-    .animation(ChatStyle.sendMotion, value: chat.messages.isEmpty)
+    // is what keeps that swap from being a cut. Only that way round. A chat being cleared — New
+    // chat or Clear all in the drawer — is cleared a tick after the drawer starts sliding shut,
+    // and a guide fading in on a spring of its own while the page is already moving on another is
+    // a guide that visibly isn't riding the page. Cleared, the guide is simply there, from the
+    // first frame, and moves with everything else.
+    .animation(chat.messages.isEmpty ? nil : ChatStyle.sendMotion, value: chat.messages.isEmpty)
     .sensoryFeedback(.impact(weight: .light), trigger: chat.replyStarted)
     // Above the composer rather than over it: the inset is added after this, so the bottom of this
     // view is the line the composer's glass starts at.
