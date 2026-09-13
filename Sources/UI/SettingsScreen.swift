@@ -401,12 +401,18 @@ struct SettingsScreen: View {
   }
 
   /// The field holds a prompt of your own and nothing else: empty, it reads Default, and that is
-  /// the whole of what is shown of Anvil's own prompt. Restore default empties it.
+  /// the whole of what is shown of Anvil's own prompt. Restore default empties it. One line while
+  /// it is empty, and as many as the words need after that, up to ten; a hundred words at most,
+  /// with the count under the field once there is something to count.
   private var systemPromptSection: some View {
-    Section("System prompt") {
+    Section {
       if pro.isUnlocked {
         TextField("Default", text: $settings.values.systemPrompt, axis: .vertical)
-          .lineLimit(3...10)
+          .lineLimit(1...10)
+          .onChange(of: settings.values.systemPrompt) { _, text in
+            let limited = AppSettings.withinPromptLimit(text)
+            if limited != text { settings.values.systemPrompt = limited }
+          }
         Button("Restore default") { settings.values.systemPrompt = "" }
           .disabled(usesDefaultPrompt)
       } else {
@@ -421,6 +427,14 @@ struct SettingsScreen: View {
             }
           }
         }
+      }
+    } header: {
+      Text("System prompt")
+    } footer: {
+      if pro.isUnlocked, !usesDefaultPrompt {
+        Text(
+          "\(AppSettings.wordCount(settings.values.systemPrompt)) of "
+            + "\(AppSettings.maxSystemPromptWords) words")
       }
     }
   }
