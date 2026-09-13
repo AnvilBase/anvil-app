@@ -78,17 +78,27 @@ struct SettingsScreen: View {
 
   /// The one row in Settings that is selling something: the gold mark and the name, larger than
   /// any other row, and nothing else. What Pro is, and what it costs, is the paywall's to say.
+  /// Once Pro is active there is nothing left to sell, so the row stops being a door: the small
+  /// mark and "Anvil Pro Active", a statement in the size of any other row, and nothing to press.
   private var proSection: some View {
     Section {
-      NavigationLink {
-        ProScreen()
-      } label: {
-        HStack(spacing: 16) {
-          GoldAnvil(size: 36)
-          Text("Anvil Pro")
-            .font(.title2.weight(.bold))
+      if pro.isUnlocked {
+        HStack(spacing: 12) {
+          GoldAnvil(size: 22)
+          Text("Anvil Pro Active")
         }
-        .padding(.vertical, 6)
+        .accessibilityElement(children: .combine)
+      } else {
+        NavigationLink {
+          ProScreen()
+        } label: {
+          HStack(spacing: 16) {
+            GoldAnvil(size: 36)
+            Text("Anvil Pro")
+              .font(.title2.weight(.bold))
+          }
+          .padding(.vertical, 6)
+        }
       }
     }
   }
