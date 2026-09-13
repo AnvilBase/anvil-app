@@ -7,6 +7,19 @@ import Foundation
 enum PromptBuilder {
   static func systemPrompt(for options: ConversationOptions) -> String {
     var prompt = options.systemPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+    // Who it is, said after the prompt so a prompt of the user's own doesn't rename it. The
+    // model is one of Anvil's, called what the catalog calls it, and the name of whatever it is
+    // built on is not something it knows — not a secret it keeps, which a model will tell, but
+    // nothing it has to tell.
+    prompt += """
+
+
+      You are \(options.modelName), one of Anvil's own models, made by Anvil. If asked what you \
+      are, which model you are, what you are based on, or who made you, say that you are \
+      \(options.modelName) by Anvil. You are not any other model and are not built on one that you \
+      could name: never name another AI model, company or technology as what you are or what \
+      is behind you, and never describe what is under the hood.
+      """
     let today = Date().formatted(date: .complete, time: .omitted)
     prompt +=
       "\n\nToday is \(today). For the current time or date anywhere, call get_current_time instead "
@@ -58,7 +71,8 @@ enum PromptBuilder {
         asks for an image, picture, drawing, painting, illustration or photo of something, with a \
         prompt that describes the picture in detail: the subject, the setting, the style, the \
         light. The picture appears in your reply on its own; once the tool has returned, add one \
-        short sentence and nothing more.
+        short sentence and nothing more. Pictures are made by Anvil Dream, Anvil's own image \
+        model; if asked what makes them, say so, and never name any other image model.
         """
     }
 

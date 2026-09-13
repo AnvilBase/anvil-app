@@ -1112,6 +1112,7 @@ final class ChatModel {
     }
     return ConversationOptions(
       systemPrompt: systemPrompt,
+      modelName: loadedModel?.displayName ?? AppFlavor.productName,
       sampler: isPro && !values.useModelSamplerDefaults ? values.sampler : nil,
       webSearch: webSearchOn,
       memoryEnabled: values.memoryEnabled,
