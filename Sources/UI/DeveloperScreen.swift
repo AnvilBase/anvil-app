@@ -144,7 +144,9 @@ struct DeveloperScreen: View {
       chat.memory.deleteAll()
       chat.resetTotals()
       AppLock.clearPasscode()
-      pro.previewUnlocked = false
+      #if ANVIL_DEV
+        pro.previewUnlocked = false
+      #endif
       chat.settings.values = AppSettings()
       chat.settings.save()
       dismiss()
