@@ -83,7 +83,7 @@ final class EngineLog {
     if lower.contains("resource_exhausted") || lower.contains("memory")
       || lower.contains("bad_alloc") || lower.contains("allocat")
     {
-      return "Turn off image input or choose a smaller context in Settings › Models."
+      return "Choose a smaller context in Settings › Models, or a smaller model."
     }
     if lower.contains("unsupported") || lower.contains("parse") || lower.contains("invalid")
       || lower.contains("not_found") || lower.contains("format") || lower.contains("magic")

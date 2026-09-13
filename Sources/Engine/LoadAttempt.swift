@@ -39,15 +39,11 @@ enum LoadAttempt {
 
 extension EngineOptions {
   /// The next thing worth trying after this configuration proved too big, or nil when there's
-  /// nothing left to give up. Ordered by how much memory each one frees: the vision encoder is a
-  /// block of hundreds of megabytes, the KV cache scales with context, and the GPU path holds
-  /// weights that the CPU path memory-maps instead.
+  /// nothing left to give up. Ordered by how much memory each one frees: the KV cache scales with
+  /// context, and the GPU path holds weights that the CPU path memory-maps instead. The vision
+  /// encoder is never given up: a model that can see photos is loaded so that it can, and a phone
+  /// that can't hold that needs a smaller model, not a blind one.
   func afterRunningOutOfMemory() -> EngineOptions? {
-    if imageInput {
-      var reduced = self
-      reduced.imageInput = false
-      return reduced
-    }
     if let smaller = AppSettings.contextSizes.last(where: { $0 < contextSize }) {
       var reduced = self
       reduced.contextSize = smaller

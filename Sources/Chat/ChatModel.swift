@@ -165,9 +165,9 @@ final class ChatModel {
     var options = settings.engine
     if let abandoned = LoadAttempt.abandoned(), abandoned == options {
       if let reduced = options.afterRunningOutOfMemory() {
-        // Backed off quietly. Saying "the model ran this iPhone out of memory, so image input is
-        // off" reads as the app having gone wrong on the one screen where nothing has: the model
-        // loads, and what changed is sitting in Settings › Models for anyone who looks.
+        // Backed off quietly. Saying "the model ran this iPhone out of memory, so the context is
+        // smaller" reads as the app having gone wrong on the one screen where nothing has: the
+        // model loads, and what changed is sitting in Settings › Models for anyone who looks.
         options = reduced
         settings.engine = reduced
         settings.save()
@@ -176,8 +176,8 @@ final class ChatModel {
         modelDetails = nil
         loadedEngineOptions = nil
         loadState = .failed(
-          "This model needs more memory than iOS will give the app, even with image input off and "
-            + "the smallest context. A smaller model is the way forward.")
+          "This model needs more memory than iOS will give the app, even with the smallest context "
+            + "and the CPU. A smaller model is the way forward.")
         return
       }
     }

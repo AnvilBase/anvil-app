@@ -18,7 +18,7 @@ struct MetricsScreen: View {
           "Memory left before iOS limit", MetricFormat.bytes(snapshot.availableMemory),
           detail:
             "How much more the app can use before iOS closes it. If it nears zero, lower the "
-            + "context size or turn off image input.")
+            + "context size or choose a smaller model.")
         metricRow(
           "GPU (Metal) memory", MetricFormat.bytes(snapshot.gpuMemory),
           detail:

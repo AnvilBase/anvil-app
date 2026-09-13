@@ -341,7 +341,7 @@ struct Composer: View {
       HStack(spacing: 8) {
         #if canImport(UIKit)
           if CameraPicker.isAvailable {
-            attachOption("Camera", systemImage: "camera") { showingCamera = true }
+            attachOption("Take photo", systemImage: "camera") { showingCamera = true }
           }
         #endif
         attachOption("Photos", systemImage: "photo.on.rectangle") { showingPhotoLibrary = true }

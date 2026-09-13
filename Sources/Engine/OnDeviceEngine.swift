@@ -64,7 +64,7 @@ actor OnDeviceEngine {
     let cacheDirectory = try ModelFiles.cacheDirectory().path
     enableBenchmarkCounters()
     let capabilities = Self.readCapabilities(modelPath: model.url.path)
-    let wantImages = options.imageInput && (capabilities?.supportsImages ?? true)
+    let wantImages = capabilities?.supportsImages ?? true
 
     var failures: [(configuration: String, reason: String)] = []
     for attempt in Self.attempts(for: options.backend, images: wantImages) {

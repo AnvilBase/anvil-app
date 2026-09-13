@@ -35,11 +35,14 @@ enum AppearancePreference: String, Codable, CaseIterable, Identifiable, Sendable
 }
 
 /// Settings that only take effect when the engine is reloaded.
+///
+/// Image input is not among them: a model that can see photos is always loaded so that it can.
+/// There used to be a switch, and a load that ran the phone out of memory turned it off and wrote
+/// that down — after which photos went nowhere, with nothing in Settings to turn them back on.
 struct EngineOptions: Codable, Equatable, Sendable {
   var backend: EngineBackendPreference = .automatic
   /// KV-cache size (input + output tokens). Larger values use more memory.
   var contextSize = 4096
-  var imageInput = true
 }
 
 struct SamplerValues: Codable, Equatable, Sendable {
