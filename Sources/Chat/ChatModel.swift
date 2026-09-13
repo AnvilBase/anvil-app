@@ -848,7 +848,16 @@ final class ChatModel {
           imageGenerator: imageGenerator, replyID: reply.id, started: started,
           firstPiece: &firstPiece)
       } catch {
-        if !isStopping {
+        if isStopping {
+          // Stop was pressed; the reply is marked below.
+        } else if case OnDeviceEngine.EngineError.cancelled = error {
+          // Cut short by the engine rather than by Stop — iOS took the GPU away, most likely,
+          // because the app left the screen mid-reply. Not a fault in the words so far, which
+          // stay; the notice says what happened, and the next message goes again as normal.
+          activeConversation = nil
+          updateMessage(reply.id) { if $0.text.isEmpty { $0.text = "(stopped)" } }
+          chatNotice = "The reply was cut short. Send the message again to continue."
+        } else {
           // The engine's conversation may no longer match the chat, so rebuild it next time.
           activeConversation = nil
           updateMessage(reply.id) {
