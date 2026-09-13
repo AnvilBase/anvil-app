@@ -52,6 +52,7 @@ struct SettingsScreen: View {
         communitySection
         feedbackSection
         aboutSection
+        if showsDevelopmentFeatures { developerSection }
       }
       .navigationTitle("Settings")
       #if os(iOS)
@@ -677,6 +678,19 @@ struct SettingsScreen: View {
       Button("Show developer features again") {
         settings.values.previewAsPublic = false
         settings.save()
+      }
+    }
+  }
+
+  /// The developer screen, at the very bottom, where the development app keeps what the public
+  /// app doesn't have. It used to be a hammer in the chat's top bar; that spot is voice mode's now.
+  private var developerSection: some View {
+    Section {
+      NavigationLink {
+        DeveloperScreen(chat: chat, library: library)
+          .scrollIndicators(.hidden)
+      } label: {
+        Label("Developer", systemImage: "hammer")
       }
     }
   }

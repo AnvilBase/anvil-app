@@ -11,7 +11,6 @@ struct ChatScreen: View {
 
   @State private var isSidebarOpen = false
   @State private var showingSettings = false
-  @State private var showingDeveloper = false
   @State private var statsMessage: ChatMessage?
   /// The message open in the Select Text sheet.
   @State private var textToSelect: ChatMessage?
@@ -55,6 +54,15 @@ struct ChatScreen: View {
           // The colour runs to the screen edges; the content itself stays inside the safe area.
           .background(theme.page.ignoresSafeArea())
           .safeAreaInset(edge: .top, spacing: 0) { topBar.padding(.top, missing.top) }
+          // Voice mode lies over the whole page, bar and composer included: the chat goes on
+          // underneath, readable through it, and the circle is the only thing to press.
+          .overlay {
+            if chat.voiceModeOn {
+              VoiceModeView(chat: chat)
+                .transition(.opacity.combined(with: .scale(scale: 0.97)))
+            }
+          }
+          .animation(.easeInOut(duration: 0.22), value: chat.voiceModeOn)
           // The composer adds itself below this, so it clears the home indicator without the
           // keyboard, and sits straight on the keyboard when there is one.
           .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -84,7 +92,6 @@ struct ChatScreen: View {
     .onChange(of: lock.isLocked) { _, locked in
       guard locked else { return }
       showingSettings = false
-      showingDeveloper = false
       statsMessage = nil
       textToSelect = nil
       fullScreenPhoto = nil
@@ -94,21 +101,6 @@ struct ChatScreen: View {
     .sheet(isPresented: $showingSettings, onDismiss: { Task { await chat.settingsDidClose() } }) {
       SettingsScreen(chat: chat, library: library, settings: chat.settings)
         .scrollIndicators(.hidden)
-    }
-    .sheet(isPresented: $showingDeveloper) {
-      NavigationStack {
-        DeveloperScreen(chat: chat, library: library)
-          .navigationTitle("Developer")
-          #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-          #endif
-          .toolbar {
-            ToolbarItem(placement: .confirmationAction) {
-              Button("Done") { showingDeveloper = false }
-            }
-          }
-      }
-      .scrollIndicators(.hidden)
     }
     // The paywall, when a reply asked for a picture without Pro: what was asked for is one tap
     // away, and Not now is the other way out.
@@ -171,10 +163,10 @@ struct ChatScreen: View {
         withAnimation(ChatStyle.sidebarMotion) { isSidebarOpen = true }
       }
       Spacer(minLength: 0)
-      // The one thing the development app has that the public app doesn't, sitting just left of
-      // New chat — and gone while the development app is being shown as the public one.
-      if showsDevelopmentFeatures {
-        barButton("Developer", systemImage: "hammer") { showingDeveloper = true }
+      // Voice mode, just left of New chat: a circle, which is what it opens into.
+      barButton("Voice mode", systemImage: "circle.fill", disabled: chat.loadState != .ready) {
+        inputFocused = false
+        chat.startVoiceMode()
       }
       barButton(
         "New chat", systemImage: "square.and.pencil", disabled: chat.messages.isEmpty

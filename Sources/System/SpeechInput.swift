@@ -63,10 +63,16 @@ final class SpeechInput {
   private var onUpdate: ((String) -> Void)?
   private var onFinish: ((String) -> Void)?
 
+  /// Voice mode keeps the microphone open while a reply is being read, so the voice and the
+  /// microphone share one session — set for a conversation, with the phone cancelling its own
+  /// voice out of what the microphone hears — and stopping leaves that session as it is.
+  private var sharedSession = false
+
   /// Starts listening. `onUpdate` receives the live transcript; `onFinish` receives the final text
-  /// when listening stops, whether you tap stop or simply pause.
+  /// when listening stops, whether you tap stop or simply pause. With `sharedSession`, the audio
+  /// session is set up for talking and listening at once, and left standing when listening ends.
   func start(
-    stopAfterSilence: Bool, onUpdate: @escaping (String) -> Void,
+    stopAfterSilence: Bool, sharedSession: Bool = false, onUpdate: @escaping (String) -> Void,
     onFinish: @escaping (String) -> Void
   ) async throws {
     guard state == .idle else { return }
@@ -77,8 +83,13 @@ final class SpeechInput {
     guard recognizer.supportsOnDeviceRecognition else { throw SpeechInputError.onDeviceUnavailable }
 
     let session = AVAudioSession.sharedInstance()
-    try session.setCategory(
-      .playAndRecord, mode: .measurement, options: [.duckOthers, .defaultToSpeaker])
+    self.sharedSession = sharedSession
+    if sharedSession {
+      try session.setCategory(.playAndRecord, mode: .voiceChat, options: [.defaultToSpeaker])
+    } else {
+      try session.setCategory(
+        .playAndRecord, mode: .measurement, options: [.duckOthers, .defaultToSpeaker])
+    }
     try session.setActive(true, options: .notifyOthersOnDeactivation)
 
     let request = SFSpeechAudioBufferRecognitionRequest()
@@ -128,6 +139,15 @@ final class SpeechInput {
     request?.endAudio()
     // The final result usually arrives within a moment; don't wait longer than that.
     scheduleCompletion(after: .seconds(1))
+  }
+
+  /// Starts ending on a pause, for a listener that was opened without one: voice mode opens the
+  /// microphone before it knows whether anyone will speak, and only once words arrive should a
+  /// pause mean the turn is over.
+  func armSilenceStop() {
+    guard state == .listening, !stopAfterSilence else { return }
+    stopAfterSilence = true
+    scheduleStop(after: Self.pauseLength)
   }
 
   /// Stops listening and throws the transcript away.
@@ -212,7 +232,9 @@ final class SpeechInput {
     task?.cancel()
     task = nil
     request = nil
-    try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    if !sharedSession {
+      try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
     let finish = onFinish
     let text = transcript
     onUpdate = nil

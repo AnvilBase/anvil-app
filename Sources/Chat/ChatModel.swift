@@ -1,4 +1,5 @@
 import CoreGraphics
+import AVFoundation
 import Foundation
 import Observation
 
@@ -85,6 +86,25 @@ final class ChatModel {
 
   /// Replies read aloud, and the microphone open again when they finish. Pro, and on.
   var talkModeOn: Bool { pro.isUnlocked && settings.values.talkMode }
+
+  /// Voice mode: the conversation held out loud, over the chat, until it is closed. Not a setting
+  /// and not remembered; it is a thing you are doing, and it ends when you stop.
+  private(set) var voiceModeOn = false
+
+  enum VoicePhase: Equatable {
+    case idle
+    case listening
+    case thinking
+    case speaking
+  }
+
+  /// What voice mode is doing at this moment, for the screen to say and shape itself around.
+  var voicePhase: VoicePhase {
+    if speechOutput.isSpeaking { return .speaking }
+    if isGenerating { return .thinking }
+    if speechInput.isActive { return .listening }
+    return .idle
+  }
 
   /// Whether the model in use is Anvil Raw — the Pro text model, the one with its refusals
   /// removed. Only with it does the app make a picture without asking the model, follow one up,
@@ -344,6 +364,82 @@ final class ChatModel {
           })
       } catch {
         alertMessage = error.localizedDescription
+      }
+    }
+  }
+
+  // MARK: - Voice mode
+
+  /// Opens voice mode and starts listening. Pro's, like talk mode: without it the paywall opens.
+  func startVoiceMode() {
+    guard pro.isUnlocked else {
+      showingPro = true
+      return
+    }
+    guard loadState == .ready, !voiceModeOn else { return }
+    speechOutput.stop()
+    endDictation()
+    voiceModeOn = true
+    speechOutput.sharesAudioSession = true
+    listenInVoiceMode()
+  }
+
+  /// Closes voice mode: the voice stops, the microphone closes, and whatever was half-said is
+  /// left in the field, where it can be sent or cleared by hand.
+  func endVoiceMode() {
+    guard voiceModeOn else { return }
+    voiceModeOn = false
+    speechOutput.stop()
+    speechOutput.sharesAudioSession = false
+    endDictation()
+    try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+  }
+
+  /// The circle, tapped: a reply being read is cut off and the floor is yours; silence is an
+  /// invitation to listen again.
+  func tapVoiceCircle() {
+    guard voiceModeOn else { return }
+    if speechOutput.isSpeaking {
+      speechOutput.stop()
+      if speechInput.isActive { speechInput.armSilenceStop() } else { listenInVoiceMode() }
+    } else if !speechInput.isActive, !isGenerating {
+      listenInVoiceMode()
+    }
+  }
+
+  /// Opens the microphone for a turn. It stays open until words arrive; from then a pause ends
+  /// the turn and sends it. Opened while a reply is being read, words are the person talking over
+  /// it: the reading stops, and the words go on being taken down as the next message.
+  private func listenInVoiceMode() {
+    guard voiceModeOn, loadState == .ready, !speechInput.isActive else { return }
+    let session = dictationSession
+    var armed = false
+    Task {
+      do {
+        try await speechInput.start(
+          stopAfterSilence: false, sharedSession: true,
+          onUpdate: { [weak self] transcript in
+            guard let self, session == dictationSession else { return }
+            draft = transcript
+            if speechOutput.isSpeaking, transcript.count >= 3 { speechOutput.stop() }
+            if !armed, !speechOutput.isSpeaking {
+              armed = true
+              speechInput.armSilenceStop()
+            }
+          },
+          onFinish: { [weak self] transcript in
+            guard let self, session == dictationSession, voiceModeOn else { return }
+            if transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+              // The recogniser gave up before anyone spoke. Open it again, unless the turn has
+              // moved on without it.
+              if !isGenerating, !speechOutput.isSpeaking { listenInVoiceMode() }
+            } else {
+              send()
+            }
+          })
+      } catch {
+        alertMessage = error.localizedDescription
+        endVoiceMode()
       }
     }
   }
@@ -793,12 +889,14 @@ final class ChatModel {
       isStopping = false
       generationTask = nil
 
-      // Talk mode: read the reply, then listen for the next thing. Not a stopped reply — stopping
-      // it was the point — and not an error, which is for reading, not hearing.
-      if talkModeOn, !wasStopped,
+      // Talk mode and voice mode: read the reply, then listen for the next thing. Not a stopped
+      // reply — stopping it was the point — and not an error, which is for reading, not hearing.
+      if talkModeOn || voiceModeOn, !wasStopped,
         let reply = messages.first(where: { $0.id == reply.id }), !reply.isError, !reply.text.isEmpty
       {
         Task { await speakThenListen(reply.text) }
+      } else if voiceModeOn {
+        listenInVoiceMode()
       }
     }
   }
@@ -807,6 +905,14 @@ final class ChatModel {
   /// stopping, or tapping the microphone all do — and only a reply that finished on its own opens
   /// the microphone again, so an interruption is the end of the turn and not the start of another.
   private func speakThenListen(_ text: String) async {
+    if voiceModeOn {
+      // The microphone is open before the first word is read, so talking over the reply is heard.
+      listenInVoiceMode()
+      await speechOutput.speak(Self.spokenForm(of: text))
+      // Read to the end with nothing said: a pause from here on is the end of a turn.
+      if voiceModeOn, speechInput.isActive { speechInput.armSilenceStop() }
+      return
+    }
     await speechOutput.speak(Self.spokenForm(of: text))
     guard talkModeOn, loadState == .ready, !isGenerating, !speechInput.isActive,
       draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
