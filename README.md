@@ -118,14 +118,17 @@ one.
 
 ### Download it in the app
 
-The first screen offers one model, the **Anvil Model**, with its size and parameter count. It is
-the `anvil-forge` entry published at [anvilai.com/api/models](https://www.anvilai.com/api/models).
-Tap **Download** and leave it running. The development app has a **Skip** in the corner, for getting
+The first screen lists the models published at
+[anvilai.com/api/models](https://www.anvilai.com/api/models), in the catalog's order — **Anvil Core**,
+**Anvil Raw**, **Anvil Dream** — each with its size and parameter count. Anvil Core is the free one:
+tap **Download** and leave it running. The Pro models lead to the paywall until Pro is active, and one
+the catalog has announced but not published yet says "Coming soon". The development app has a **Skip** in the corner, for getting
 to the chat without waiting on gigabytes; the chat then says no model is installed until one is.
 
 | Model | Size | Licence |
 | --- | --- | --- |
-| Anvil Model (`anvil-forge`) | 2.59 GB | [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0) |
+| Anvil Core (`anvil-forge`) | 2.59 GB | [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0) |
+| Anvil Raw (`anvil-raw`, Pro, unrestricted) | not published yet | [Gemma Terms of Use](https://ai.google.dev/gemma/terms) |
 | Anvil Dream (`anvil-dream`, Pro, pictures) | about 1 GB | [MIT](https://huggingface.co/SimianLuo/LCM_Dreamshaper_v7) |
 
 A model is served as a list of 512 MB parts, because a file that size can't be hosted as a single

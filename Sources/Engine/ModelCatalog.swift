@@ -36,8 +36,12 @@ struct CatalogModel: Codable, Identifiable, Hashable, Sendable {
   let basedOn: String?
   let license: String?
   let licenseURL: URL?
+  /// Named in the catalog but not published yet: listed in its place, with nothing to download.
+  let comingSoon: Bool?
 
   var isRecommended: Bool { recommended ?? false }
+  /// Nothing to download: the catalog says so, or there are no parts to fetch.
+  var isComingSoon: Bool { (comingSoon ?? false) || parts.isEmpty }
   var isPro: Bool { pro ?? false }
   var modelKind: ModelKind { kind ?? .text }
   var isImage: Bool { modelKind == .image }

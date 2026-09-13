@@ -1,28 +1,21 @@
 import SwiftUI
 
-/// The first screen, shown until the model has been installed. There is one model to install — the
-/// app calls it the Anvil Model — and one thing to do here: press Download and leave it running.
-///
-/// Underneath it is whichever entry the catalog publishes as `anvil-forge`, so the file, its size
-/// and its checksums all still come from anvilai.com; only the name is decided here. If the catalog
-/// stops publishing that entry, the recommended free one stands in, then the first free one. Pro
-/// models and image models are never offered here: this screen is the way in, and both of those
-/// are found in Settings.
+/// The first screen, shown until a chat model has been installed. The models the catalog
+/// publishes, one card each, in the catalog's order — Anvil Core, Anvil Raw, Anvil Dream — with the
+/// file, its size and its checksums all coming from anvilai.com. The free one is the way in: press
+/// Download and leave it running. A Pro model's card leads to the paywall until Pro is active, and
+/// one the catalog has announced but not published yet says so.
 struct ModelSetupScreen: View {
   @Environment(\.theme) private var theme
+  @Environment(ProAccess.self) private var pro
   let library: ModelLibrary
   /// Straight into the chat without a model. Passed only by the development app, for looking at
   /// the screens without waiting on gigabytes; the public app never offers it.
   var onSkip: (() -> Void)? = nil
 
-  @State private var model: CatalogModel?
+  @State private var models: [CatalogModel] = []
   @State private var catalogError: String?
   @State private var isLoadingCatalog = true
-
-  /// What the model is called on this screen, whatever the catalog calls it.
-  static let displayName = "Anvil Model"
-  /// The catalog entry that is the model. Forge, the everyday one.
-  private static let catalogID = "anvil-forge"
 
   /// The mark beside the model's name, tied to the name's own text style so the two are the same
   /// height whatever size the type is set to — rather than a fixed number that only looks right at
@@ -44,7 +37,7 @@ struct ModelSetupScreen: View {
         }
         .padding()
       }
-      .navigationTitle("Install the AI model")
+      .navigationTitle("Choose a model")
       .toolbar {
         if let onSkip {
           ToolbarItem(placement: .topBarTrailing) {
@@ -62,10 +55,10 @@ struct ModelSetupScreen: View {
   private var installing: some View {
     if downloader.isActive || hasFailedDownload {
       downloadCard
-    } else if library.interruptedDownload != nil {
-      resumeCard
+    } else if let interrupted = library.interruptedDownload {
+      resumeCard(interrupted)
     } else {
-      modelCard
+      modelCards
     }
   }
 
@@ -75,7 +68,7 @@ struct ModelSetupScreen: View {
   }
 
   @ViewBuilder
-  private var modelCard: some View {
+  private var modelCards: some View {
     if isLoadingCatalog {
       ProgressView()
         .frame(maxWidth: .infinity)
@@ -90,12 +83,14 @@ struct ModelSetupScreen: View {
         Button("Try again") { Task { await loadCatalog() } }
           .buttonStyle(.bordered)
       }
-    } else if let model {
-      card(for: model)
+    } else if !models.isEmpty {
+      ForEach(models) { model in
+        card(for: model)
+      }
       Toggle("Download over cellular", isOn: cellularBinding)
         .font(.subheadline)
     } else {
-      Text("The model isn't published yet.")
+      Text("No model is published yet.")
         .font(.subheadline)
         .foregroundStyle(.secondary)
     }
@@ -105,6 +100,12 @@ struct ModelSetupScreen: View {
     Binding(get: { downloader.allowsCellular }, set: { downloader.allowsCellular = $0 })
   }
 
+  /// Whether this catalog model is already on the phone. Anvil Dream can be, while this screen is
+  /// still up waiting for a chat model.
+  private func isInstalled(_ model: CatalogModel) -> Bool {
+    library.installed.contains { $0.catalogID == model.id || $0.fileName == model.fileName }
+  }
+
   private func card(for model: CatalogModel) -> some View {
     VStack(alignment: .leading, spacing: 16) {
       HStack(alignment: .firstTextBaseline, spacing: 10) {
@@ -112,22 +113,28 @@ struct ModelSetupScreen: View {
           // Sat on the text's baseline rather than hung off the top of the row, so the mark and the
           // name read as one line however large the type is.
           .alignmentGuide(.firstTextBaseline) { $0[.bottom] }
-        Text(Self.displayName)
+        Text(model.name)
           .font(.title2.weight(.semibold))
           .lineLimit(1)
           .minimumScaleFactor(0.75)
+        if model.isPro {
+          Spacer()
+          proBadge
+        }
       }
 
-      Text("Runs entirely on this iPhone. Nothing you type leaves it.")
+      Text(model.summary)
         .font(.subheadline)
         .foregroundStyle(.secondary)
 
       // The two numbers worth knowing before pressing Download: what it costs in space, and how
-      // big a model it is.
+      // big a model it is. An announced model has no file yet, so no size.
       HStack(spacing: 0) {
-        stat("Size", model.formattedSize)
+        if !model.isComingSoon {
+          stat("Size", model.formattedSize)
+        }
         if let parameters = model.parameters {
-          Divider().frame(height: 32)
+          if !model.isComingSoon { Divider().frame(height: 32) }
           stat("Parameters", parameters)
         }
       }
@@ -138,6 +145,36 @@ struct ModelSetupScreen: View {
           .foregroundStyle(.tertiary)
       }
 
+      action(for: model)
+    }
+    .padding(18)
+    .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+  }
+
+  /// What a card lets you do: download the model, go to the paywall for a Pro one, or, for one
+  /// that isn't published yet or is already here, see that.
+  @ViewBuilder
+  private func action(for model: CatalogModel) -> some View {
+    if isInstalled(model) {
+      Label("Installed", systemImage: "checkmark.circle")
+        .font(.subheadline)
+        .foregroundStyle(.secondary)
+    } else if model.isComingSoon {
+      Label("Coming soon", systemImage: "clock")
+        .font(.subheadline)
+        .foregroundStyle(.secondary)
+    } else if model.isPro, !pro.isUnlocked {
+      NavigationLink {
+        ProScreen()
+      } label: {
+        Label("Anvil Pro", systemImage: "lock")
+          .font(.headline)
+          .frame(maxWidth: .infinity)
+          .frame(height: ChatStyle.inlineControl)
+          .overlay(Capsule().strokeBorder(.secondary.opacity(0.6), lineWidth: 1))
+      }
+      .buttonStyle(.plain)
+    } else {
       // The same ink the welcome screen's Continue is: the one thing to press on this screen.
       Button {
         library.install(model)
@@ -151,8 +188,16 @@ struct ModelSetupScreen: View {
       }
       .buttonStyle(.plain)
     }
-    .padding(18)
-    .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+  }
+
+  /// The small outline that marks a Pro card, as it does a Pro row in Settings.
+  private var proBadge: some View {
+    Text("Pro")
+      .font(.caption.weight(.semibold))
+      .foregroundStyle(.secondary)
+      .padding(.horizontal, 7)
+      .padding(.vertical, 2)
+      .overlay(Capsule().strokeBorder(.secondary.opacity(0.6), lineWidth: 1))
   }
 
   private func stat(_ label: String, _ value: String) -> some View {
@@ -167,15 +212,13 @@ struct ModelSetupScreen: View {
     .frame(maxWidth: .infinity, alignment: .leading)
   }
 
-  private var resumeCard: some View {
+  private func resumeCard(_ interrupted: CatalogModel) -> some View {
     VStack(alignment: .leading, spacing: 12) {
-      Text("\(Self.displayName) is part-downloaded")
+      Text("\(interrupted.name) is part-downloaded")
         .font(.headline)
       HStack {
-        if let interrupted = library.interruptedDownload {
-          Button("Resume") { library.install(interrupted) }
-            .buttonStyle(.borderedProminent)
-        }
+        Button("Resume") { library.install(interrupted) }
+          .buttonStyle(.borderedProminent)
         Button("Start over", role: .destructive) { Task { await library.cancelInstall() } }
           .buttonStyle(.bordered)
       }
@@ -186,7 +229,7 @@ struct ModelSetupScreen: View {
 
   private var downloadCard: some View {
     VStack(alignment: .leading, spacing: 12) {
-      Text(Self.displayName)
+      Text(downloader.model?.name ?? "Model")
         .font(.headline)
 
       if case .failed(let message) = downloader.phase {
@@ -250,12 +293,8 @@ struct ModelSetupScreen: View {
     isLoadingCatalog = true
     catalogError = nil
     do {
-      let catalog = try await ModelCatalog.load()
-      let free = catalog.filter { !$0.isPro && !$0.isImage }
-      model =
-        free.first { $0.id == Self.catalogID }
-        ?? free.first { $0.isRecommended }
-        ?? free.first
+      // As the catalog lists them: the order is decided there, once, for every screen.
+      models = try await ModelCatalog.load()
     } catch {
       catalogError = error.localizedDescription
     }

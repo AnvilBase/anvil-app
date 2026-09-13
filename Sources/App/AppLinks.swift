@@ -10,6 +10,8 @@ enum AppLinks {
   static let discord = URL(string: "https://www.anvilai.com/discord")!
   static let x = URL(string: "https://www.anvilai.com/x")!
   static let instagram = URL(string: "https://www.anvilai.com/instagram")!
+  /// Why the app exists, in the site's own words.
+  static let manifesto = URL(string: "https://www.anvilai.com/manifesto")!
 
   /// Apple's standard terms for a subscription.
   static let terms = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!

@@ -123,60 +123,22 @@ struct SettingsScreen: View {
 
   // MARK: - Sections
 
-  /// The models on the phone, with a mark against the one in use; the ones that could be, with a
-  /// way to get them; and the reload. Tap a model to switch to it, swipe one to delete it. A Pro
-  /// model — Anvil Core, Anvil Dream — is listed either way, and is the paywall's door rather than
-  /// a model to switch to or download until Pro is active. Anvil Dream is never switched to at
-  /// all: it makes pictures beside whichever model is in use, and its row says so.
+  /// Every model, one row each, in the catalog's order — Anvil Core, Anvil Raw, Anvil Dream —
+  /// whatever state it is in: on the phone with a mark against the one in use, waiting to be
+  /// downloaded, or announced and not published yet. A file the catalog doesn't know, one imported
+  /// by hand, comes after them. Tap a model to switch to it, swipe one to delete it. A Pro model is
+  /// listed either way, and is the paywall's door rather than a model to switch to or download
+  /// until Pro is active. Anvil Dream is never switched to at all: it makes pictures beside
+  /// whichever model is in use, and its row says so.
   private var modelSection: some View {
     Section("Models") {
-      ForEach(library.installed) { file in
-        Group {
-          if file.isPro, !pro.isUnlocked {
-            NavigationLink {
-              ProScreen()
-            } label: {
-              LabeledContent(file.displayName) { proBadge }
-            }
-          } else if file.kind == .image {
-            LabeledContent(file.displayName) {
-              Text("Pictures")
-                .foregroundStyle(.secondary)
-            }
-          } else {
-            Button {
-              guard file != library.active else { return }
-              library.select(file)
-              dismiss()
-            } label: {
-              HStack {
-                Text(file.displayName)
-                  .foregroundStyle(Color.primary)
-                Spacer()
-                if file == library.active {
-                  Image(systemName: "checkmark")
-                    .foregroundStyle(Color.secondary)
-                }
-              }
-            }
-          }
+      ForEach(modelRows) { row in
+        switch row {
+        case .installed(let file): installedRow(file)
+        case .update(let model): downloadRow(model, update: true)
+        case .available(let model): downloadRow(model, update: false)
+        case .comingSoon(let model): comingSoonRow(model)
         }
-        .swipeActions(edge: .trailing) {
-          Button("Delete", role: .destructive) {
-            Task {
-              // The engine has the file open; let go of it before it goes.
-              if file == library.active { await chat.unload() }
-              if file.kind == .image { await chat.unloadImageModel() }
-              await library.remove(file)
-            }
-          }
-        }
-      }
-      ForEach(updates) { model in
-        downloadRow(model, verb: "Update")
-      }
-      ForEach(available) { model in
-        downloadRow(model, verb: "Download")
       }
       // Always here, not only when a setting has changed: this is also the way back from a model
       // that wouldn't load.
@@ -191,30 +153,129 @@ struct SettingsScreen: View {
     .task { catalog = (try? await ModelCatalog.load()) ?? [] }
   }
 
-  /// Catalog models that aren't on the phone at all.
-  private var available: [CatalogModel] {
-    catalog.filter { model in
-      !library.installed.contains { $0.catalogID == model.id || $0.fileName == model.fileName }
+  private enum ModelRow: Identifiable {
+    case installed(ModelFile)
+    /// The catalog has a newer version of a model that is on the phone.
+    case update(CatalogModel)
+    case available(CatalogModel)
+    case comingSoon(CatalogModel)
+
+    var id: String {
+      switch self {
+      case .installed(let file): "installed-\(file.fileName)"
+      case .update(let model): "update-\(model.id)"
+      case .available(let model): "available-\(model.id)"
+      case .comingSoon(let model): "soon-\(model.id)"
+      }
     }
   }
 
-  /// Catalog models the phone has an older version of. The catalog can change what a name means —
-  /// a model re-based on something better — and the file name stays; the version is what moves.
-  private var updates: [CatalogModel] {
-    catalog.filter { model in
-      library.installed.contains { $0.catalogID == model.id && $0.version != model.version }
+  /// The rows in the order the catalog gives them, with what is installed slotted into its place.
+  /// Before the catalog has arrived, or without it, the installed models in their own order.
+  private var modelRows: [ModelRow] {
+    var rows: [ModelRow] = []
+    var placed = Set<ModelFile>()
+    for model in catalog {
+      let files = library.installed.filter {
+        $0.catalogID == model.id || $0.fileName == model.fileName
+      }
+      if files.isEmpty {
+        rows.append(model.isComingSoon ? .comingSoon(model) : .available(model))
+        continue
+      }
+      for file in files {
+        rows.append(.installed(file))
+        placed.insert(file)
+      }
+      // The catalog can change what a name means — a model re-based on something better — and
+      // the file name stays; the version is what moves.
+      if !model.isComingSoon,
+        files.contains(where: { $0.catalogID == model.id && $0.version != model.version })
+      {
+        rows.append(.update(model))
+      }
     }
+    for file in library.installed where !placed.contains(file) {
+      rows.append(.installed(file))
+    }
+    return rows
   }
 
   @ViewBuilder
-  private func downloadRow(_ model: CatalogModel, verb: String) -> some View {
+  private func installedRow(_ file: ModelFile) -> some View {
+    Group {
+      if file.isPro, !pro.isUnlocked {
+        NavigationLink {
+          ProScreen()
+        } label: {
+          LabeledContent(file.displayName) { proBadge }
+        }
+      } else if file.kind == .image {
+        LabeledContent(file.displayName) {
+          Text("Pictures")
+            .foregroundStyle(.secondary)
+        }
+      } else {
+        Button {
+          guard file != library.active else { return }
+          library.select(file)
+          dismiss()
+        } label: {
+          HStack {
+            Text(file.displayName)
+              .foregroundStyle(Color.primary)
+            Spacer()
+            if file == library.active {
+              Image(systemName: "checkmark")
+                .foregroundStyle(Color.secondary)
+            }
+          }
+        }
+      }
+    }
+    .swipeActions(edge: .trailing) {
+      Button("Delete", role: .destructive) {
+        Task {
+          // The engine has the file open; let go of it before it goes.
+          if file == library.active { await chat.unload() }
+          if file.kind == .image { await chat.unloadImageModel() }
+          await library.remove(file)
+        }
+      }
+    }
+  }
+
+  /// A model that is named but not published yet. Nothing to do here but see that it is coming.
+  @ViewBuilder
+  private func comingSoonRow(_ model: CatalogModel) -> some View {
+    let trailing = HStack(spacing: 8) {
+      Text("Coming soon")
+        .foregroundStyle(.secondary)
+      if model.isPro, !pro.isUnlocked { proBadge }
+    }
+    if model.isPro, !pro.isUnlocked {
+      NavigationLink {
+        ProScreen()
+      } label: {
+        LabeledContent(model.name) { trailing }
+      }
+    } else {
+      LabeledContent(model.name) { trailing }
+    }
+  }
+
+  /// A model that could be on the phone. Its row is its name — the arrow beside it says what
+  /// tapping does — and its size; an update says so where the size would be.
+  @ViewBuilder
+  private func downloadRow(_ model: CatalogModel, update: Bool) -> some View {
     let downloader = library.downloader
+    let detail = update ? "Update · \(model.formattedSize)" : model.formattedSize
     if model.isPro, !pro.isUnlocked {
       NavigationLink {
         ProScreen()
       } label: {
         HStack {
-          Label("\(verb) \(model.name)", systemImage: "arrow.down.circle")
+          Label(model.name, systemImage: "arrow.down.circle")
             .foregroundStyle(Color.primary)
           Spacer()
           proBadge
@@ -251,10 +312,10 @@ struct SettingsScreen: View {
         library.install(model)
       } label: {
         HStack {
-          Label("\(verb) \(model.name)", systemImage: "arrow.down.circle")
+          Label(model.name, systemImage: "arrow.down.circle")
             .foregroundStyle(Color.primary)
           Spacer()
-          Text(model.formattedSize)
+          Text(detail)
             .foregroundStyle(Color.secondary)
         }
       }
@@ -511,6 +572,10 @@ struct SettingsScreen: View {
     .accessibilityAddTraits(selected ? .isSelected : [])
   }
 
+  /// The lock: a passcode of the app's own, set here, asked for whenever the app comes back to the
+  /// screen. Turning the switch on opens the sheet that sets the passcode, and the switch only
+  /// stays on once one is saved; turning it off forgets the passcode. There is no recovery, and
+  /// the footer says so before anyone needs it.
   private var securitySection: some View {
     Section {
       proGated("Passcode lock") {
@@ -528,71 +593,6 @@ struct SettingsScreen: View {
             + "in is to delete the app and install it again.")
       }
     }
-  }
-
-  /// The way back out of showing the development app as the public one. It lives here because the
-  /// hammer that would otherwise lead to it is one of the things being hidden, and Settings is
-  /// always reachable. The public app never compiles a path to it: see the call site.
-  private var backToDevelopmentSection: some View {
-    Section("Developer") {
-      Button("Show developer features again") {
-        settings.values.previewAsPublic = false
-        settings.save()
-      }
-    }
-  }
-
-  /// Where the people are. Each row leaves the app; the addresses live in `AppLinks`.
-  private var communitySection: some View {
-    Section("Community") {
-      link("Discord", to: AppLinks.discord)
-      link("X", to: AppLinks.x)
-      link("Instagram", to: AppLinks.instagram)
-    }
-  }
-
-  /// How to tell us. A rating goes to the App Store by way of the site; feedback and a bug report
-  /// each start a mail, and the bug report arrives with the lines that make one answerable — what
-  /// happened, and on which phone, iOS, build and model — already written, so the reply is never
-  /// a question about those.
-  private var feedbackSection: some View {
-    Section("Feedback") {
-      link("Rate Anvil", to: AppLinks.rate)
-      mailRow("Send feedback", subject: "Anvil feedback", body: "\n\n\n\(diagnostics)")
-      mailRow("Report a bug", subject: "Anvil bug", body: bugReportBody)
-    }
-  }
-
-  /// The questions a bug report answers, with room under each, and the diagnostics line last.
-  private var bugReportBody: String {
-    "What happened:\n\n\nWhat you expected:\n\n\nHow to make it happen again:\n1. \n\n\n"
-      + diagnostics
-  }
-
-  /// One line, for the foot of a mail: the build, the phone and its iOS, the model in use, and
-  /// whether Pro is active. Everything a bug report gets asked for, and nothing about the chats.
-  private var diagnostics: String {
-    let model = library.active?.displayName ?? "no model"
-    return "Sent from \(AppFlavor.appName) \(AppFlavor.version) on \(DeviceInfo.model), "
-      + "iOS \(DeviceInfo.systemVersion), \(model), Pro \(pro.isUnlocked ? "on" : "off")"
-  }
-
-  /// A row that opens a mail to us, drawn like the link rows: it leaves the app the same way. If
-  /// nothing on the phone takes mail, an alert gives the address instead.
-  private func mailRow(_ title: String, subject: String, body: String) -> some View {
-    Button {
-      guard let url = AppLinks.mail(subject: subject, body: body) else { return }
-  /// The lock: a passcode of the app's own, set here, asked for whenever the app comes back to the
-  /// screen. Turning the switch on opens the sheet that sets the passcode, and the switch only
-  /// stays on once one is saved; turning it off forgets the passcode. There is no recovery, and
-  /// the footer says so before anyone needs it.
-      openURL(url) { accepted in
-        if !accepted { showingNoMailApp = true }
-      }
-    } label: {
-      HStack {
-        Text(title)
-          .foregroundStyle(Color.primary)
     .sheet(item: $passcodeSheet) { mode in
       PasscodeSheet(mode: mode) {
         settings.values.appLockEnabled = true
@@ -615,6 +615,71 @@ struct SettingsScreen: View {
           AppLock.clearPasscode()
         }
       })
+  }
+
+  /// The way back out of showing the development app as the public one. It lives here because the
+  /// hammer that would otherwise lead to it is one of the things being hidden, and Settings is
+  /// always reachable. The public app never compiles a path to it: see the call site.
+  private var backToDevelopmentSection: some View {
+    Section("Developer") {
+      Button("Show developer features again") {
+        settings.values.previewAsPublic = false
+        settings.save()
+      }
+    }
+  }
+
+  /// Where the people are. Each row leaves the app; the addresses live in `AppLinks`.
+  private var communitySection: some View {
+    Section("Community") {
+      link("Discord", systemImage: "bubble.left.and.bubble.right", to: AppLinks.discord)
+      link("X", systemImage: "at", to: AppLinks.x)
+      link("Instagram", systemImage: "camera", to: AppLinks.instagram)
+    }
+  }
+
+  /// How to tell us. A rating goes to the App Store by way of the site; feedback and a bug report
+  /// each start a mail, and the bug report arrives with the lines that make one answerable — what
+  /// happened, and on which phone, iOS, build and model — already written, so the reply is never
+  /// a question about those.
+  private var feedbackSection: some View {
+    Section("Feedback") {
+      link("Rate Anvil", systemImage: "star", to: AppLinks.rate)
+      mailRow(
+        "Send feedback", systemImage: "envelope", subject: "Anvil feedback",
+        body: "\n\n\n\(diagnostics)")
+      mailRow("Report a bug", systemImage: "ant", subject: "Anvil bug", body: bugReportBody)
+    }
+  }
+
+  /// The questions a bug report answers, with room under each, and the diagnostics line last.
+  private var bugReportBody: String {
+    "What happened:\n\n\nWhat you expected:\n\n\nHow to make it happen again:\n1. \n\n\n"
+      + diagnostics
+  }
+
+  /// One line, for the foot of a mail: the build, the phone and its iOS, the model in use, and
+  /// whether Pro is active. Everything a bug report gets asked for, and nothing about the chats.
+  private var diagnostics: String {
+    let model = library.active?.displayName ?? "no model"
+    return "Sent from \(AppFlavor.appName) \(AppFlavor.version) on \(DeviceInfo.model), "
+      + "iOS \(DeviceInfo.systemVersion), \(model), Pro \(pro.isUnlocked ? "on" : "off")"
+  }
+
+  /// A row that opens a mail to us, drawn like the link rows: it leaves the app the same way. If
+  /// nothing on the phone takes mail, an alert gives the address instead.
+  private func mailRow(
+    _ title: String, systemImage: String, subject: String, body: String
+  ) -> some View {
+    Button {
+      guard let url = AppLinks.mail(subject: subject, body: body) else { return }
+      openURL(url) { accepted in
+        if !accepted { showingNoMailApp = true }
+      }
+    } label: {
+      HStack {
+        Label(title, systemImage: systemImage)
+          .foregroundStyle(Color.primary)
         Spacer()
         Image(systemName: "arrow.up.right")
           .font(.footnote.weight(.semibold))
@@ -623,22 +688,28 @@ struct SettingsScreen: View {
     }
   }
 
-  /// What the app is bound by, and which one this is. Last, as it is in every app.
+  /// Why the app is, what it is bound by, and which one this is. Last, as it is in every app.
   private var aboutSection: some View {
     Section("About") {
-      link("Terms & Conditions", to: AppLinks.terms)
-      link("Privacy Policy", to: AppLinks.privacy)
-      link("Licenses", to: AppLinks.licenses)
-      LabeledContent("Version", value: AppFlavor.version)
+      link("Manifesto", systemImage: "text.quote", to: AppLinks.manifesto)
+      link("Terms & Conditions", systemImage: "doc.text", to: AppLinks.terms)
+      link("Privacy Policy", systemImage: "hand.raised", to: AppLinks.privacy)
+      link("Licenses", systemImage: "checkmark.seal", to: AppLinks.licenses)
+      LabeledContent {
+        Text(AppFlavor.version)
+      } label: {
+        Label("Version", systemImage: "info.circle")
+      }
     }
   }
 
   /// A row that opens a page in Safari. In ink like the rows around it rather than the tint a
-  /// link takes on its own: leaving the app is not a bigger thing than any other row does.
-  private func link(_ title: String, to url: URL) -> some View {
+  /// link takes on its own: leaving the app is not a bigger thing than any other row does. The
+  /// symbol in front is the row's, in the same ink, as Reload model and Export chats have theirs.
+  private func link(_ title: String, systemImage: String, to url: URL) -> some View {
     Link(destination: url) {
       HStack {
-        Text(title)
+        Label(title, systemImage: systemImage)
           .foregroundStyle(Color.primary)
         Spacer()
         Image(systemName: "arrow.up.right")

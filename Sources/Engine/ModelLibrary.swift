@@ -71,7 +71,7 @@ final class ModelLibrary {
 
   /// Downloads a model from anvilai.com. Whatever is already installed stays; the new one joins it.
   func install(_ model: CatalogModel) {
-    guard !downloader.isActive else { return }
+    guard !downloader.isActive, !model.isComingSoon else { return }
     installTask?.cancel()
     installTask = Task { [self] in
       await downloader.run(model)
