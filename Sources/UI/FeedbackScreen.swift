@@ -9,9 +9,10 @@ import SwiftUI
 /// message goes to whichever mail app takes a `mailto:` link, and without one of those it can be
 /// copied, with the address, for anywhere else.
 ///
-/// A bug report asks the three questions that make one answerable. Both end with one line of device
-/// details — the build, the phone, iOS, the model in use, whether Pro is on — shown in full under
-/// its switch, so what is included is never a surprise and can be left off.
+/// Each asks one thing — the feedback, or what happened — and, optionally, an address to answer
+/// to. Both end with one line of device details — the build, the phone, iOS, the model in use,
+/// whether Pro is on — shown in full under its switch, so what is included is never a surprise and
+/// can be left off.
 struct FeedbackScreen: View {
   enum Kind {
     case feedback
@@ -28,8 +29,8 @@ struct FeedbackScreen: View {
 
   /// The feedback itself, or what happened: the one field Send needs.
   @State private var message = ""
-  @State private var expected = ""
-  @State private var steps = ""
+  /// Where an answer can go, if they want one. Optional: a report is welcome without it.
+  @State private var email = ""
   @State private var includesDetails = true
   @State private var composing = false
   /// Set when the mail sheet reports the mail went, so the screen goes back to Settings once the
@@ -40,8 +41,7 @@ struct FeedbackScreen: View {
 
   private enum Field {
     case message
-    case expected
-    case steps
+    case email
   }
 
   var body: some View {
@@ -50,6 +50,7 @@ struct FeedbackScreen: View {
       case .feedback: feedbackFields
       case .bug: bugFields
       }
+      emailField
 
       Section {
         Toggle("Include device details", isOn: $includesDetails)
@@ -87,26 +88,28 @@ struct FeedbackScreen: View {
     }
   }
 
-  @ViewBuilder
   private var bugFields: some View {
     Section("What happened") {
-      TextField("What went wrong", text: $message, axis: .vertical)
-        .lineLimit(3...10)
+      TextField("What went wrong, and what you were doing", text: $message, axis: .vertical)
+        .lineLimit(6...14)
         .focused($focusedField, equals: .message)
     }
-    Section("What you expected") {
-      TextField("Optional", text: $expected, axis: .vertical)
-        .lineLimit(2...8)
-        .focused($focusedField, equals: .expected)
-    }
+  }
+
+  /// An address to answer to, if they want an answer. The mail goes from their own account, so
+  /// it is here for the mail apps that hide the sender, and for a report copied out by hand.
+  private var emailField: some View {
     Section {
-      TextField("Optional", text: $steps, axis: .vertical)
-        .lineLimit(3...10)
-        .focused($focusedField, equals: .steps)
+      TextField("Optional", text: $email)
+        .keyboardType(.emailAddress)
+        .textContentType(.emailAddress)
+        .textInputAutocapitalization(.never)
+        .autocorrectionDisabled()
+        .focused($focusedField, equals: .email)
     } header: {
-      Text("How to make it happen again")
+      Text("Your email")
     } footer: {
-      Text("Step by step, if you know. A bug that can be made to happen again is one that can be fixed.")
+      Text("If you'd like a reply.")
     }
   }
 
@@ -156,26 +159,15 @@ struct FeedbackScreen: View {
     kind == .feedback ? "Anvil feedback" : "Anvil bug"
   }
 
-  /// What was written, each answer under its question, the empty ones left out, and the device
-  /// line last when it is on.
+  /// What was written, the address to answer to when one was given, and the device line last
+  /// when it is on.
   private var mailBody: String {
-    var parts: [String]
-    switch kind {
-    case .feedback:
-      parts = [message.trimmingCharacters(in: .whitespacesAndNewlines)]
-    case .bug:
-      parts = [
-        answer("What happened", message),
-        answer("What you expected", expected),
-        answer("How to make it happen again", steps),
-      ].compactMap { $0 }
+    var parts = [message.trimmingCharacters(in: .whitespacesAndNewlines)]
+    if !isEmpty(email) {
+      parts.append("Reply to: \(email.trimmingCharacters(in: .whitespacesAndNewlines))")
     }
     if includesDetails { parts.append(deviceDetails) }
     return parts.joined(separator: "\n\n")
-  }
-
-  private func answer(_ question: String, _ text: String) -> String? {
-    isEmpty(text) ? nil : "\(question):\n\(text.trimmingCharacters(in: .whitespacesAndNewlines))"
   }
 
   private func isEmpty(_ text: String) -> Bool {

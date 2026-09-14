@@ -34,8 +34,8 @@ enum AppLinks {
     }
     return URL(string: "https://www.anvilai.com/rate")!
   }
-  /// The inbox feedback and bug reports are addressed to — the one the site's footer gives.
-  static let supportEmail = "hello@anvilai.app"
+  /// The inbox feedback and bug reports are addressed to.
+  static let supportEmail = "nathanjcx@gmail.com"
 
   /// A mail to `supportEmail`, ready to send, with the subject and body filled in. Nil only if the
   /// text can't be put in a URL, which for text this app writes it always can.
