@@ -1,0 +1,22 @@
+name: Assign new issues
+
+# Every new issue lands with someone, so none sits unowned. One person for now; add to the list
+# as the team grows.
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+
+jobs:
+  assign:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Assign to the maintainer
+        run: gh issue edit "$ISSUE" --repo "$REPO" --add-assignee nathanjcx
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE: ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}

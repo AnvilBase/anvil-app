@@ -1,0 +1,9 @@
+# Keeps the actions the workflows run on current. Only the workflows: the app's Swift packages are
+# pinned on purpose in Package.resolved and moved by hand, since a model runtime is not something to
+# update on a schedule.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
