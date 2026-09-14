@@ -19,7 +19,7 @@ jobs:
       # none of them: the framework arrives as a release zip.
       GIT_LFS_SKIP_SMUDGE: 1
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Select Xcode
         run: sudo xcode-select --switch /Applications/Xcode_16.4.app
