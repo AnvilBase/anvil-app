@@ -20,12 +20,20 @@ enum AppLinks {
   /// The app's own licence. Model licences are shown with each model, in the catalog.
   static let licenses = URL(string: "https://github.com/AnvilBase/anvil-app/blob/main/LICENSE")!
 
-  /// Where a written review goes: the app's App Store page. Through the site like the community
-  /// links — the page only exists once the app is listed, and its address is a redirect there
-  /// rather than an ID here. The redirect should land on the page's write-review sheet
-  /// (`?action=write-review` on the App Store address), so the words are one tap away. A rating
-  /// by itself doesn't leave the app: Settings asks iOS for its own prompt.
-  static let review = URL(string: "https://www.anvilai.com/rate")!
+  /// The app's number on the App Store, once it is listed: the digits after "id" in its store
+  /// address. Nil until then. Fill it in and Write a review opens the store's own review sheet.
+  static let appStoreID: String? = nil
+
+  /// Where a written review goes: Apple's write-review sheet for the app, which the App Store
+  /// opens straight onto the stars and the box for the words. Until the app has a store number
+  /// it goes through the site instead. A rating by itself doesn't leave the app: Settings asks
+  /// iOS for its own prompt.
+  static var review: URL {
+    if let appStoreID {
+      return URL(string: "https://apps.apple.com/app/id\(appStoreID)?action=write-review")!
+    }
+    return URL(string: "https://www.anvilai.com/rate")!
+  }
   /// The inbox feedback and bug reports are addressed to — the one the site's footer gives.
   static let supportEmail = "hello@anvilai.app"
 
