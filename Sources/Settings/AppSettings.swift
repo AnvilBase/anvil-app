@@ -183,8 +183,6 @@ struct AppSettings: Codable, Equatable, Sendable {
   /// The app's own passcode, asked for when the app comes back to the screen. Honoured only while
   /// a passcode is set — see `AppLock`.
   var appLockEnabled = false
-  /// Replies read aloud, and the microphone open again when they finish.
-  var talkMode = false
   /// Anvil Dream making pictures, while it is installed. On unless it is turned off: downloading
   /// it is asking for it, and this is how to keep it on the phone without it being used.
   var imageGenerationEnabled = true
@@ -229,7 +227,6 @@ struct AppSettings: Codable, Equatable, Sendable {
     theme = try value(.theme, defaults.theme)
     appIcon = try value(.appIcon, defaults.appIcon)
     appLockEnabled = try value(.appLockEnabled, defaults.appLockEnabled)
-    talkMode = try value(.talkMode, defaults.talkMode)
     imageGenerationEnabled = try value(.imageGenerationEnabled, defaults.imageGenerationEnabled)
     previewAsPublic = try value(.previewAsPublic, defaults.previewAsPublic)
   }

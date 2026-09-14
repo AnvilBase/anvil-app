@@ -488,9 +488,6 @@ struct SettingsScreen: View {
         LabeledContent("Voice", value: currentVoiceName)
       }
       Toggle("Send when you stop talking", isOn: $settings.autoSendVoice)
-      proGated("Respond with audio") {
-        Toggle("Respond with audio", isOn: $settings.talkMode)
-      }
     }
   }
 

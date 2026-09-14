@@ -85,7 +85,6 @@ final class ChatModel {
   }
 
   /// Replies read aloud, and the microphone open again when they finish. Pro, and on.
-  var talkModeOn: Bool { pro.isUnlocked && settings.talkMode }
 
   /// Voice mode: the conversation held out loud, over the chat, until it is closed. Not a setting
   /// and not remembered; it is a thing you are doing, and it ends when you stop.
@@ -359,9 +358,7 @@ final class ChatModel {
     speechOutput.stop()
     guard loadState == .ready, !isGenerating else { return }
     let existing = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-    // Talk mode always sends when you stop talking, whoever started the microphone; that is what
-    // makes it hands-free.
-    let autoSend = autoSend ?? (talkModeOn || settings.autoSendVoice)
+    let autoSend = autoSend ?? settings.autoSendVoice
     let session = dictationSession
     Task {
       do {
@@ -937,9 +934,9 @@ final class ChatModel {
       isStopping = false
       generationTask = nil
 
-      // Talk mode and voice mode: read the reply, then listen for the next thing. Not a stopped
-      // reply — stopping it was the point — and not an error, which is for reading, not hearing.
-      if talkModeOn || voiceModeOn, !wasStopped,
+      // Voice mode: read the reply, then listen for the next thing. Not a stopped reply —
+      // stopping it was the point — and not an error, which is for reading, not hearing.
+      if voiceModeOn, !wasStopped,
         let reply = messages.first(where: { $0.id == reply.id }), !reply.isError, !reply.text.isEmpty
       {
         Task { await speakThenListen(reply.text) }
@@ -949,22 +946,14 @@ final class ChatModel {
     }
   }
 
-  /// One turn of talk mode. The reply is spoken in full unless something interrupts it — sending,
+  /// One turn of voice mode. The reply is spoken in full unless something interrupts it — sending,
   /// stopping, or tapping the microphone all do — and only a reply that finished on its own opens
   /// the microphone again, so an interruption is the end of the turn and not the start of another.
+  /// Read first, listen after: the microphone stays shut while the voice is going, so the phone
+  /// never takes down its own reply.
   private func speakThenListen(_ text: String) async {
-    if voiceModeOn {
-      // Read first, listen after: the microphone stays shut while the voice is going, so the
-      // phone never takes down its own reply.
-      await speechOutput.speak(Self.spokenForm(of: text), voice: settings.voiceIdentifier)
-      if voiceModeOn { listenInVoiceMode() }
-      return
-    }
     await speechOutput.speak(Self.spokenForm(of: text), voice: settings.voiceIdentifier)
-    guard talkModeOn, loadState == .ready, !isGenerating, !speechInput.isActive,
-      draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    else { return }
-    toggleDictation(autoSend: true)
+    if voiceModeOn { listenInVoiceMode() }
   }
 
   /// A reply as it should be heard rather than seen: code blocks out, markdown marks off, citation
@@ -1120,7 +1109,7 @@ final class ChatModel {
       memoryEnabled: values.memoryEnabled,
       memories: values.memoryEnabled ? memory.promptItems : [],
       imageGeneration: canGenerateImages,
-      spokenReplies: talkModeOn || voiceModeOn)
+      spokenReplies: voiceModeOn)
   }
 
   private func updateMessage(_ id: ChatMessage.ID, _ change: (inout ChatMessage) -> Void) {
