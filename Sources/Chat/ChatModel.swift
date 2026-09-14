@@ -998,7 +998,9 @@ final class ChatModel {
       }
     }
     if image != nil, !supportsImages {
-      chatNotice = "The model that's loaded can't see photos, so it answered the words alone."
+      chatNotice =
+        "The model that's loaded can't see photos, so it answered the words alone. Switch to "
+        + "Anvil Core in Settings › Models to send photos."
     }
     let stream = try await device.stream(
       prompt, imageData: supportsImages ? image?.jpegData : nil,
