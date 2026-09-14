@@ -324,32 +324,37 @@ struct Composer: View {
   /// capsule's glass mid-flight, and glass caught mid-redraw comes out black.
   private func setAttachOptions(_ open: Bool) {
     guard open != showingAttachOptions else { return }
-    withAnimation(.snappy(duration: 0.22)) { showingAttachOptions = open }
+    withAnimation(.spring(duration: 0.32, bounce: 0.18)) { showingAttachOptions = open }
   }
 
-  /// Everything you can put into a message, as a row of three above the capsule: a photo from the
-  /// camera or the library, or a file. Always all three, whatever model is loaded — a photo can
-  /// always be attached, and what the model makes of it is the model's business. Choosing one
-  /// puts the row away and opens the picker.
+  /// Everything you can put into a message, as a small pane above the capsule, over the plus that
+  /// opened it: Capture, Photo, File, one under the other the way a menu lists them. Always all
+  /// three, whatever model is loaded — a photo can always be attached, and what the model makes
+  /// of it is the model's business. Choosing one puts the pane away and opens the picker.
   ///
-  /// The row fades and shrinks in place rather than sliding in from under the capsule: glass
-  /// cannot be drawn over glass, and a row of glass pills passing over the glass capsule on its
-  /// way out left the capsule painted black. Its pills are their own group, so they bend light
-  /// together and never with the capsule's.
+  /// A material pane, not glass: it stands above the capsule and never over it, and material
+  /// over glass draws cleanly where glass over glass came out black. It springs up from its
+  /// bottom-left corner, where the plus is, and goes back the same way.
   private var attachOptions: some View {
-    LiquidGlassGroup(spacing: 8) {
-      HStack(spacing: 8) {
-        #if canImport(UIKit)
-          if CameraPicker.isAvailable {
-            attachOption("Take photo", systemImage: "camera") { showingCamera = true }
-          }
-        #endif
-        attachOption("Photos", systemImage: "photo.on.rectangle") { showingPhotoLibrary = true }
-        attachOption("Files", systemImage: "doc") { showingFiles = true }
-      }
+    VStack(spacing: 0) {
+      #if canImport(UIKit)
+        if CameraPicker.isAvailable {
+          attachOption("Capture", systemImage: "camera") { showingCamera = true }
+          Divider()
+        }
+      #endif
+      attachOption("Photo", systemImage: "photo") { showingPhotoLibrary = true }
+      Divider()
+      attachOption("File", systemImage: "doc") { showingFiles = true }
     }
-    .padding(.horizontal, 4)
-    .transition(.opacity.combined(with: .scale(scale: 0.94, anchor: .bottom)))
+    .frame(width: 190)
+    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    .overlay(
+      RoundedRectangle(cornerRadius: 16, style: .continuous)
+        .strokeBorder(theme.hairline, lineWidth: 0.5))
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .padding(.leading, 4)
+    .transition(.scale(scale: 0.85, anchor: .bottomLeading).combined(with: .opacity))
   }
 
   private func attachOption(
@@ -359,14 +364,17 @@ struct Composer: View {
       setAttachOptions(false)
       action()
     } label: {
-      Label(title, systemImage: systemImage)
-        .font(.subheadline.weight(.medium))
-        .lineLimit(1)
-        .frame(maxWidth: .infinity)
-        .frame(height: ChatStyle.smallControl)
-        .liquidGlass(in: Capsule(), interactive: true)
-        .overlay(Capsule().strokeBorder(theme.hairline, lineWidth: 0.5))
-        .contentShape(Capsule())
+      HStack(spacing: 12) {
+        Image(systemName: systemImage)
+          .font(.body.weight(.medium))
+          .frame(width: 22)
+        Text(title)
+          .font(.body)
+        Spacer(minLength: 0)
+      }
+      .padding(.horizontal, 16)
+      .padding(.vertical, 12)
+      .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
     .foregroundStyle(.primary)
