@@ -199,9 +199,8 @@ switched off, the message goes and a notice points at the download or the switch
 Realism by Stable Yogi V5 XL Lightning, a photorealistic SDXL model, run through Core ML on the
 Neural Engine: a 1024×1024 picture in seven passes of Euler ancestral with guidance of 1.5 against
 the empty prompt, the sampler and settings its package names in `PROVENANCE.json`. The samplers
-are `Sources/Engine/SDXLSampler.swift` and the loop is `DreamEngine.swift`, which still runs a
-Stable Diffusion 1.5 Latent Consistency Model with `LCMScheduler.swift` for a package that has no
-second text encoder.
+are `Sources/Engine/SDXLSampler.swift` and the loop is `DreamEngine.swift`. The first Anvil Dream,
+a Stable Diffusion 1.5 model, doesn't run any more: a phone that still has it is asked to update.
 Pictures are kept with the chat the way photos are, and open full screen the same way. Nothing
 about the prompt or the picture leaves the phone.
 
@@ -331,7 +330,7 @@ Support/         per-app Info.plist and entitlements
 | `Chat/ChatArchive.swift` | Saves chats, photos, and totals as protected files |
 | `Chat/PrivateFiles.swift` | Complete file protection, excluded from backups |
 | `Engine/OnDeviceEngine.swift` | LiteRT-LM engine and conversation: load with fallbacks, stream, cancel, count |
-| `Engine/DreamEngine.swift`, `SDXLSampler.swift`, `LCMScheduler.swift` | Anvil Dream: Core ML Stable Diffusion — SDXL with the sampler its package names, or 1.5 with the Latent Consistency sampler |
+| `Engine/DreamEngine.swift`, `SDXLSampler.swift` | Anvil Dream: Core ML SDXL, with the sampler its package names |
 | `Engine/ImageArchive.swift` | Unpacks an image model's Apple Archive on the phone |
 | `Engine/ModelLibrary.swift` | The models on the phone, which one is active, switching and deleting |
 | `Engine/ModelCatalog.swift` | The models anvilai.com publishes, and where to fetch their parts |

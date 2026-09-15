@@ -169,3 +169,42 @@ struct SDXLSampling: Equatable, Sendable {
       method: method, steps: min(max(steps, 1), 50), guidance: min(max(guidance, 1), 20))
   }
 }
+
+/// Gaussian noise from a seed, so the same seed and prompt make the same picture. SplitMix64
+/// under a Box–Muller transform: small, and the same on every phone.
+struct SeededNoise {
+  private var state: UInt64
+
+  init(seed: UInt64) {
+    state = seed
+  }
+
+  private mutating func next() -> UInt64 {
+    state &+= 0x9E37_79B9_7F4A_7C15
+    var z = state
+    z = (z ^ (z >> 30)) &* 0xBF58_476D_1CE4_E5B9
+    z = (z ^ (z >> 27)) &* 0x94D0_49BB_1331_11EB
+    return z ^ (z >> 31)
+  }
+
+  /// A number in (0, 1]: never zero, so its logarithm is always finite.
+  private mutating func uniform() -> Double {
+    (Double(next() >> 11) + 1) / Double(1 << 53)
+  }
+
+  mutating func gaussians(count: Int) -> [Float] {
+    var values = [Float](repeating: 0, count: count)
+    var index = 0
+    while index < count {
+      let radius = (-2 * log(uniform())).squareRoot()
+      let angle = 2 * Double.pi * uniform()
+      values[index] = Float(radius * cos(angle))
+      index += 1
+      if index < count {
+        values[index] = Float(radius * sin(angle))
+        index += 1
+      }
+    }
+    return values
+  }
+}
