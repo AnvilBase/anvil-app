@@ -133,7 +133,7 @@ to the chat without waiting on gigabytes; the chat then says no model is install
 | --- | --- | --- |
 | Anvil Core (`anvil-forge`) | 2.59 GB | [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0) |
 | Anvil Raw (`anvil-raw`, Pro, unrestricted) | not published yet | [Gemma Terms of Use](https://ai.google.dev/gemma/terms) |
-| Anvil Dream (`anvil-dream`, Pro, pictures) | about 1 GB | [MIT](https://huggingface.co/SimianLuo/LCM_Dreamshaper_v7) |
+| Anvil Dream (`anvil-dream`, Pro, pictures) | 3.02 GB | [CreativeML Open RAIL++-M](https://github.com/Stability-AI/generative-models/blob/main/model_licenses/LICENSE-SDXL1.0) |
 
 A model is served as a list of 512 MB parts, because a file that size can't be hosted as a single
 asset. The app downloads them one at a time, checks each against its SHA-256, appends it to the file
@@ -184,7 +184,8 @@ backed up.
 **Pictures.** With Anvil Pro and **Anvil Dream** installed and switched on (**Settings › Image**, a section
 of its own under Models, has the switch; it is on once downloaded), the model can make a picture with the
 `generate_image` tool: ask for a drawing, a painting or a photo of something and it appears in the
-reply, made on the phone in a few seconds. With **Anvil Raw** as the model, a message that asks
+reply, made on the phone; the first after a launch takes longest, while the model loads. With
+**Anvil Raw** as the model, a message that asks
 for a picture — "generate an image of a fox", "draw a dragon" — is made straight away by the app
 without asking the model, "make it darker" after a picture changes it, and a refusal to a message
 about a picture is answered with the picture: Raw's no is not the app's
@@ -194,9 +195,13 @@ Without Pro, a message that clearly asks for one — "generate an image", "a pic
 opens the Pro page instead of sending, with the words kept in the field; the app reads the message
 for that itself (`Sources/Chat/ImageRequest.swift`) rather than trusting the model, which reaches
 for a picture tool on messages that never asked. With Pro but without Anvil Dream, or with it
-switched off, the message goes and a notice points at the download or the switch. Anvil Dream is a Latent Consistency Model (LCM
-Dreamshaper v7) run through Core ML on the Neural Engine, four passes of the network for a 512×512
-image; the sampler is `Sources/Engine/LCMScheduler.swift` and the loop is `DreamEngine.swift`.
+switched off, the message goes and a notice points at the download or the switch. Anvil Dream is
+Realism by Stable Yogi V5 XL Lightning, a photorealistic SDXL model, run through Core ML on the
+Neural Engine: a 1024×1024 picture in seven passes of Euler ancestral with guidance of 1.5 against
+the empty prompt, the sampler and settings its package names in `PROVENANCE.json`. The samplers
+are `Sources/Engine/SDXLSampler.swift` and the loop is `DreamEngine.swift`, which still runs a
+Stable Diffusion 1.5 Latent Consistency Model with `LCMScheduler.swift` for a package that has no
+second text encoder.
 Pictures are kept with the chat the way photos are, and open full screen the same way. Nothing
 about the prompt or the picture leaves the phone.
 
@@ -326,7 +331,7 @@ Support/         per-app Info.plist and entitlements
 | `Chat/ChatArchive.swift` | Saves chats, photos, and totals as protected files |
 | `Chat/PrivateFiles.swift` | Complete file protection, excluded from backups |
 | `Engine/OnDeviceEngine.swift` | LiteRT-LM engine and conversation: load with fallbacks, stream, cancel, count |
-| `Engine/DreamEngine.swift`, `LCMScheduler.swift` | Anvil Dream: Core ML Stable Diffusion with the Latent Consistency sampler |
+| `Engine/DreamEngine.swift`, `SDXLSampler.swift`, `LCMScheduler.swift` | Anvil Dream: Core ML Stable Diffusion — SDXL with the sampler its package names, or 1.5 with the Latent Consistency sampler |
 | `Engine/ImageArchive.swift` | Unpacks an image model's Apple Archive on the phone |
 | `Engine/ModelLibrary.swift` | The models on the phone, which one is active, switching and deleting |
 | `Engine/ModelCatalog.swift` | The models anvilai.com publishes, and where to fetch their parts |
