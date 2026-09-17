@@ -31,6 +31,7 @@ struct Composer: View {
   @State private var showingCamera = false
   @State private var showingPhotoLibrary = false
   @State private var showingFiles = false
+  @State private var showingWebSearchDisclosure = false
   /// The row of ways to attach something, up above the capsule while the plus is open.
   @State private var showingAttachOptions = false
 
@@ -88,6 +89,12 @@ struct Composer: View {
     // conversation does. Simultaneous, so the field keeps its own taps and text selection.
     .simultaneousGesture(swipeDownToDismiss)
     .photosPicker(isPresented: $showingPhotoLibrary, selection: $photoSelection, matching: .images)
+    .alert("Turn on web search?", isPresented: $showingWebSearchDisclosure) {
+      Button("Turn on") { chat.setWebSearch(true) }
+      Button("Cancel", role: .cancel) {}
+    } message: {
+      Text("Search queries are sent to Anvil's search service and Brave. They may include details from your messages. Your full chat history and photos stay on this iPhone. You can turn search off with the globe button.")
+    }
     .fileImporter(isPresented: $showingFiles, allowedContentTypes: FileReading.types) { result in
       switch result {
       case .success(let url): Task { await chat.attachFile(url) }
@@ -389,7 +396,11 @@ struct Composer: View {
   /// everything beside it.
   private var webSearchButton: some View {
     Button {
-      chat.setWebSearch(!chat.webSearchOn)
+      if chat.webSearchOn {
+        chat.setWebSearch(false)
+      } else {
+        showingWebSearchDisclosure = true
+      }
     } label: {
       Image(systemName: "globe")
         .font(

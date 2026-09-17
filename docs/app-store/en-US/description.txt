@@ -1,0 +1,24 @@
+Anvil AI is a private AI assistant that runs on your iPhone.
+
+Download a model once, then write, brainstorm, ask questions, and work with your notes without an internet connection. Chat and image generation happen on your device. No Anvil account is required.
+
+MAKE IT PART OF YOUR DAY
+• Get help drafting, rewriting, explaining, and organizing ideas.
+• Attach photos or supported documents to your conversations.
+• Dictate messages with on-device speech recognition where supported.
+• Save useful memories for future chats and manage them in Settings.
+• Search and organize your chat history, export it, or delete it.
+
+WEB SEARCH WHEN YOU CHOOSE
+Turn on web search to look up current information and see sources alongside replies. Search queries are sent to Anvil's search service and Brave and may include details from your messages. Your full chat history and photos are not uploaded for search.
+
+GO FURTHER WITH ANVIL PRO
+An optional subscription, Anvil Pro, unlocks an unrestricted model, image generation, audio replies, custom system prompts, sampling controls, themes, alternate app icons, and a passcode lock.
+
+Anvil Core is available without a subscription. Anvil Pro is offered as monthly or yearly auto-renewing subscriptions. Prices appear in the app before purchase. Payment is charged to your Apple Account at confirmation. Subscriptions renew automatically unless canceled at least 24 hours before the current period ends. Manage or cancel subscriptions in your Apple Account settings.
+
+BEFORE YOU START
+Models download separately and require several gigabytes of free storage. Performance and supported model features depend on your iPhone's available memory. An internet connection is needed for the first model download, optional web search, and App Store purchases. AI responses can be inaccurate; check important information.
+
+Privacy: https://github.com/AnvilBase/anvil-app/blob/main/PRIVACY.md
+Terms of Use: https://www.apple.com/legal/internet-services/itunes/dev/stdeula/

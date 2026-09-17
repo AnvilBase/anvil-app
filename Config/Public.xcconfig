@@ -4,13 +4,17 @@
 
 PRODUCT_NAME = $(TARGET_NAME)
 PRODUCT_BUNDLE_IDENTIFIER = $(ANVIL_BUNDLE_PREFIX).AnvilAI
-INFOPLIST_KEY_CFBundleDisplayName = Anvil
+INFOPLIST_KEY_CFBundleDisplayName = Anvil AI
 INFOPLIST_FILE = Support/AnvilAI/Info.plist
 
 // Clear this in Config/Local.xcconfig (ANVIL_ENTITLEMENTS =) if your Apple ID can't sign the
 // increased-memory-limit capability.
 ANVIL_ENTITLEMENTS = Support/AnvilAI/AnvilAI.entitlements
 CODE_SIGN_ENTITLEMENTS = $(ANVIL_ENTITLEMENTS)
+
+// The LiteRT-LM packaging phase adds its missing manifest to the embedded framework and
+// re-signs that framework when signing is enabled. codesign needs Keychain access.
+ENABLE_USER_SCRIPT_SANDBOXING = NO
 
 // Last word, so your own team and key win. Optional: missing is fine.
 #include? "Local.xcconfig"

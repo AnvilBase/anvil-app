@@ -2,15 +2,16 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- HTTPS, iOS file protection, Keychain, and CryptoKit hashing only. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSCameraUsageDescription</key>
 	<string>Anvil uses the camera to take a photo for your message. Photos stay on this iPhone.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Anvil uses the microphone so you can talk to it. Audio is processed on this iPhone and never leaves it.</string>
-	<key>NSFaceIDUsageDescription</key>
-	<string>Anvil uses Face ID to unlock the app. Nothing about your face leaves this iPhone.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Anvil turns your speech into text on this iPhone. Audio is never sent off the device.</string>
-	<!-- Empty unless you put a key in Config/Local.xcconfig. Web search is off without one. -->
+	<!-- Empty in distribution builds: web search uses the server relay. -->
 	<key>BraveSearchAPIKey</key>
 	<string>$(ANVIL_BRAVE_API_KEY)</string>
 	<!-- Where anvilai.com is: models and web search. See ANVIL_HOST in Config/Shared.xcconfig. -->

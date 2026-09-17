@@ -3,7 +3,8 @@ import SwiftUI
 
 /// Anvil Pro: what it is, and the one button that gets it.
 ///
-/// Pushed from the top of Settings. One screen, no scrolling: the mark, the name, eight lines, and
+/// Pushed from the top of Settings. Scrolls on smaller phones and at larger text sizes: the mark,
+/// the name, eight lines, and
 /// two ways to pay, a year or a month — with prices that come from the App Store, never from the
 /// app, so they are right for whichever storefront this is. A build the App Store has no products
 /// for says so instead of pretending.
@@ -13,32 +14,34 @@ struct ProScreen: View {
   @Environment(\.openURL) private var openURL
 
   var body: some View {
-    VStack(spacing: 0) {
-      Spacer(minLength: 8)
-      // The modelled gold block, and large: this is the page that sells Pro, and the block is
-      // what it is selling. The rest is drawn a size down so the whole page still fits without
-      // scrolling.
-      GoldBlock(size: 136)
-      Text("Anvil Pro")
-        .font(.system(size: 34, weight: .bold))
-        .padding(.top, 14)
-      VStack(alignment: .leading, spacing: 14) {
-        ForEach(Self.features, id: \.title) { feature in
-          HStack(spacing: 16) {
-            Image(systemName: feature.symbol)
-              .font(.title3)
-              .frame(width: 30)
-              .foregroundStyle(.secondary)
-            Text(feature.title)
-              .font(.body.weight(.semibold))
+    ScrollView {
+      VStack(spacing: 0) {
+        Spacer(minLength: 8)
+        // The modelled gold block, and large: this is the page that sells Pro, and the block is
+        // what it is selling. The feature list can scroll while the purchase controls stay visible.
+        GoldBlock(size: 136)
+        Text("Anvil Pro")
+          .font(.system(size: 34, weight: .bold))
+          .padding(.top, 14)
+        VStack(alignment: .leading, spacing: 14) {
+          ForEach(Self.features, id: \.title) { feature in
+            HStack(spacing: 16) {
+              Image(systemName: feature.symbol)
+                .font(.title3)
+                .frame(width: 30)
+                .foregroundStyle(.secondary)
+              Text(feature.title)
+                .font(.body.weight(.semibold))
+            }
           }
         }
+        .padding(.top, 26)
+        Spacer(minLength: 8)
       }
-      .padding(.top, 26)
-      Spacer(minLength: 8)
+      .frame(maxWidth: .infinity)
+      .padding(.horizontal, 24)
+      .padding(.vertical, 12)
     }
-    .frame(maxWidth: .infinity)
-    .padding(.horizontal, 24)
     .background(theme.page)
     .safeAreaInset(edge: .bottom) { footer }
     .navigationBarTitleDisplayMode(.inline)

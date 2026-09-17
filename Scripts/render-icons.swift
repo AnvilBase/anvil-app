@@ -82,7 +82,8 @@ func render(_ icon: Icon, to url: URL) throws {
   guard
     let context = CGContext(
       data: nil, width: canvas, height: canvas, bitsPerComponent: 8, bytesPerRow: 0, space: space,
-      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+      // App Store icons, including alternates, must have no alpha channel.
+      bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)
   else { throw NSError(domain: "render-icons", code: 1) }
   context.setFillColor(red: icon.background.0, green: icon.background.1, blue: icon.background.2, alpha: 1)
   context.fill(CGRect(x: 0, y: 0, width: canvas, height: canvas))

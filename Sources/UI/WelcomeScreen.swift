@@ -66,11 +66,11 @@ struct WelcomeScreen: View {
       Point(
         symbol: "airplane",
         title: "Works Offline",
-        detail: "The model runs on the phone. No account, and no internet needed to chat."),
+        detail: "Download a model once, then chat without an account or internet connection."),
       Point(
         symbol: "vault",
-        title: "Nothing Leaves Your Phone",
-        detail: "No analytics, no telemetry, all local."),
+        title: "You're in Control",
+        detail: "No analytics or telemetry. Optional web search sends search queries to Anvil and Brave."),
     ]
   }
 

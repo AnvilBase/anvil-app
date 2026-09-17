@@ -22,6 +22,9 @@ build/
 *.gguf
 *.task
 
+# Claude Code's own scratch, which holds worktrees — a checkout of this repo inside itself.
+.claude/
+
 # Queued tasks for claude-queue. Local scratch, and it names files after the task text, so anything
 # pasted into /q — a key, a token — would otherwise land in the repository as a filename.
 .claude-queue/

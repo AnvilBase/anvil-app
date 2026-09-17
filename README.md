@@ -13,7 +13,7 @@ settings, and imported model. They're identical today. As tools land in the deve
 the difference will live behind a single compile-time flag — see
 [Two apps](#two-apps-public-and-development).
 
-- **Requirements:** Xcode 16 or newer (the project uses folder-synchronized groups), iOS 17.0 or
+- **Requirements:** Xcode 26 or newer, iOS 17.0 or
   newer, and an iPhone with enough memory for a 3–4 GB model. The simulator can build the app but
   can't usefully run a model.
 - **Dependency:** the LiteRT-LM Swift package, `0.17.x` — the API this code was written against.
@@ -21,6 +21,10 @@ the difference will live behind a single compile-time flag — see
   trademarks and aren't licensed: build and change the app freely, but ship it under your own name.
 
 ## Quick start
+
+For release archives, company signing, listing copy, and the remaining App Store Connect steps,
+see [App Store preparation](docs/APP_STORE.md). `./Scripts/app-store.sh validate` builds and checks
+an unsigned public Release archive; it never uploads anything.
 
 ```sh
 git clone https://github.com/AnvilBase/anvil-app.git
@@ -380,8 +384,8 @@ Support/         per-app Info.plist and entitlements
 | `UI/WelcomeScreen.swift`, `SettingsScreen.swift`, `MetricsScreen.swift`, `ModelSetupScreen.swift`, `MemoryScreen.swift`, `DeveloperScreen.swift` | The rest of the screens |
 
 **Engine fallbacks.** With the backend set to Automatic, loading tries GPU with vision on CPU, then
-GPU text-only, then CPU with vision on CPU, then CPU text-only, and shows a banner if it had to fall
-back. GPU only and CPU only try just their half of that list.
+GPU text-only, then CPU with vision on CPU, then CPU text-only. Switching to CPU is silent; a banner
+appears only if requested image input is unavailable. GPU only and CPU only try just their half of that list.
 
 **LiteRT-LM APIs used (0.17.0).** `EngineConfig(modelPath:backend:visionBackend:maxNumTokens:cacheDir:)`,
 `Engine(engineConfig:)`, `initialize()`, `createConversation(with:)`, `ConversationConfig`,

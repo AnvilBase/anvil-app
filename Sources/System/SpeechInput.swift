@@ -314,21 +314,18 @@ private final class AnalyzerTranscription: TranscriptionBackend, @unchecked Send
       do {
         for try await result in transcriber.results {
           let text = String(result.text.characters)
-          let whole: String
-          lock.lock()
-          if result.isFinal {
-            finalized += text
-            volatile = ""
-          } else {
-            volatile = text
+          let whole = lock.withLock {
+            if result.isFinal {
+              finalized += text
+              volatile = ""
+            } else {
+              volatile = text
+            }
+            return finalized + volatile
           }
-          whole = finalized + volatile
-          lock.unlock()
           report(whole, false, false)
         }
-        lock.lock()
-        let whole = finalized + volatile
-        lock.unlock()
+        let whole = lock.withLock { finalized + volatile }
         report(whole, true, false)
       } catch {
         report(nil, true, true)

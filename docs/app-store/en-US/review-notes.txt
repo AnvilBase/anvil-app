@@ -1,0 +1,21 @@
+Anvil AI runs its language and image models on the iPhone. There is no Anvil account, login screen, or demo password.
+
+First launch:
+1. Tap Continue on the welcome screen.
+2. Download Anvil Core, the free recommended model, over Wi-Fi. Its current download is approximately 2.59 GB. Allow at least 5.2 GB of free space for the download, staging, and storage buffer. Keep the app open for the first model load.
+3. Once the model is ready, ask a question such as "Explain why leaves change color."
+4. With the model installed, turn on airplane mode to verify offline chat. Optional web search must be off for this check.
+
+The app requests Increased Memory Limit to load local AI models. Use a physical iPhone with adequate available memory; inference in the simulator is not representative. Please see the final tested device list supplied with this submission.
+
+Web search is optional and initially off. Tap the globe and accept the disclosure to enable it. Queries go through www.anvilai.com to Brave Search. Replies show the queries and sources. The app does not send the full conversation or photos to a remote AI service.
+
+Anvil Pro is an optional auto-renewing subscription. Both products belong in one Anvil Pro subscription group:
+com.anvilbase.anvil.pro.monthly — 1 month, $9.99 (US)
+com.anvilbase.anvil.pro.yearly — 1 year, $99 (US)
+
+Settings > Anvil Pro shows App Store prices, Restore purchases, Privacy, and Terms. The app offers two models: Anvil Core, free, and Anvil Pro. Anvil Pro unlocks unrestricted answers, image generation, custom prompts, sampling, themes, icons, passcode lock, and audio replies. Anvil Pro is presented as one model and downloads as two files, one after the other: an unrestricted text model (approximately 4.17 GB, which requires more memory than Core) and an image model (approximately 0.87 GB). Free chat does not require a subscription. If Pro expires, the app returns to a free model.
+
+Microphone/camera permissions are requested when those features are used. Dictation stays on device; unsupported languages do not fall back to server transcription. The system may download a speech language asset on first use.
+
+Submission owner: replace the final tested-device reference above, supply your private App Review contact details in App Store Connect, and confirm both subscription products are configured and included with the first submission. These notes are a draft until those checks are complete.

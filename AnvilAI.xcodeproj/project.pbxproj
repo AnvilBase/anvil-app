@@ -137,6 +137,7 @@
 				A10000000000000000000032 /* Sources */,
 				A10000000000000000000033 /* Frameworks */,
 				A10000000000000000000034 /* Resources */,
+				A10000000000000000000070 /* LiteRT-LM Privacy */,
 			);
 			buildRules = (
 			);
@@ -239,6 +240,26 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		A10000000000000000000070 /* LiteRT-LM Privacy */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			inputPaths = (
+				"$(SRCROOT)/Support/LiteRTLM/PrivacyInfo.xcprivacy",
+				"$(TARGET_BUILD_DIR)/$(FRAMEWORKS_FOLDER_PATH)/CLiteRTLM.framework/CLiteRTLM",
+				"$(SRCROOT)/Scripts/prepare-litert-privacy.sh",
+			);
+			name = "LiteRT-LM Privacy";
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(FRAMEWORKS_FOLDER_PATH)/CLiteRTLM.framework/PrivacyInfo.xcprivacy",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -eu\n/bin/sh \"${SRCROOT}/Scripts/prepare-litert-privacy.sh\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		A10000000000000000000032 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -290,6 +311,7 @@
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;

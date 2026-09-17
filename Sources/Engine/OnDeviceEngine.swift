@@ -8,7 +8,7 @@ import LiteRTLM
 actor OnDeviceEngine {
   struct LoadResult: Sendable {
     let details: ModelDetails
-    /// Shown to the user when the preferred configuration couldn't be used.
+    /// Shown to the user when loading leaves a requested capability unavailable.
     let notice: String?
   }
 
@@ -233,8 +233,8 @@ actor OnDeviceEngine {
       defaultSampler: sampler)
   }
 
-  /// GPU first, then CPU; with images, the same again without the vision encoder. Each fallback
-  /// carries the sentence shown to the user if it's the one that works.
+  /// GPU first, then CPU; with images, the same again without the vision encoder. Switching
+  /// backends is silent; losing image input carries a notice for the user.
   private static func attempts(for preference: EngineBackendPreference, images: Bool) -> [Attempt] {
     let noImages =
       images ? "Image input is unavailable because the vision encoder failed to load." : nil
@@ -244,15 +244,8 @@ actor OnDeviceEngine {
       attempts.append(Attempt(backend: .gpu, vision: nil, notice: noImages))
     }
     if preference != .gpu {
-      let fellBack =
-        preference == .automatic
-        ? "GPU initialization failed, so the model is running on the CPU (slower)." : nil
-      if images { attempts.append(Attempt(backend: .cpu(), vision: .cpu(), notice: fellBack)) }
-      let notices = [fellBack, noImages].compactMap { $0 }
-      attempts.append(
-        Attempt(
-          backend: .cpu(), vision: nil,
-          notice: notices.isEmpty ? nil : notices.joined(separator: " ")))
+      if images { attempts.append(Attempt(backend: .cpu(), vision: .cpu(), notice: nil)) }
+      attempts.append(Attempt(backend: .cpu(), vision: nil, notice: noImages))
     }
     return attempts
   }
