@@ -48,13 +48,14 @@ struct ModelPlan: Identifiable, Hashable, Sendable {
     return plans
   }
 
-  /// What Pro is, from what the catalog actually publishes: unrestricted answers, pictures, or —
-  /// as it stands — both.
+  /// What Pro is, from what the catalog actually publishes. With the whole of it published — the
+  /// model to chat with and the one that makes pictures — this is the line Pro is sold in; a
+  /// catalog carrying only half of Pro says the half it has rather than promising the other.
   private static func summary(for proModels: [CatalogModel]) -> String {
     let unrestricted = proModels.contains { !$0.isImage }
     let pictures = proModels.contains(where: \.isImage)
     switch (unrestricted, pictures) {
-    case (true, true): return "Unrestricted, and makes pictures from words"
+    case (true, true): return "Thinks harder, less refusals, generates pictures"
     case (true, false): return "Unrestricted. Answers without refusing"
     case (false, true): return "Makes pictures from words"
     case (false, false): return proModels.first?.summary ?? ""

@@ -50,14 +50,6 @@ private struct RootView: View {
 
   @Environment(\.scenePhase) private var scenePhase
 
-  #if ANVIL_DEV
-    /// The development app can go into the chat without a model, to look at the screens without
-    /// waiting on gigabytes. The chat opens on "Couldn't load the model" and its composer won't send,
-    /// which is the honest state of things; the moment a model is installed it takes over. Not
-    /// written down: skipping is for this run, and the next launch asks again.
-    @State private var skippedModelSetup = false
-  #endif
-
   /// One screen going and the next arriving. Short, and eased in rather than sprung: this is the
   /// app moving you on, not something you did being acknowledged.
   private static let screenChange: Animation = .easeIn(duration: 0.22)
@@ -66,34 +58,6 @@ private struct RootView: View {
   /// subscription falls back everywhere at the same moment and nothing downstream has to ask.
   private var theme: AppTheme {
     pro.isUnlocked ? chat.settings.theme : .ink
-  }
-
-  /// Skip on the model screen, in the development app only. nil — no button — everywhere else,
-  /// including the development app when it is showing itself as the public one.
-  private var skipModelSetup: (() -> Void)? {
-    #if ANVIL_DEV
-      guard AppFlavor.showsDevelopmentFeatures(chat.settings) else { return nil }
-      return { withAnimation(Self.screenChange) { skippedModelSetup = true } }
-    #else
-      return nil
-    #endif
-  }
-
-  /// A model that isn't there, for the chat to open on after Skip. The chat tries to load it, is
-  /// told there is no such file, and shows that; nothing is invented about what it would have been.
-  private var skippedModel: ModelFile? {
-    #if ANVIL_DEV
-      guard skippedModelSetup, let directory = try? ModelFiles.modelsDirectory() else { return nil }
-      return ModelFile(
-        url: directory.appendingPathComponent("none.\(ModelFiles.fileExtension)"),
-        fileSize: 0,
-        modificationDate: .distantPast,
-        displayName: "No model",
-        catalogID: nil,
-        version: nil)
-    #else
-      return nil
-    #endif
   }
 
   var body: some View {
@@ -109,11 +73,8 @@ private struct RootView: View {
       } else if case .ready(let model) = library.state {
         ChatScreen(chat: chat, model: model, library: library)
           .transition(.opacity)
-      } else if let placeholder = skippedModel {
-        ChatScreen(chat: chat, model: placeholder, library: library)
-          .transition(.opacity)
       } else {
-        ModelSetupScreen(library: library, onSkip: skipModelSetup)
+        ModelSetupScreen(library: library)
           .transition(.opacity)
       }
     }
@@ -169,15 +130,6 @@ private struct RootView: View {
     }
     .onChange(of: chat.settings.appIcon) { _, icon in
       icon.apply()
-    }
-    // The welcome coming back means everything was reset — see the developer screen — and Skip
-    // was part of everything: without this the chat came straight back after the welcome, over a
-    // model that wasn't there, and the model screen never showed. Only the development app has
-    // a Skip to clear.
-    .onChange(of: chat.settings.hasSeenWelcome) { _, seen in
-      #if ANVIL_DEV
-        if !seen { skippedModelSetup = false }
-      #endif
     }
     // A sheet is its own presentation, which `preferredColorScheme` on the root does not reach:
     // Settings stayed as it was while the chat behind it changed, and caught up only when reopened.

@@ -3,16 +3,15 @@ import SwiftUI
 /// The first screen, shown until a chat model has been installed. What Anvil offers, one card
 /// each — Anvil Core, free and the way in, and Anvil Pro, which is the unrestricted model and the
 /// one that makes pictures, as one thing — with the files, their sizes and their checksums all
-/// coming from anvilai.com. Anvil Core's card says Recommended: press Download and leave it
-/// running. Anvil Pro's card leads to the paywall until Pro is active, and a plan the catalog has
-/// announced but not published yet says so.
+/// coming from anvilai.com. A card carries no badge: there are two of them, the mark in front of
+/// each name already says which is which, and a line calling one of two things Recommended mostly
+/// says something about the other. What each one is, its card says in words underneath. Anvil Pro's
+/// card leads to the paywall until Pro is active, and a plan the catalog has announced but not
+/// published yet says so.
 struct ModelSetupScreen: View {
   @Environment(\.theme) private var theme
   @Environment(ProAccess.self) private var pro
   let library: ModelLibrary
-  /// Straight into the chat without a model. Passed only by the development app, for looking at
-  /// the screens without waiting on gigabytes; the public app never offers it.
-  var onSkip: (() -> Void)? = nil
 
   @State private var plans: [ModelPlan] = []
   @State private var catalogError: String?
@@ -37,13 +36,6 @@ struct ModelSetupScreen: View {
         .padding()
       }
       .navigationTitle("Choose a model")
-      .toolbar {
-        if let onSkip {
-          ToolbarItem(placement: .topBarTrailing) {
-            Button("Skip", action: onSkip)
-          }
-        }
-      }
     }
     .task { await loadCatalog() }
     .alert("Not enough storage on your phone", isPresented: storageAlertShowing) {
@@ -120,13 +112,6 @@ struct ModelSetupScreen: View {
           .font(.title2.weight(.semibold))
           .lineLimit(1)
           .minimumScaleFactor(0.75)
-        if plan.isRecommended {
-          Spacer()
-          badge("Recommended")
-        } else if plan.isPro {
-          Spacer()
-          badge("Pro")
-        }
       }
 
       Text(plan.summary)
@@ -263,17 +248,6 @@ struct ModelSetupScreen: View {
         }
       }
     }
-  }
-
-  /// The small outline that marks a card — Recommended on Anvil Core, Pro on Anvil Pro — as it
-  /// marks a Pro row in Settings.
-  private func badge(_ text: String) -> some View {
-    Text(text)
-      .font(.caption.weight(.semibold))
-      .foregroundStyle(.secondary)
-      .padding(.horizontal, 7)
-      .padding(.vertical, 2)
-      .overlay(Capsule().strokeBorder(.secondary.opacity(0.6), lineWidth: 1))
   }
 
   private func stat(_ label: String, _ value: String) -> some View {
