@@ -254,6 +254,12 @@ struct ModelSetupScreen: View {
           Text("Download Anvil Core first")
             .font(.footnote)
             .foregroundStyle(.secondary)
+        } else if plan.isPro, library.proReplacesInstalledFree {
+          // Said before the button is pressed rather than noticed after it: Pro's model is what
+          // you chat with from here, so the space Anvil Core was holding comes back.
+          Text("Replaces Anvil Core")
+            .font(.footnote)
+            .foregroundStyle(.secondary)
         }
       }
     }

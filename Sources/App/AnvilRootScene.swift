@@ -135,8 +135,12 @@ private struct RootView: View {
       }
       // Lets iOS hand over anything a background download finished while the app was closed.
       ModelDownloadSession.shared.activate()
+      // And clears away an unpacking the app was closed in the middle of. Here, before any download
+      // is resumed, so it can never be one that is under way.
+      ModelDownloadFiles.discardAbandonedUnpacking()
       await chat.restoreHistory()
       await library.refresh()
+      library.resumeInterrupted()
     }
     // Two steps up from the system default, everywhere, and the only place any text size is set:
     // everything else in the app asks for .body, .subheadline and the rest, so one number here
@@ -155,6 +159,9 @@ private struct RootView: View {
     .tint(theme.isFree ? nil : theme.palette.accent)
     .environment(pro)
     .environment(lock)
+    // The paywall needs it: buying Pro starts Pro downloading, and the paywall is pushed from
+    // four screens, only some of which hold the library themselves.
+    .environment(library)
     // The library hears about Pro here, the one place the App Store's answer is read, so a Pro
     // model falls back the moment a subscription lapses, the same way the theme does.
     .onChange(of: pro.isUnlocked, initial: true) { _, unlocked in
@@ -192,7 +199,12 @@ private struct RootView: View {
         lock.uncover()
         Task {
           await library.refresh()
+          library.resumeInterrupted()
           await chat.purgeExpiredChats()
+          // Coming back is the moment worth trying a model that wouldn't load again: whatever was
+          // holding the memory it needed — another app, a picture being made — has had the time
+          // away to let go of it.
+          await chat.reloadIfNeeded()
         }
       @unknown default:
         break

@@ -46,7 +46,11 @@ final class ModelDownloadSession: NSObject {
     configuration.sessionSendsLaunchEvents = true
     // Someone is watching a progress bar; don't let iOS wait for a better moment.
     configuration.isDiscretionary = false
-    // Two models at once, four parts each: the default of six would hold one of them back.
+    // Every part of a model is handed over at once, so that iOS carries the whole thing down while
+    // the app is away rather than the app having to be there to ask for the next one. This is what
+    // decides how many of them actually run together — the parts past it queue here rather than
+    // being left unasked for, which is the difference between a download that survives the app
+    // going away and one that doesn't.
     configuration.httpMaximumConnectionsPerHost = 8
     configuration.timeoutIntervalForResource = 7 * 24 * 60 * 60
     configuration.httpCookieStorage = nil

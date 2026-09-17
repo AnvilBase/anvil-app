@@ -162,15 +162,56 @@ final class ModelLibrary {
   /// on the same connection. A file that stops stops the plan there, so Try again carries on from
   /// what is already down rather than starting the whole plan over.
   func install(_ plan: ModelPlan) {
-    guard planTasks[plan.id] == nil else { return }
+    guard planTasks[plan.id] == nil, purchasable(plan) else { return }
+    if plan.isPro { installingPro = plan }
     planTasks[plan.id] = Task { [self] in
-      defer { planTasks[plan.id] = nil }
+      defer {
+        planTasks[plan.id] = nil
+        if plan.isPro { installingPro = nil }
+      }
+      // Anvil Pro replaces Anvil Core rather than joining it: two chat models on one phone is
+      // gigabytes held by the one nobody chats with any more. Core goes ahead of the download only
+      // when the phone hasn't room for both — the download would refuse to start otherwise, and a
+      // phone with room for one of the two should still be able to have Pro.
+      if plan.isPro, !fits(plan) { await removeSuperseded() }
       for model in plan.publishedModels where !isInstalled(model) {
         install(model)
         while let task = installTasks[model.id] { _ = await task.value }
         guard isInstalled(model) else { return }
+        // Otherwise Core goes the moment Pro's own chat model is here to stand in for it: the chat
+        // keeps working all the way down, and a download cancelled or stopped part-way leaves the
+        // phone with what it started with.
+        if plan.isPro, !model.isImage { await removeSuperseded() }
       }
     }
+  }
+
+  /// Anvil Pro while its download is running, for the paywall to show how far it has got. Nil the
+  /// rest of the time.
+  private(set) var installingPro: ModelPlan?
+
+  /// Starts Anvil Pro downloading, catalog and all: what the paywall calls the moment a
+  /// subscription lands, so that buying Pro is the whole of getting it — nothing to find
+  /// afterwards and no second button to press. Nothing to do if Pro is already here or on its way.
+  ///
+  /// `proUnlocked` is set here rather than waited for. The root view hears the App Store's answer
+  /// and passes it to the library on the next view update, which is after this runs, and the
+  /// download checks it.
+  func installPro() async {
+    proUnlocked = true
+    guard planTasks[ModelPlan.proID] == nil,
+      let catalog = try? await ModelCatalog.load(),
+      let plan = ModelPlan.plans(from: catalog).first(where: \.isPro),
+      !isInstalled(plan)
+    else { return }
+    install(plan)
+  }
+
+  /// Whether downloading Anvil Pro would take Anvil Core off the phone: true while a free chat
+  /// model the catalog handed out is installed. The screens say so before the button is pressed,
+  /// so the space coming back is something you were told about rather than something you notice.
+  var proReplacesInstalledFree: Bool {
+    installed.contains { $0.kind == .text && !$0.isPro && $0.catalogID != nil }
   }
 
   /// Stops whatever the plan has going and throws away what it had. What is already installed
@@ -221,6 +262,7 @@ final class ModelLibrary {
 
   func install(_ model: CatalogModel) {
     guard !(downloads[model.id]?.isActive ?? false), !model.isComingSoon else { return }
+    guard proUnlocked || !model.isPro else { return }
     guard !model.isImage || hasTextModel else { return }
     // Room is checked before anything starts, so a phone that is nearly full hears about it in a
     // sentence rather than watching a download begin and stop. What the other downloads under way
@@ -267,6 +309,22 @@ final class ModelLibrary {
     if downloads[model.id] == nil { ModelDownloadFiles.discard(model) }
   }
 
+  /// Carries on a download the app didn't get to finish: iOS closed the app while it was away, or
+  /// it was killed for the memory. The staged parts are still on disk and the file being built is a
+  /// correct prefix of the model, so this picks up where it stopped rather than starting over.
+  ///
+  /// Called on launch and each time the app comes back to the screen, because "still downloading"
+  /// ought to mean still downloading — a download waiting behind a Resume button someone has to
+  /// find is one that stopped. A model this run has already tried and failed is left alone:
+  /// `downloads` holds its downloader, and retrying it on every glance at the app would be an
+  /// alert about a full phone on every glance at the app.
+  func resumeInterrupted() {
+    for model in interruptedDownloads
+    where installTasks[model.id] == nil && downloads[model.id] == nil && !isInstalled(model) {
+      install(model)
+    }
+  }
+
   func refresh() async {
     // Only finished models are listed — a file still being built has another extension — so a
     // download under way is no reason not to look.
@@ -275,7 +333,22 @@ final class ModelLibrary {
     defer { isRefreshing = false }
 
     do {
-      let files = try ModelFiles.models(in: ModelFiles.modelsDirectory()).map(ModelFiles.describe)
+      let found = try ModelFiles.models(in: ModelFiles.modelsDirectory()).map(ModelFiles.describe)
+      var files: [ModelFile] = []
+      for file in found {
+        // A picture model folder with only part of a model in it, left by an unpacking that was
+        // interrupted back when unpacking wrote straight into place. It reads as installed, so the
+        // app offers pictures and the first one asked for fails on a file that was never written.
+        // It goes: what the app says it has should be what it has. A download still part-way
+        // through is picked up by `resumeInterrupted`, which unpacks it again from the archive if
+        // that is still on the phone; otherwise Anvil Pro asks to be downloaded again, and asks for
+        // the picture model alone, since the model to chat with is already here.
+        if file.kind == .image, !ImageArchive.isComplete(file.url) {
+          try? await Task.detached { try ModelFiles.remove(file) }.value
+          continue
+        }
+        files.append(file)
+      }
       apply(files)
     } catch {
       setState(.failed(error.localizedDescription))
@@ -336,6 +409,33 @@ final class ModelLibrary {
   /// Free models always; a Pro model only while Pro is active.
   private func usable(_ file: ModelFile) -> Bool {
     proUnlocked || !file.isPro
+  }
+
+  /// Whether a plan may be fetched at all. The screens already show a Pro plan's card as a way to
+  /// the paywall rather than a Download, so this is the floor under that rather than the thing the
+  /// reader sees: Pro's files don't come down the wire without a subscription, whichever button
+  /// asked for them and whether or not a download was under way when Pro lapsed.
+  private func purchasable(_ plan: ModelPlan) -> Bool {
+    proUnlocked || !plan.isPro
+  }
+
+  /// Anvil Core, and anything else free the catalog handed out to chat with, once Anvil Pro's own
+  /// chat model stands in for it. A file imported by hand is left alone: Anvil didn't put it there,
+  /// so Pro doesn't take it away. The image model isn't touched either — Pro has one and free
+  /// doesn't, so there is nothing it replaces.
+  private func removeSuperseded() async {
+    for file in installed where file.kind == .text && !file.isPro && file.catalogID != nil {
+      await remove(file)
+    }
+  }
+
+  /// Whether the whole of a plan fits beside what is already on the phone, buffer and all. False is
+  /// what sends Anvil Core out ahead of the download rather than after it.
+  private func fits(_ plan: ModelPlan) -> Bool {
+    let pending = plan.publishedModels.filter { !isInstalled($0) }
+    guard let first = pending.first else { return true }
+    let rest = pending.dropFirst().reduce(Int64(0)) { $0 + $1.sizeBytes }
+    return ModelDownloadFiles.storageShortfall(for: first, from: 0, reserving: rest) == nil
   }
 
   private func setState(_ newState: State) {

@@ -90,6 +90,9 @@ struct ChatScreen: View {
     // hears about it here, the same way it is handed the text model.
     .onChange(of: library.imageModel, initial: true) { _, imageModel in
       chat.setImageModel(imageModel)
+      // And how the chat gets rid of one that turns out to be damaged. Here, because this is the
+      // one place the chat and the library are both in hand.
+      chat.repairImageModel = { await library.refresh() }
     }
     // The lock screen is laid over this view, and a sheet is presented above the view — so a sheet
     // left up would be a sheet left up over the lock. Nothing that was open stays open.
@@ -225,9 +228,11 @@ struct ChatScreen: View {
   ///
   /// The composer stays, because the screen is still the chat and taking it away would say the app
   /// had become something else. It simply won't send: Send is behind `canSend`, which wants a model
-  /// that loaded, and the microphone wants the same. No Try again: the same load tried again fails
-  /// the same way, and what is worth changing — the model, the context — is in Settings › Models,
-  /// where Reload model is.
+  /// that loaded, and the microphone wants the same. No Try again either, and no Reload model in
+  /// Settings any more: trying the same load again straight away fails the same way, so the app
+  /// does the trying itself, on its own schedule — see `ChatModel.reloadIfNeeded` — when the
+  /// settings change, when the app comes back to the screen, and after replies keep failing. What
+  /// is worth changing by hand — the model, the context — is in Settings › Models.
   private var failure: some View {
     VStack(spacing: 16) {
       Image(systemName: "exclamationmark.triangle")

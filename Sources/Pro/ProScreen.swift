@@ -10,6 +10,7 @@ import SwiftUI
 /// for says so instead of pretending.
 struct ProScreen: View {
   @Environment(ProAccess.self) private var pro
+  @Environment(ModelLibrary.self) private var library
   @Environment(\.theme) private var theme
   @Environment(\.openURL) private var openURL
 
@@ -67,8 +68,19 @@ struct ProScreen: View {
   private var footer: some View {
     VStack(spacing: 10) {
       if pro.isUnlocked {
-        Label("Anvil Pro is active", systemImage: "checkmark.circle.fill")
-          .font(.headline)
+        if let plan = library.installingPro {
+          // Bought, and already on its way down. What is left to know is how far it has got and
+          // that walking away doesn't stop it — the download outlives this screen.
+          ProgressView(value: library.progress(of: plan)?.fraction ?? 0)
+            .tint(theme.sendFill)
+          Text("Anvil Pro is downloading. You can leave this screen.")
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+        } else {
+          Label("Anvil Pro is active", systemImage: "checkmark.circle.fill")
+            .font(.headline)
+        }
         Button("Manage subscription") {
           if let url = URL(string: "https://apps.apple.com/account/subscriptions") { openURL(url) }
         }
@@ -117,7 +129,7 @@ struct ProScreen: View {
         #endif
 
         HStack(spacing: 18) {
-          Button("Restore purchases") { Task { await pro.restore() } }
+          Button("Restore purchases") { Task { await subscribe { await pro.restore() } } }
             .disabled(pro.isPurchasing)
           // What App Review asks a subscription screen to link to, along with the renewal line.
           Link("Privacy", destination: AppLinks.privacy)
@@ -140,6 +152,17 @@ struct ProScreen: View {
     .background(theme.page)
   }
 
+  /// Pays, or restores, and then fetches what was paid for. Anvil Pro is a subscription and a pair
+  /// of files, and pressing a price should get you both: nobody should have to buy Pro and then go
+  /// and find the thing that downloads it. `installPro` is the one that decides there is anything
+  /// to fetch — it does nothing when Pro is already on the phone, as it is after a restore on a
+  /// phone that already had it.
+  private func subscribe(_ pay: () async -> Void) async {
+    await pay()
+    guard pro.isUnlocked else { return }
+    await library.installPro()
+  }
+
   /// One way to pay: a capsule with the price and, for the year, what it saves. Filled for the one
   /// the screen recommends, outlined for the other, so the pair reads as a choice and not two
   /// asks. Both are Pro; the App Store moves a subscriber between them.
@@ -147,7 +170,7 @@ struct ProScreen: View {
     -> some View
   {
     Button {
-      Task { await pro.purchase(product) }
+      Task { await subscribe { await pro.purchase(product) } }
     } label: {
       subscribeLabel(label, tag: tag, filled: filled)
     }

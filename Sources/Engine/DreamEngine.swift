@@ -25,7 +25,12 @@ actor DreamEngine {
     var errorDescription: String? {
       switch self {
       case .incomplete(let name):
-        "The picture model is missing \(name). Delete Anvil Pro in Settings and download it again."
+        // No instruction to delete anything. A folder missing a file the model can't run without is
+        // thrown away by the app itself the moment this is raised — see `ChatModel.repairImageModel`
+        // — and either the download it came from is still on the phone, in which case it is unpacked
+        // again on its own, or Anvil Pro offers the picture model in Settings › Models.
+        "The picture model didn't arrive in one piece — \(name) is missing. Anvil has removed it; "
+          + "Settings › Models has it again."
       case .outdated:
         "This is the old picture model. Update Anvil Pro in Settings › Models to make pictures."
       case .noOutput:

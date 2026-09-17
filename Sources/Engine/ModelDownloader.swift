@@ -28,11 +28,6 @@ final class ModelDownloader {
   private(set) var receivedBytes: Int64 = 0
   private(set) var totalBytes: Int64 = 0
 
-  /// Parts fetched at once. One connection rarely saturates a phone's link, and a part that stalls
-  /// no longer holds up the ones behind it — the others keep arriving while it retries. Four: the
-  /// gain past that is small, and two models downloading together already make eight.
-  private static let concurrentParts = 4
-
   private var inFlight: [Int: Task<URL, Error>] = [:]
   private var partProgress: [Int: Int64] = [:]
   private var appendedBytes: Int64 = 0
@@ -97,11 +92,22 @@ final class ModelDownloader {
     partProgress.removeAll()
   }
 
-  /// Keeps the window of concurrent downloads topped up, starting from the part waiting to be
-  /// appended.
+  /// Hands the background session every part that isn't in hand yet, all at once, and leaves the
+  /// scheduling of them to iOS.
+  ///
+  /// This used to keep a rolling window of four parts topped up, which was the obvious thing and
+  /// the wrong one: topping the window up is work this app does, and this app doesn't run while
+  /// someone is somewhere else on their phone. A download left in the background got as far as the
+  /// window — four parts of Anvil Core's five, four of Anvil Raw's eight — and stopped there until
+  /// the app was opened again. Enqueued up front, the whole model comes down whether the app is on
+  /// the screen or not, and what is left for the app is the fast local half: checking a part and
+  /// appending it.
+  ///
+  /// Disk doesn't pay for it. A staged part is deleted as it is appended, so what is staged and
+  /// what is already in the file being built are two halves of one model: the peak is the model
+  /// plus the one part being appended, which is what `storageShortfall` reserves either way.
   private func startDownloads(from index: Int, in model: CatalogModel) {
-    let upper = min(index + Self.concurrentParts, model.parts.count)
-    for position in index..<upper where inFlight[position] == nil {
+    for position in index..<model.parts.count where inFlight[position] == nil {
       let part = model.parts[position]
       partProgress[position] = 0
       inFlight[position] = Task { [self] in
@@ -343,6 +349,20 @@ enum ModelDownloadFiles {
   /// an interrupted download would pass every part and still be no model at all. A mismatch throws
   /// the assembly away along with the record of how far it got, so trying again starts clean
   /// instead of installing the same file twice.
+  /// Throws away an unpacking that never finished: the app was closed part way through expanding
+  /// an archive, and the half-written folder beside the model is of no use to anyone. Called once at
+  /// launch, before anything starts unpacking again, so it can never meet one in progress.
+  static func discardAbandonedUnpacking() {
+    let fileManager = FileManager.default
+    guard let models = try? ModelFiles.modelsDirectory(),
+      let contents = try? fileManager.contentsOfDirectory(
+        at: models, includingPropertiesForKeys: nil, options: .skipsHiddenFiles)
+    else { return }
+    for url in contents where url.pathExtension == "unpacking" {
+      try? fileManager.removeItem(at: url)
+    }
+  }
+
   static func finish(_ model: CatalogModel) throws {
     let fileManager = FileManager.default
     let models = try ModelFiles.modelsDirectory()
@@ -364,14 +384,30 @@ enum ModelDownloadFiles {
     case .image:
       destination = models.appendingPathComponent(
         ModelFiles.imageModelName(for: model.id), isDirectory: true)
-      try? fileManager.removeItem(at: destination)
+      // Unpacked beside where it is going and moved in whole, rather than expanded into the place
+      // itself.
+      //
+      // Expanding into the place itself meant that anything stopping the app part way through left
+      // a folder with some of a model in it — and iOS stopping the app here is the ordinary case,
+      // not the rare one: a gigabyte is being written out while a chat model holds the memory.
+      // Nothing downstream could tell that folder from a finished one, because installed models are
+      // found by looking for the folder rather than for what is inside it. So half a model counted
+      // as a whole one, the app went on offering pictures, and the first one asked for failed on
+      // whichever file the unpacking never reached. A move within a volume is atomic: the folder is
+      // either not there at all or all there.
+      let staging = destination.appendingPathExtension("unpacking")
+      try? fileManager.removeItem(at: staging)
       do {
-        try ImageArchive.expand(partial, into: destination)
+        try ImageArchive.expand(partial, into: staging)
+        // And a truncated archive that unpacked without complaint is not a model either.
+        try ImageArchive.requireComplete(staging)
       } catch {
         // Half a folder is no model; the archive stays so trying again is only the unpacking.
-        try? fileManager.removeItem(at: destination)
+        try? fileManager.removeItem(at: staging)
         throw error
       }
+      try? fileManager.removeItem(at: destination)
+      try fileManager.moveItem(at: staging, to: destination)
       try? fileManager.removeItem(at: partial)
     }
     var values = URLResourceValues()

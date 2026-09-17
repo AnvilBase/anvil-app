@@ -163,15 +163,6 @@ struct SettingsScreen: View {
   private var modelSection: some View {
     Section("Models") {
       ForEach(modelRows) { row in modelRow(row) }
-      // Always here, not only when a setting has changed: this is also the way back from a model
-      // that wouldn't load.
-      Button {
-        Task { await chat.reloadModel() }
-        dismiss()
-      } label: {
-        Label("Reload model", systemImage: "arrow.clockwise")
-          .foregroundStyle(Color.primary)
-      }
     }
     .task { catalog = (try? await ModelCatalog.load()) ?? [] }
   }
@@ -371,7 +362,16 @@ struct SettingsScreen: View {
       } label: {
         HStack {
           Label {
-            Text(plan.name)
+            VStack(alignment: .leading, spacing: 2) {
+              Text(plan.name)
+              // The same line the install screen's card carries, for the subscriber who comes to
+              // Pro from here instead: pressing this takes Anvil Core off the phone.
+              if plan.isPro, library.proReplacesInstalledFree {
+                Text("Replaces Anvil Core")
+                  .font(.footnote)
+                  .foregroundStyle(.secondary)
+              }
+            }
           } icon: {
             Image(systemName: "arrow.down.circle")
           }

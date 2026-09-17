@@ -119,6 +119,11 @@ final class ChatModel {
     pro.isUnlocked && imageModel != nil && settings.imageGenerationEnabled
   }
 
+  /// What to do when the picture model turns out to be damaged: the library looks at the folder
+  /// again, throws it away, and the chat stops being offered pictures until it is back. Set by the
+  /// chat screen, which is where the chat and the library meet.
+  var repairImageModel: (() async -> Void)?
+
   /// Set when a message asked for a picture and Pro isn't active: the chat screen shows the Pro
   /// page, and clears this when it goes. See `ImageRequest` for what counts as asking.
   var showingPro = false
@@ -146,6 +151,51 @@ final class ChatModel {
   /// True when engine settings have changed since the model was loaded.
   var needsReload: Bool {
     loadedEngineOptions.map { $0 != settings.engine } ?? false
+  }
+
+  /// Replies that came back errors, one after another. One is a bad reply — a prompt the model
+  /// choked on, a tool that didn't answer — and nothing to rebuild an engine over. Several running
+  /// is the engine itself.
+  private var failedReplies = 0
+  private static let failuresBeforeReload = 2
+
+  /// When the model was last put back together to get out of trouble, so a reload that doesn't fix
+  /// anything can't become a reload every time the app is glanced at.
+  private var lastTroubleReload: ContinuousClock.Instant?
+  private static let troubleReloadInterval: Duration = .seconds(30)
+
+  /// Whether the chat is stuck in a way a reload could plausibly get it out of: the model never
+  /// loaded, or reply after reply is coming back an error.
+  private var isInTrouble: Bool {
+    if case .failed = loadState { return true }
+    return failedReplies >= Self.failuresBeforeReload
+  }
+
+  /// Loads the model again when it needs it.
+  ///
+  /// There used to be a Reload model button in Settings › Models for this, which asked someone to
+  /// know that reloading was a thing and that now was the time for it. The app knows both: it knows
+  /// when its engine is no longer the one the settings describe, when the load failed, and when
+  /// reply after reply comes back an error. So it does it itself — when Settings closes, when the
+  /// app comes back to the screen, and after a reply has failed twice running.
+  func reloadIfNeeded() async {
+    guard loadedModel != nil else { return }
+    // Settings the model wasn't loaded with. Not a symptom of anything going wrong — it is the
+    // change being applied — so it happens at once and as often as it is asked for.
+    if needsReload {
+      lastTroubleReload = nil
+      failedReplies = 0
+      await reloadModel()
+      return
+    }
+    // Trouble, which is the other thing, and has to be rationed: the same load fails the same way,
+    // and the point of waiting is to give whatever was in the way — memory, most often — time to
+    // stop being in the way.
+    guard isInTrouble else { return }
+    if let last = lastTroubleReload, last.duration(to: .now) < Self.troubleReloadInterval { return }
+    lastTroubleReload = .now
+    failedReplies = 0
+    await reloadModel()
   }
 
   // MARK: - The model on this iPhone
@@ -652,11 +702,13 @@ final class ChatModel {
     }
   }
 
-  /// Saves settings and applies the parts that don't need the model reloaded.
+  /// Saves settings and applies them — the parts that need no more than saving, and then, if the
+  /// engine was given new instructions while the sheet was open, the model itself.
   func settingsDidClose() async {
     settings.save()
     if openChat.messages.isEmpty { openChat.systemPrompt = settings.systemPrompt }
     await purgeExpiredChats()
+    await reloadIfNeeded()
   }
 
   func resetTotals() {
@@ -761,6 +813,12 @@ final class ChatModel {
         $0.text = "Couldn't make the picture: \(error.localizedDescription)"
         $0.isError = true
       }
+      // A folder missing a file the model needs is not going to start working on the next try, and
+      // asking again is the only thing anyone can do from here. So it goes now, rather than being
+      // offered over and over: the library looks again and finds it is not a model.
+      if let failure = error as? DreamEngine.Failure, case .incomplete = failure {
+        await repairImageModel?()
+      }
     }
   }
 
@@ -852,6 +910,7 @@ final class ChatModel {
           image: image, maxReplyTokens: maxReplyTokens, webSearch: webSearch,
           imageGenerator: imageGenerator, replyID: reply.id, started: started,
           firstPiece: &firstPiece)
+        failedReplies = 0
       } catch {
         if isStopping {
           // Stop was pressed; the reply is marked below.
@@ -865,6 +924,7 @@ final class ChatModel {
         } else {
           // The engine's conversation may no longer match the chat, so rebuild it next time.
           activeConversation = nil
+          failedReplies += 1
           updateMessage(reply.id) {
             $0.text = "Error: \(error.localizedDescription)"
             $0.isError = true
@@ -943,6 +1003,10 @@ final class ChatModel {
       } else if voiceModeOn {
         listenInVoiceMode()
       }
+
+      // Last, so a reload never holds up the reply that is already written or the voice reading it
+      // out: by here the reply is done with, and the engine is put back together for the next one.
+      await reloadIfNeeded()
     }
   }
 
