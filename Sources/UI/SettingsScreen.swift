@@ -131,29 +131,6 @@ struct SettingsScreen: View {
       .overlay(Capsule().strokeBorder(.secondary.opacity(0.6), lineWidth: 1))
   }
 
-  /// A Pro model's name with what it is — Unrestricted for Anvil Raw, Image for Anvil Dream, the
-  /// words the Pro page uses — whether Pro is active or not: the word is what tells the two Pro
-  /// models apart at a glance, and Pro being paid for doesn't change what they are. A free model
-  /// is its name alone. Beside the name where the row has room, which an installed row does; under
-  /// it on a row that hasn't been downloaded, where the arrow, the size and the Pro mark take the
-  /// rest of the line and Unrestricted beside the name was wrapped onto a line of its own.
-  private func modelName(_ name: String, pro: Bool, image: Bool, under: Bool = false) -> some View {
-    let tag = pro ? capsule(image ? "Image" : "Unrestricted") : nil
-    return Group {
-      if under {
-        VStack(alignment: .leading, spacing: 4) {
-          Text(name)
-          tag
-        }
-      } else {
-        HStack(spacing: 8) {
-          Text(name)
-          tag
-        }
-      }
-    }
-  }
-
   /// A row that is the control when Pro is active and the paywall's door when it isn't. The locked
   /// row keeps the control's name and shows the badge where its value would be, so the list reads
   /// the same either way and nothing jumps when Pro arrives.
@@ -174,15 +151,18 @@ struct SettingsScreen: View {
 
   // MARK: - Sections
 
-  /// Every text model, one row each, in the catalog's order — Anvil Core, Anvil Raw — whatever
-  /// state it is in: on the phone with a mark against the one in use, waiting to be downloaded, or
-  /// announced and not published yet. A file the catalog doesn't know, one imported by hand, comes
-  /// after them. Tap a model to switch to it, swipe one to delete it. A Pro model is listed either
-  /// way, and is the paywall's door rather than a model to switch to or download until Pro is
-  /// active. Anvil Dream is not here: see `imageSection`.
+  /// The two things Anvil is, one row each — Anvil Core and Anvil Pro — whatever state each is
+  /// in: on the phone with a mark against the one in use, waiting to be downloaded, or announced
+  /// and not published yet. A model the catalog doesn't know, one imported by hand, comes after
+  /// them. Tap a model to switch to it, swipe one to delete it. Anvil Pro is listed either way,
+  /// and is the paywall's door rather than a model to switch to or download until Pro is active.
+  ///
+  /// Anvil Pro is two files — the unrestricted model and the one that makes pictures — and one
+  /// row: they arrive together, go together, and neither is a thing to choose instead of the
+  /// other. Whether pictures get made at all is a switch rather than a model: see `imageSection`.
   private var modelSection: some View {
     Section("Models") {
-      ForEach(modelRows.filter { !$0.isImage }) { row in modelRow(row) }
+      ForEach(modelRows) { row in modelRow(row) }
       // Always here, not only when a setting has changed: this is also the way back from a model
       // that wouldn't load.
       Button {
@@ -196,17 +176,21 @@ struct SettingsScreen: View {
     .task { catalog = (try? await ModelCatalog.load()) ?? [] }
   }
 
-  /// Anvil Dream, under Models and apart from them. It is never the model in use, so it has no
-  /// place in a list of models to switch between; it makes pictures beside whichever one is, and
-  /// what there is to choose is whether it does. Installed, its row is that switch. Otherwise the
-  /// row is the same one it would have been above — to download, updating, coming soon, or the
-  /// paywall's door. Left out until the catalog or the phone has an image model to show.
+  /// What anvilai.com publishes, read as the two things on offer.
+  private var plans: [ModelPlan] { ModelPlan.plans(from: catalog) }
+
+  /// Pictures, which Anvil Pro makes: one switch, and only once there is something to switch. It
+  /// is not a model to choose between — it works beside whichever model the chat is on — so it is
+  /// a setting rather than a row under Models. Off, the model stays on the phone, nothing makes a
+  /// picture with it, and the memory it had loaded is let go.
   @ViewBuilder
   private var imageSection: some View {
-    let rows = modelRows.filter(\.isImage)
-    if !rows.isEmpty {
+    if library.imageModel != nil {
       Section("Image") {
-        ForEach(rows) { row in modelRow(row) }
+        Toggle("Image generation", isOn: $settings.imageGenerationEnabled)
+          .onChange(of: settings.imageGenerationEnabled) { _, on in
+            if !on { Task { await chat.unloadImageModel() } }
+          }
       }
     }
   }
@@ -214,176 +198,149 @@ struct SettingsScreen: View {
   @ViewBuilder
   private func modelRow(_ row: ModelRow) -> some View {
     switch row {
-    case .installed(let file): installedRow(file)
-    case .update(let model): downloadRow(model, update: true)
-    case .available(let model): downloadRow(model, update: false)
-    case .comingSoon(let model): comingSoonRow(model)
+    case .plan(let plan): planRow(plan)
+    case .file(let file): fileRow(file)
     }
   }
 
   private enum ModelRow: Identifiable {
-    case installed(ModelFile)
-    /// The catalog has a newer version of a model that is on the phone.
-    case update(CatalogModel)
-    case available(CatalogModel)
-    case comingSoon(CatalogModel)
-
-    /// Anvil Dream, or any image model: it goes in the Image section rather than under Models.
-    var isImage: Bool {
-      switch self {
-      case .installed(let file): file.kind == .image
-      case .update(let model), .available(let model), .comingSoon(let model): model.isImage
-      }
-    }
+    /// One of the things the catalog offers: Anvil Core, or Anvil Pro.
+    case plan(ModelPlan)
+    /// A model on the phone that the catalog doesn't know — one imported by hand.
+    case file(ModelFile)
 
     var id: String {
       switch self {
-      case .installed(let file): "installed-\(file.fileName)"
-      case .update(let model): "update-\(model.id)"
-      case .available(let model): "available-\(model.id)"
-      case .comingSoon(let model): "soon-\(model.id)"
+      case .plan(let plan): "plan-\(plan.id)"
+      case .file(let file): "file-\(file.fileName)"
       }
     }
   }
 
-  /// The rows in the order the catalog gives them, with what is installed slotted into its place.
-  /// Before the catalog has arrived, or without it, the installed models in their own order.
+  /// The rows in the order the catalog gives them, with whatever the catalog doesn't know after.
   private var modelRows: [ModelRow] {
-    var rows: [ModelRow] = []
-    var placed = Set<ModelFile>()
-    for model in catalog {
-      let files = library.installed.filter {
-        $0.catalogID == model.id || $0.fileName == model.fileName
-      }
-      if files.isEmpty {
-        rows.append(model.isComingSoon ? .comingSoon(model) : .available(model))
-        continue
-      }
-      for file in files {
-        rows.append(.installed(file))
-        placed.insert(file)
-      }
-      // The catalog can change what a name means — a model re-based on something better — and
-      // the file name stays; the version is what moves.
-      if !model.isComingSoon,
-        files.contains(where: { $0.catalogID == model.id && $0.version != model.version })
-      {
-        rows.append(.update(model))
-      }
-    }
-    for file in library.installed where !placed.contains(file) {
-      rows.append(.installed(file))
+    let offered = plans
+    var rows = offered.map(ModelRow.plan)
+    let accounted = Set(offered.flatMap { library.installedFiles(of: $0) })
+    for file in library.installed where !accounted.contains(file) && file.kind == .text {
+      rows.append(.file(file))
     }
     return rows
   }
 
+  /// One of the two, in whatever state it is in.
   @ViewBuilder
-  private func installedRow(_ file: ModelFile) -> some View {
-    Group {
-      if file.isPro, !pro.isUnlocked {
-        NavigationLink {
-          ProScreen()
-        } label: {
-          LabeledContent {
-            proBadge
-          } label: {
-            modelName(file.displayName, pro: true, image: file.kind == .image)
-          }
-        }
-      } else if file.kind == .image {
-        // Anvil Dream is never the active model; it works beside whichever one is. So its row is
-        // a switch rather than a mark: on, replies can come with pictures; off, it stays on the
-        // phone, nothing makes a picture with it, and the memory it had loaded is let go.
-        Toggle(isOn: $settings.imageGenerationEnabled) {
-          modelName(file.displayName, pro: file.isPro, image: true)
-        }
-        .onChange(of: settings.imageGenerationEnabled) { _, on in
-          if !on { Task { await chat.unloadImageModel() } }
-        }
-      } else {
-        Button {
-          guard file != library.active else { return }
-          library.select(file)
-          dismiss()
-        } label: {
-          HStack {
-            modelName(file.displayName, pro: file.isPro, image: false)
-              .foregroundStyle(Color.primary)
-            Spacer()
-            if file == library.active {
-              Image(systemName: "checkmark")
-                .foregroundStyle(Color.secondary)
-            }
-          }
+  private func planRow(_ plan: ModelPlan) -> some View {
+    if plan.isPro, !pro.isUnlocked {
+      // Listed whether or not its files are on the phone, and the door to the page that sells it:
+      // what Pro is for is the thing that can't be had yet.
+      NavigationLink {
+        ProScreen()
+      } label: {
+        LabeledContent { proBadge } label: { Text(plan.name) }
+      }
+    } else if library.isInstalled(plan) {
+      installedRow(plan)
+      // The catalog can change what a name means — a model re-based on something better — and the
+      // file name stays; the version is what moves.
+      if library.hasUpdate(for: plan) {
+        downloadRow(plan, update: true)
+      }
+    } else if plan.isComingSoon {
+      LabeledContent { Text("Coming soon").foregroundStyle(.secondary) } label: { Text(plan.name) }
+    } else {
+      downloadRow(plan)
+    }
+  }
+
+  /// A model that is on the phone: tap to run the chat on it, swipe to delete it. Deleting Anvil
+  /// Pro takes both of its files, because one row is one thing.
+  private func installedRow(_ plan: ModelPlan) -> some View {
+    Button {
+      guard !library.isActive(plan) else { return }
+      library.select(plan)
+      dismiss()
+    } label: {
+      HStack {
+        Text(plan.name)
+          .foregroundStyle(Color.primary)
+        Spacer()
+        if library.isActive(plan) {
+          Image(systemName: "checkmark")
+            .foregroundStyle(Color.secondary)
         }
       }
     }
     .swipeActions(edge: .trailing) {
       Button("Delete", role: .destructive) {
         Task {
-          // The engine has the file open; let go of it before it goes.
+          // The engine has the files open; let go of them before they go.
+          if library.isActive(plan) { await chat.unload() }
+          if plan.imageModel != nil { await chat.unloadImageModel() }
+          await library.remove(plan)
+        }
+      }
+    }
+  }
+
+  /// A model file no plan claims: one imported by hand, or — before the catalog has arrived — one
+  /// the app downloaded and can't place yet. It goes under the rows that are plans, named the way
+  /// the app names it rather than the way the file is.
+  private func fileRow(_ file: ModelFile) -> some View {
+    Button {
+      guard file != library.active else { return }
+      library.select(file)
+      dismiss()
+    } label: {
+      HStack {
+        Text(file.spokenName)
+          .foregroundStyle(Color.primary)
+        Spacer()
+        if file == library.active {
+          Image(systemName: "checkmark")
+            .foregroundStyle(Color.secondary)
+        }
+      }
+    }
+    .swipeActions(edge: .trailing) {
+      Button("Delete", role: .destructive) {
+        Task {
           if file == library.active { await chat.unload() }
-          if file.kind == .image { await chat.unloadImageModel() }
           await library.remove(file)
         }
       }
     }
   }
 
-  /// A model that is named but not published yet. Nothing to do here but see that it is coming.
-  @ViewBuilder
-  private func comingSoonRow(_ model: CatalogModel) -> some View {
-    let trailing = HStack(spacing: 8) {
-      Text("Coming soon")
-        .foregroundStyle(.secondary)
-      if model.isPro, !pro.isUnlocked { proBadge }
-    }
-    let name = modelName(model.name, pro: model.isPro, image: model.isImage, under: true)
-    if model.isPro, !pro.isUnlocked {
-      NavigationLink {
-        ProScreen()
-      } label: {
-        LabeledContent { trailing } label: { name }
-      }
-    } else {
-      LabeledContent { trailing } label: { name }
-    }
-  }
-
   /// A model that could be on the phone. Its row is its name — the arrow beside it says what
-  /// tapping does — and its size; an update says so where the size would be.
+  /// tapping does — and what it costs in space, the whole of it; an update says so where the size
+  /// would be. Anvil Pro's two files come one after the other, so there is one bar for the pair
+  /// and it counts what has already landed.
   @ViewBuilder
-  private func downloadRow(_ model: CatalogModel, update: Bool) -> some View {
-    let downloader = library.downloader(for: model)
-    let interrupted = library.interruptedDownloads.contains { $0.id == model.id }
-    let detail = interrupted ? "Resume" : (update ? "Update · \(model.formattedSize)" : model.formattedSize)
-    if model.isPro, !pro.isUnlocked {
-      NavigationLink {
-        ProScreen()
-      } label: {
-        HStack {
-          Label {
-            modelName(model.name, pro: true, image: model.isImage, under: true)
-          } icon: {
-            Image(systemName: "arrow.down.circle")
-          }
-          .foregroundStyle(Color.primary)
-          Spacer()
-          proBadge
-        }
-      }
-    } else if let downloader, downloader.isActive {
+  private func downloadRow(_ plan: ModelPlan, update: Bool = false) -> some View {
+    let downloader = library.downloader(for: plan)
+    let progress = library.progress(of: plan)
+    let fraction = progress?.fraction ?? downloader?.fraction ?? 0
+    // What pressing it costs, which is what is left to fetch rather than what the plan weighs.
+    let remaining = library.remainingSize(of: plan)
+    let cost =
+      remaining > 0
+      ? ByteCountFormatter.string(fromByteCount: remaining, countStyle: .file) : plan.formattedSize
+    let detail =
+      library.isInterrupted(plan)
+      ? "Resume" : (update ? "Update · \(plan.formattedSize)" : cost)
+    if let downloader, downloader.isActive {
       VStack(alignment: .leading, spacing: 8) {
         HStack {
-          modelName(model.name, pro: model.isPro, image: model.isImage, under: true)
+          Text(plan.name)
           Spacer()
-          Text("\(Int(downloader.fraction * 100))%")
+          Text("\(Int(fraction * 100))%")
             .foregroundStyle(.secondary)
             .monospacedDigit()
         }
-        ProgressView(value: downloader.fraction)
+        ProgressView(value: fraction)
           .tint(theme.sendFill)
-        Button("Cancel", role: .destructive) { Task { await library.cancelInstall(model) } }
+        Button("Cancel", role: .destructive) { Task { await library.cancelInstall(plan) } }
           .font(.subheadline)
           // Said outright: a button left to the default style inside a Form row hands its taps to
           // the row, which has nothing to do with them, and the press goes nowhere.
@@ -391,13 +348,14 @@ struct SettingsScreen: View {
       }
     } else if let downloader, case .failed(let message) = downloader.phase {
       VStack(alignment: .leading, spacing: 6) {
-        modelName(model.name, pro: model.isPro, image: model.isImage, under: true)
+        Text(plan.name)
         Text(message)
           .font(.footnote)
           .foregroundStyle(.secondary)
         HStack(spacing: 16) {
-          Button("Try again") { library.install(model) }
-          Button("Start over", role: .destructive) { Task { await library.cancelInstall(model) } }
+          // Try again picks up where it stopped: what has already landed is not fetched twice.
+          Button("Try again") { library.install(plan) }
+          Button("Start over", role: .destructive) { Task { await library.cancelInstall(plan) } }
         }
         .font(.subheadline)
         // Two buttons on one row: with the default style a tap on the row would press both, or
@@ -405,20 +363,21 @@ struct SettingsScreen: View {
         .buttonStyle(.borderless)
       }
     } else {
-      // Anvil Dream makes pictures for a chat, so it waits for a model to chat with.
-      let waitsForChatModel = model.isImage && !library.hasTextModel
+      // A plan with nothing to chat with in it — only the model that makes pictures, its chat
+      // model not published yet — waits for a model to chat with.
+      let waitsForChatModel = plan.textModel == nil && !library.hasTextModel
       Button {
-        library.install(model)
+        library.install(plan)
       } label: {
         HStack {
           Label {
-            modelName(model.name, pro: model.isPro, image: model.isImage, under: true)
+            Text(plan.name)
           } icon: {
             Image(systemName: "arrow.down.circle")
           }
           .foregroundStyle(waitsForChatModel ? Color.secondary : Color.primary)
           Spacer()
-          Text(waitsForChatModel ? "Needs Anvil Core or Raw" : detail)
+          Text(waitsForChatModel ? "Needs Anvil Core" : detail)
             .foregroundStyle(Color.secondary)
         }
       }

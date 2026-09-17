@@ -31,15 +31,6 @@ struct ProScreen: View {
               .foregroundStyle(.secondary)
             Text(feature.title)
               .font(.body.weight(.semibold))
-            if let tag = feature.tag {
-              Text(tag)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 7)
-                .padding(.vertical, 2)
-                .overlay(Capsule().strokeBorder(.secondary.opacity(0.6), lineWidth: 1))
-                .fixedSize()
-            }
           }
         }
       }
@@ -53,17 +44,18 @@ struct ProScreen: View {
     .navigationBarTitleDisplayMode(.inline)
   }
 
-  /// Each line is a name, and for a model a capsule after it saying what the name means: the name
-  /// stays whole on one line, which a sentence would not.
-  private static let features: [(symbol: String, title: String, tag: String?)] = [
-    ("lock.open", "Anvil Raw", "Unrestricted"),
-    ("paintbrush", "Anvil Dream", "Image"),
-    ("text.quote", "Custom System Prompt", nil),
-    ("slider.horizontal.3", "Sampling Controls", nil),
-    ("paintpalette", "Themes", nil),
-    ("app", "App Icons", nil),
-    ("lock", "Passcode Lock", nil),
-    ("waveform", "Talk Mode", nil),
+  /// Each line is one thing Pro is, named in as few words as say it: the line stays whole on one
+  /// line, which a sentence would not. No model names here — Pro is one model, and these are the
+  /// things it does.
+  private static let features: [(symbol: String, title: String)] = [
+    ("lock.open", "Unrestricted Answers"),
+    ("paintbrush", "Image Generation"),
+    ("text.quote", "Custom System Prompt"),
+    ("slider.horizontal.3", "Sampling Controls"),
+    ("paintpalette", "Themes"),
+    ("app", "App Icons"),
+    ("lock", "Passcode Lock"),
+    ("waveform", "Talk Mode"),
   ]
 
   // MARK: - Subscribe

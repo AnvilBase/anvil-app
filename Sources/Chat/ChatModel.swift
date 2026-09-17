@@ -294,8 +294,8 @@ final class ChatModel {
       if pro.isUnlocked {
         chatNotice =
           imageModel == nil
-          ? "Download Anvil Dream in Settings › Image to make pictures."
-          : "Anvil Dream is off. Turn it on in Settings › Image to make pictures."
+          ? "Download Anvil Pro in Settings › Models to make pictures."
+          : "Image generation is off. Turn it on in Settings › Image to make pictures."
       } else {
         showingPro = true
         return
@@ -758,7 +758,7 @@ final class ChatModel {
     } catch {
       updateMessage(replyID) {
         $0.imagePrompt = nil
-        $0.text = "Anvil Dream couldn't make the picture: \(error.localizedDescription)"
+        $0.text = "Couldn't make the picture: \(error.localizedDescription)"
         $0.isError = true
       }
     }
@@ -1038,7 +1038,7 @@ final class ChatModel {
       Task { try? await archive.saveImage(data, chatID: chatID, messageID: replyID) }
     case .imageGenerationFailed(let message):
       updateMessage(replyID) { $0.imagePrompt = nil }
-      chatNotice = "Anvil Dream couldn't make the picture: \(message)"
+      chatNotice = "Couldn't make the picture: \(message)"
     }
   }
 
@@ -1103,7 +1103,7 @@ final class ChatModel {
     }
     return ConversationOptions(
       systemPrompt: systemPrompt,
-      modelName: loadedModel?.displayName ?? AppFlavor.productName,
+      modelName: loadedModel?.spokenName ?? AppFlavor.productName,
       sampler: isPro && !values.useModelSamplerDefaults ? values.sampler : nil,
       webSearch: webSearchOn,
       memoryEnabled: values.memoryEnabled,

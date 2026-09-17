@@ -25,11 +25,11 @@ actor DreamEngine {
     var errorDescription: String? {
       switch self {
       case .incomplete(let name):
-        "Anvil Dream is missing \(name). Delete it in Settings › Image and download it again."
+        "The picture model is missing \(name). Delete Anvil Pro in Settings and download it again."
       case .outdated:
-        "This is the old Anvil Dream. Update it in Settings › Image to make pictures."
+        "This is the old picture model. Update Anvil Pro in Settings › Models to make pictures."
       case .noOutput:
-        "Anvil Dream produced nothing."
+        "The picture model produced nothing."
       }
     }
   }

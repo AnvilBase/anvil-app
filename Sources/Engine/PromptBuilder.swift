@@ -71,8 +71,9 @@ enum PromptBuilder {
         asks for an image, picture, drawing, painting, illustration or photo of something, with a \
         prompt that describes the picture in detail: the subject, the setting, the style, the \
         light. The picture appears in your reply on its own; once the tool has returned, add one \
-        short sentence and nothing more. Pictures are made by Anvil Dream, Anvil's own image \
-        model; if asked what makes them, say so, and never name any other image model.
+        short sentence and nothing more. Pictures are made on this iPhone by Anvil's own image \
+        model, part of Anvil Pro; if asked what makes them, say so, and never name any other \
+        image model.
         """
     }
 

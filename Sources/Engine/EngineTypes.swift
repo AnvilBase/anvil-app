@@ -22,7 +22,7 @@ struct ModelDetails: Equatable, Sendable {
 /// same tools.
 struct ConversationOptions: Equatable, Sendable {
   var systemPrompt: String
-  /// What the model is called — Anvil Core, Anvil Raw — and so what it calls itself. The prompt
+  /// What the model is called — Anvil Core, Anvil Pro — and so what it calls itself. The prompt
   /// tells it to answer to this name and to no other: what a model is built on stays under the
   /// hood.
   var modelName = "Anvil"

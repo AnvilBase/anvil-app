@@ -121,13 +121,25 @@ one.
 
 ### Download it in the app
 
-The first screen lists the models published at
-[anvilai.com/api/models](https://www.anvilai.com/api/models), in the catalog's order — **Anvil Core**,
-**Anvil Raw**, **Anvil Dream** — each with its size and parameter count. Anvil Core is the free one
-and the default, marked **Recommended**: tap **Download** and leave it running. It is the model the
-chat runs on until another is chosen, and the one it comes back to if a Pro model can't be used. The Pro models lead to the paywall until Pro is active, and one
-the catalog has announced but not published yet says "Coming soon". The development app has a **Skip** in the corner, for getting
-to the chat without waiting on gigabytes; the chat then says no model is installed until one is.
+The first screen lists what Anvil offers as the two things it is — **Anvil Core** and **Anvil
+Pro** — each with its size and parameter count. Behind them are the models published at
+[anvilai.com/api/models](https://www.anvilai.com/api/models): Anvil Core is one file, and Anvil Pro
+is every file the catalog marks `pro` — the unrestricted model and the one that makes pictures —
+gathered into one card, so its size is both of them added up. Anvil Core is the free one and the
+default, marked **Recommended**: tap **Download** and leave it running. It is the model the chat
+runs on until another is chosen, and the one it comes back to if the Pro model can't be used. Anvil
+Pro leads to the paywall until Pro is active, and a plan the catalog has announced but not published
+yet says "Coming soon". Pro's files arrive one after another rather than together — the picture
+model is only installed beside a model to chat with — under one progress bar for the pair, and a
+download that stops stops the plan there, so **Try again** carries on from what has already landed.
+The development app has a **Skip** in the corner, for getting to the chat without waiting on
+gigabytes; the chat then says no model is installed until one is.
+
+The grouping is `Sources/Engine/ModelPlan.swift`, and it is the only place that knows the catalog is
+longer than the list of things the app sells: add a third `pro` model to the catalog and it joins
+Anvil Pro rather than appearing beside it.
+
+The files behind the two:
 
 | Model | Size | Licence |
 | --- | --- | --- |
@@ -148,10 +160,12 @@ the model files are published from
 publishes them — point `ANVIL_HOST` (see [Configuration](#configuration)) at your own
 deployment to serve your own.
 
-Models you download sit side by side. **Settings › Models** lists them with a mark against the one in
-use — tap another to switch, swipe one to delete it — and offers the rest of the catalog to download
-from there. Anvil Dream, which makes pictures rather than text, is listed apart from them, in
-**Settings › Image** just below, where its row is a switch. If loading fails, the screen says why
+Models you download sit side by side. **Settings › Models** lists the same two, with a mark against
+the one in use — tap the other to switch, swipe one to delete it — and offers whichever isn't on the
+phone to download from there. Deleting Anvil Pro takes both of its files, because one row is one
+thing. Whether pictures get made at all is not a model to switch between — the picture model works
+beside whichever model the chat is on — so it is a switch, **Image generation** in **Settings ›
+Image** just below, shown once there is something to switch. If loading fails, the screen says why
 and offers **Try again**; Settings has **Reload model** too. The first load is slow; engine caches go in `Library/Caches/EngineCache`, so later
 launches are much faster.
 
@@ -181,21 +195,21 @@ instructions for new chats. **Settings › Memory** lists them, and lets you add
 them. They're stored in `Application Support/Memory` with complete file protection and aren't
 backed up.
 
-**Pictures.** With Anvil Pro and **Anvil Dream** installed and switched on (**Settings › Image**, a section
-of its own under Models, has the switch; it is on once downloaded), the model can make a picture with the
-`generate_image` tool: ask for a drawing, a painting or a photo of something and it appears in the
-reply, made on the phone; the first after a launch takes longest, while the model loads. With
-**Anvil Raw** as the model, a message that asks
+**Pictures.** With Anvil Pro installed and **Image generation** switched on (**Settings › Image**, a
+section of its own under Models, has the switch; it is on once downloaded), the model can make a
+picture with the `generate_image` tool: ask for a drawing, a painting or a photo of something and it
+appears in the reply, made on the phone; the first after a launch takes longest, while the model
+loads. With **Anvil Pro** as the model, a message that asks
 for a picture — "generate an image of a fox", "draw a dragon" — is made straight away by the app
 without asking the model, "make it darker" after a picture changes it, and a refusal to a message
-about a picture is answered with the picture: Raw's no is not the app's
+about a picture is answered with the picture: the unrestricted model's no is not the app's
 (`Sources/Chat/ImageRequest.swift`). With Anvil Core the model is asked through its tool and keeps
 its own judgement. The tool is only offered where a picture can be made.
 Without Pro, a message that clearly asks for one — "generate an image", "a picture of a fox" —
 opens the Pro page instead of sending, with the words kept in the field; the app reads the message
 for that itself (`Sources/Chat/ImageRequest.swift`) rather than trusting the model, which reaches
-for a picture tool on messages that never asked. With Pro but without Anvil Dream, or with it
-switched off, the message goes and a notice points at the download or the switch. Anvil Dream is
+for a picture tool on messages that never asked. With Pro but without the picture model, or with it
+switched off, the message goes and a notice points at the download or the switch. The picture model is
 Realism by Stable Yogi V5 XL Lightning, a photorealistic SDXL model, run through Core ML on the
 Neural Engine: a 1024×1024 picture in seven passes of Euler ancestral with guidance of 1.5 against
 the empty prompt, the sampler and settings its package names in `PROVENANCE.json`. The samplers
@@ -254,16 +268,21 @@ one there. The voice installed by default is the compact one. Apple's premium vo
 Siri and are free, but have to be downloaded once in the Settings app under Accessibility › Spoken
 Content › Voices; the picker says so.
 
-Pro also has its own models. **Anvil Raw** is the catalog entry marked `pro`, a larger model with
-its refusals removed, offered in Settings › Models behind the Pro badge. It can be downloaded and
-switched to only while Pro is active; if the subscription lapses the chat moves back to Anvil Core,
-or to the install screen if no free model is on the phone. **Anvil Dream** is the entry marked
-`pro` and `"kind": "image"`: it makes pictures rather than text, is never the model the chat runs
-on, and works beside whichever one is, so Settings lists it under Image rather than Models, with
-a switch to turn it off — see [Pictures](#what-the-app-does). It arrives as an Apple
-Archive of Core ML models that the app unpacks into its own folder, and the `generate_image` tool
-makes pictures while it is installed and Pro is active. On the install screen both lead to
-the paywall — the way in is Anvil Core, and Pro is found in Settings.
+Pro is also a model. **Anvil Pro** is one row on screen and two entries in the catalog, both
+marked `pro`: a larger model with its refusals removed (`anvil-raw`), which is the one the chat
+runs on, and an image model (`anvil-dream`, `"kind": "image"`) that makes pictures rather than
+text. Neither is offered on its own. The pair can be downloaded, switched to and used only while
+Pro is active; if the subscription lapses the chat moves back to Anvil Core, or to the install
+screen if no free model is on the phone. Deleting Anvil Pro deletes both files.
+
+The picture model is never the model the chat runs on — it works beside whichever one is — so
+what there is to choose is whether it works at all: **Image generation**, a switch in Settings ›
+Image under Models, shown once the model is there. See [Pictures](#what-the-app-does). It arrives
+as an Apple Archive of Core ML models that the app unpacks into its own folder, and the
+`generate_image` tool makes pictures while it is installed and Pro is active. On the install screen
+Anvil Pro leads to the paywall — the way in is Anvil Core, and Pro is found in Settings. The model
+answers to the name the app gives it, so the chat on the Pro model says it is Anvil Pro; `anvil-raw`
+is a file name, not something the app ever puts on screen.
 
 Whether Pro is active is read from the App Store's entitlements, in `Sources/Pro/ProAccess.swift`,
 and from nowhere else. The settings Pro unlocks are stored either way and honoured only while the App

@@ -24,6 +24,12 @@ struct ModelFile: Hashable, Sendable, Identifiable {
 
   var id: URL { url }
   var fileName: String { url.lastPathComponent }
+
+  /// What the model answers to, which is what the app calls it: the Pro model is Anvil Pro, under
+  /// whatever name the catalog publishes the file. The app offers two models and the model in the
+  /// chat should be one of the two it offers — a chat that says it is Anvil Raw names something
+  /// no screen in the app does.
+  var spokenName: String { isPro && kind == .text ? ModelPlan.proName : displayName }
 }
 
 /// The models on the phone, and which one the chat runs on.
@@ -64,6 +70,9 @@ final class ModelLibrary {
 
   private var isRefreshing = false
   private var installTasks: [String: Task<Void, Never>] = [:]
+  /// The plan installs under way, by plan id. A plan's files are fetched one after another, so
+  /// this is the task walking the plan rather than any one download.
+  private var planTasks: [String: Task<Void, Never>] = [:]
 
   /// Downloads the app closing interrupted, each of which can be carried on. Not the ones already
   /// carrying on.
@@ -73,6 +82,119 @@ final class ModelLibrary {
 
   /// The download of `model`, while it is under way or has just failed.
   func downloader(for model: CatalogModel) -> ModelDownloader? { downloads[model.id] }
+
+  /// Whether this catalog model is already on the phone.
+  func isInstalled(_ model: CatalogModel) -> Bool {
+    installed.contains { $0.catalogID == model.id || $0.fileName == model.fileName }
+  }
+
+  // MARK: - Plans
+
+  /// Whether the whole of a plan is on the phone. Anvil Pro is two files, and half of it isn't it.
+  func isInstalled(_ plan: ModelPlan) -> Bool {
+    !plan.publishedModels.isEmpty && plan.publishedModels.allSatisfy { isInstalled($0) }
+  }
+
+  /// The plan's files that are here, for the rows that list or delete them.
+  func installedFiles(of plan: ModelPlan) -> [ModelFile] {
+    installed.filter { file in
+      plan.models.contains { $0.id == file.catalogID || $0.fileName == file.fileName }
+    }
+  }
+
+  /// Whether the chat is running on this plan's model.
+  func isActive(_ plan: ModelPlan) -> Bool {
+    guard let active else { return false }
+    return installedFiles(of: plan).contains(active)
+  }
+
+  /// The catalog has something newer for a file of this plan that is on the phone.
+  func hasUpdate(for plan: ModelPlan) -> Bool {
+    plan.publishedModels.contains { model in
+      installed.contains { $0.catalogID == model.id && $0.version != model.version }
+    }
+  }
+
+  /// The download this plan has going, or the one that stopped: the plan's files arrive one at a
+  /// time, so at most one of them is ever the one to show.
+  func downloader(for plan: ModelPlan) -> ModelDownloader? {
+    let planDownloads = plan.models.compactMap { downloads[$0.id] }
+    return planDownloads.first { $0.isActive } ?? planDownloads.first
+  }
+
+  /// Whether a plan has a download the app closed part-way through, waiting to be carried on.
+  func isInterrupted(_ plan: ModelPlan) -> Bool {
+    let carryingOn = plan.models.contains { downloads[$0.id]?.isActive ?? false }
+    return !carryingOn && interruptedDownloads.contains { plan.contains($0) }
+  }
+
+  /// How far the whole plan is: what is already here, plus how far the file in hand has got, over
+  /// everything the plan is. Nil until one of its files is on the way, because a percentage of
+  /// nothing means nothing.
+  func progress(of plan: ModelPlan) -> (received: Int64, total: Int64, fraction: Double)? {
+    let models = plan.publishedModels
+    guard models.contains(where: { downloads[$0.id] != nil }) else { return nil }
+    var received: Int64 = 0
+    var total: Int64 = 0
+    for model in models {
+      total += model.sizeBytes
+      if isInstalled(model) {
+        received += model.sizeBytes
+      } else if let downloader = downloads[model.id] {
+        received += downloader.receivedBytes
+      }
+    }
+    guard total > 0 else { return nil }
+    return (received, total, min(Double(received) / Double(total), 1))
+  }
+
+  /// What the plan still costs in space: the files of it that aren't on the phone yet. Half of
+  /// Anvil Pro already down is half of Anvil Pro left to fetch, and the row that offers it should
+  /// say the number that pressing it will actually cost.
+  func remainingSize(of plan: ModelPlan) -> Int64 {
+    plan.publishedModels.filter { !isInstalled($0) }.reduce(0) { $0 + $1.sizeBytes }
+  }
+
+  /// Downloads what the plan is missing, one file after another.
+  ///
+  /// One at a time, and in the plan's order, for two reasons: the model that makes pictures is
+  /// only installed beside a model to chat with, and two downloads at once are each half as fast
+  /// on the same connection. A file that stops stops the plan there, so Try again carries on from
+  /// what is already down rather than starting the whole plan over.
+  func install(_ plan: ModelPlan) {
+    guard planTasks[plan.id] == nil else { return }
+    planTasks[plan.id] = Task { [self] in
+      defer { planTasks[plan.id] = nil }
+      for model in plan.publishedModels where !isInstalled(model) {
+        install(model)
+        while let task = installTasks[model.id] { _ = await task.value }
+        guard isInstalled(model) else { return }
+      }
+    }
+  }
+
+  /// Stops whatever the plan has going and throws away what it had. What is already installed
+  /// stays installed: this is cancelling a download, not deleting a model.
+  func cancelInstall(_ plan: ModelPlan) async {
+    planTasks[plan.id]?.cancel()
+    planTasks[plan.id] = nil
+    for model in plan.models where !isInstalled(model) {
+      await cancelInstall(model)
+    }
+  }
+
+  /// Deletes the whole plan. Anvil Pro is one thing on screen, so it is one thing to delete.
+  func remove(_ plan: ModelPlan) async {
+    for file in installedFiles(of: plan) {
+      await remove(file)
+    }
+  }
+
+  /// Makes the chat run on this plan's model.
+  func select(_ plan: ModelPlan) {
+    guard let file = installedFiles(of: plan).first(where: { $0.kind == .text }) else { return }
+    select(file)
+  }
 
   /// Whether any download is under way.
   var isDownloading: Bool { downloads.values.contains { $0.isActive } }
