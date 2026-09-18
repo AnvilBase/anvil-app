@@ -279,10 +279,32 @@ final class ModelLibrary {
     return nil
   }
 
-  /// The image model the chat can make pictures with: Anvil Dream, while it is installed and Pro
-  /// is active. It is never the active model; it works beside whichever text model is.
+  /// The image model the chat can make pictures with, while one is installed and Pro is active:
+  /// the one chosen in Settings › Image, or, if that one has gone, whichever is here. It is never
+  /// the active model; it works beside whichever text model is.
   var imageModel: ModelFile? {
-    installed.first { $0.kind == .image && usable($0) }
+    let candidates = installed.filter { $0.kind == .image && usable($0) }
+    if let chosenImageFileName, let chosen = candidates.first(where: { $0.fileName == chosenImageFileName }) {
+      return chosen
+    }
+    return candidates.first
+  }
+
+  /// The image model chosen to make pictures with, by file name, remembered across launches.
+  /// Anvil Dream and Anvil Dream Lite can both be on the phone; this is which one paints.
+  private(set) var chosenImageFileName: String? = ModelFiles.activeImageFileName()
+
+  /// Makes pictures with this plan's model from now on.
+  func selectImage(_ plan: ModelPlan) {
+    guard let file = installedFiles(of: plan).first(where: { $0.kind == .image }) else { return }
+    chosenImageFileName = file.fileName
+    ModelFiles.setActiveImageFileName(file.fileName)
+  }
+
+  /// Whether this plan's model is the one pictures are made with.
+  func isActiveImage(_ plan: ModelPlan) -> Bool {
+    guard let imageModel else { return false }
+    return installedFiles(of: plan).contains(imageModel)
   }
 
   /// Downloads a model from anvilai.com. Whatever is already installed stays; the new one joins it.
@@ -471,6 +493,7 @@ enum ModelFiles {
   /// apart from a text model by this extension on the folder.
   static let imageModelExtension = "imagemodel"
   private static let activeFileNameKey = "activeModelFileName"
+  private static let activeImageFileNameKey = "activeImageModelFileName"
 
   /// The folder an image model is unpacked into, named for its catalog id.
   static func imageModelName(for id: String) -> String {
@@ -640,6 +663,14 @@ enum ModelFiles {
 
   static func setActiveFileName(_ name: String?) {
     UserDefaults.standard.set(name, forKey: activeFileNameKey)
+  }
+
+  static func activeImageFileName() -> String? {
+    UserDefaults.standard.string(forKey: activeImageFileNameKey)
+  }
+
+  static func setActiveImageFileName(_ name: String?) {
+    UserDefaults.standard.set(name, forKey: activeImageFileNameKey)
   }
 
   private static func excludeFromBackup(_ url: inout URL) throws {

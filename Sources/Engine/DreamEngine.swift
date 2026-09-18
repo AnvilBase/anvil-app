@@ -6,12 +6,18 @@ import os
 
 /// Anvil Dream: a picture from a line of text, made on this iPhone.
 ///
-/// Apple's Core ML build of Stable Diffusion does the heavy lifting — the two text encoders, the
-/// U-Net and the decoder are its models, loaded from the folder the download unpacked — and the
-/// sampling loop is here, because the model is a few-step SDXL one, made for a sampler the pipeline
-/// Apple ships doesn't have. `SDXLSampler` runs it the way its package says — the sampler, steps
-/// and guidance `SDXLSampling` reads — at 1024 pixels, with guidance the U-Net takes as a batch of
-/// two: the empty prompt, then the prompt.
+/// Apple's Core ML build of Stable Diffusion does the heavy lifting — the text encoders, the U-Net
+/// and the decoder are its models, loaded from the folder the download unpacked — and the sampling
+/// loop is here, because neither kind of model this runs can be sampled the way the pipeline Apple
+/// ships samples.
+///
+/// Two kinds, told apart by what is in the folder:
+/// - Anvil Dream Lite: Stable Diffusion 1.5 as a Latent Consistency Model, 512 pixels, one text
+///   encoder. It needs `LCMScheduler`: four passes, no negative prompt, no guidance, because
+///   guidance was distilled into the weights before the model was converted.
+/// - Anvil Dream: SDXL, 1024 pixels, with a second text encoder. A few-step model, run with
+///   `SDXLSampler` the way its package says — the sampler, steps and guidance `SDXLSampling`
+///   reads — and guidance its U-Net takes as a batch of two: the empty prompt, then the prompt.
 ///
 /// An actor holding the one loaded pipeline. It stays loaded for a while after a picture so the
 /// next one is quick, and lets go on its own after that: the chat model is already the largest
@@ -19,8 +25,6 @@ import os
 actor DreamEngine {
   enum Failure: LocalizedError {
     case incomplete(String)
-    /// The first Anvil Dream, a Stable Diffusion 1.5 model, which this engine no longer runs.
-    case outdated
     case noOutput
     /// The phone hasn't the memory left for the picture model beside what is already loaded.
     /// Said rather than tried: a picture attempted without the room is the app killed mid-way,
@@ -34,13 +38,11 @@ actor DreamEngine {
         // No instruction to delete anything. A folder missing a file the model can't run without is
         // thrown away by the app itself the moment this is raised — see `ChatModel.repairImageModel`
         // — and either the download it came from is still on the phone, in which case it is unpacked
-        // again on its own, or Settings › Models offers Anvil Dream again.
-        "The image generation model didn't arrive in one piece — \(name) is missing. Anvil has "
-          + "removed it; Settings › Models has it again."
-      case .outdated:
-        "This is the old image generation model. Update it in Settings › Models to make pictures."
+        // again on its own, or Settings › Image offers the model again.
+        "The image model didn't arrive in one piece — \(name) is missing. Anvil has removed it; "
+          + "Settings › Image has it again."
       case .noOutput:
-        "The image generation model produced nothing."
+        "The image model produced nothing."
       case .notEnoughMemory:
         "Not enough memory for a picture right now. Try again from a new chat, or after closing "
           + "other apps."
@@ -48,22 +50,39 @@ actor DreamEngine {
     }
   }
 
-  /// Pictures are 1024 by 1024, and the model is told so: the size is one of its inputs.
-  private static let imageSize: Float32 = 1024
-  /// SDXL's latent scaling, which the decoder undoes.
-  private static let decoderScaleFactor: Float32 = 0.13025
+  /// Anvil Dream Lite's pictures are 512 by 512: the size the model was trained at, and eight
+  /// times the latent.
+  private static let liteLatentSize = 64
+  private static let liteSteps = 4
+  /// Stable Diffusion 1.5's latent scaling, which the decoder undoes.
+  private static let liteDecoderScaleFactor: Float32 = 0.18215
+  /// SDXL's pictures are 1024 by 1024, and it is told so: the size is one of its inputs.
+  private static let xlImageSize: Float32 = 1024
+  /// SDXL's latent scaling, which differs from 1.5's.
+  private static let xlDecoderScaleFactor: Float32 = 0.13025
   /// How long the models stay in memory after a picture.
   private static let idleSeconds: Double = 90
-  /// What the pipeline needs free before it is loaded: its weights are 3.1 GB and it works in
-  /// more than that. A first estimate from one crash, not a measurement, and worth revising
-  /// once there is one: too high refuses pictures that would have worked, too low is the app
-  /// killed. Refusing is the one of the two anyone can recover from.
-  private static let memoryNeeded: Int = 3_500_000_000
+  /// What a pipeline needs free before it is loaded: SDXL's weights are 3.1 GB and it works in
+  /// more than that; the Lite model's are under a gigabyte. A first estimate from one crash, not
+  /// a measurement, and worth revising once there is one: too high refuses pictures that would
+  /// have worked, too low is the app killed. Refusing is the one of the two anyone can recover
+  /// from.
+  private static let xlMemoryNeeded: Int = 3_500_000_000
+  private static let liteMemoryNeeded: Int = 1_500_000_000
   /// Below this after a picture, the models are let go at once rather than kept for the next
   /// one: the room they hold is room the chat is about to need.
   private static let memoryComfortable: Int = 1_500_000_000
 
-  private struct Pipeline {
+  /// Anvil Dream Lite: one text encoder, the U-Net, the decoder.
+  private struct LitePipeline {
+    let textEncoder: TextEncoder
+    let unet: [ManagedMLModel]
+    let decoder: Decoder
+    let sampleShape: [Int]
+  }
+
+  /// Anvil Dream: two text encoders, the U-Net, the decoder, and how its package says to sample.
+  private struct XLPipeline {
     let textEncoder: TextEncoderXL
     let textEncoder2: TextEncoderXL
     let unet: [ManagedMLModel]
@@ -75,7 +94,12 @@ actor DreamEngine {
     let sampling: SDXLSampling
   }
 
-  private var pipeline: Pipeline?
+  private enum Loaded {
+    case lite(LitePipeline)
+    case xl(XLPipeline)
+  }
+
+  private var pipeline: Loaded?
   private var pipelineURL: URL?
   /// The empty prompt as the encoders read it: the unconditioned half of guidance, the same for
   /// every picture, so worked out once while the model is loaded.
@@ -93,18 +117,67 @@ actor DreamEngine {
     // Asked before anything is loaded, of the budget iOS actually gives this process — not
     // the phone's RAM, which the chat model has already taken most of. A picture there is no
     // room for is refused in a sentence rather than attempted and killed.
-    if pipeline == nil, os_proc_available_memory() < Self.memoryNeeded {
-      throw Failure.notEnoughMemory
-    }
     let freshlyLoaded = pipeline == nil || pipelineURL != model.url
-    if freshlyLoaded { progress(.loading) }
-    let pipeline = try load(model.url)
+    if freshlyLoaded {
+      let needed = Self.isXL(model.url) ? Self.xlMemoryNeeded : Self.liteMemoryNeeded
+      if os_proc_available_memory() < needed { throw Failure.notEnoughMemory }
+      progress(.loading)
+    }
+    let loaded = try load(model.url)
     progress(.reading)
     defer {
       if os_proc_available_memory() < Self.memoryComfortable { unload() } else { scheduleRelease() }
     }
     var noise = SeededNoise(seed: seed ?? UInt64.random(in: 0...UInt64.max))
+    switch loaded {
+    case .lite(let pipeline):
+      return try generate(prompt, with: pipeline, noise: &noise, freshlyLoaded: freshlyLoaded, progress: progress)
+    case .xl(let pipeline):
+      return try generate(prompt, with: pipeline, noise: &noise, freshlyLoaded: freshlyLoaded, progress: progress)
+    }
+  }
 
+  /// Anvil Dream Lite's loop: the Latent Consistency sampler, four passes, no guidance.
+  private func generate(
+    _ prompt: String, with pipeline: LitePipeline, noise: inout SeededNoise,
+    freshlyLoaded: Bool, progress: @Sendable (PictureStage) -> Void
+  ) throws -> CGImage {
+    let embedding = try pipeline.textEncoder.encode(prompt)
+    let hiddenStates = Self.hiddenStates(embedding)
+    pipeline.textEncoder.unloadResources()
+    let scheduler = LCMScheduler(steps: Self.liteSteps)
+    let count = pipeline.sampleShape.reduce(1, *)
+    var latent = MLShapedArray<Float32>(scalars: noise.gaussians(count: count), shape: pipeline.sampleShape)
+    let passes = scheduler.timeSteps.count
+
+    for (index, timeStep) in scheduler.timeSteps.enumerated() {
+      try Task.checkCancellation()
+      let pass = index + 1
+      progress(pass == 1 && freshlyLoaded ? .preparing : .painting(pass: pass, of: passes))
+      let step = MLShapedArray<Float32>(scalars: [Float(timeStep)], shape: [1])
+      let predicted = try Self.predictNoise(
+        pipeline.unet,
+        inputs: [
+          "sample": MLFeatureValue(multiArray: MLMultiArray(latent)),
+          "timestep": MLFeatureValue(multiArray: MLMultiArray(step)),
+          "encoder_hidden_states": MLFeatureValue(multiArray: MLMultiArray(hiddenStates)),
+        ])
+      latent = scheduler.step(output: predicted, timeStep: timeStep, sample: latent) {
+        noise.gaussians(count: count)
+      }
+    }
+    try Task.checkCancellation()
+    progress(.finishing)
+    guard let image = try pipeline.decoder.decode([latent], scaleFactor: Self.liteDecoderScaleFactor).first
+    else { throw Failure.noOutput }
+    return image
+  }
+
+  /// Anvil Dream's loop: the sampler its package names, with guidance as a batch of two.
+  private func generate(
+    _ prompt: String, with pipeline: XLPipeline, noise: inout SeededNoise,
+    freshlyLoaded: Bool, progress: @Sendable (PictureStage) -> Void
+  ) throws -> CGImage {
     let batch = pipeline.sampleShape[0]
     let guided = batch == 2
     let (prompted, pooled) = try Self.encode(prompt, with: pipeline)
@@ -117,7 +190,7 @@ actor DreamEngine {
     pipeline.textEncoder2.unloadResources()
     let hiddenStates = blank.map { Self.batched($0.hiddenStates, prompted) } ?? prompted
     let textEmbeds = blank.map { Self.batched($0.pooled, pooled) } ?? pooled
-    let size = Self.imageSize
+    let size = Self.xlImageSize
     let timeIds = MLShapedArray<Float32>(
       scalars: (0..<batch).flatMap { _ in [size, size, 0, 0, size, size] }, shape: pipeline.timeIdShape)
 
@@ -169,7 +242,7 @@ actor DreamEngine {
     try Task.checkCancellation()
     progress(.finishing)
     let latent = MLShapedArray<Float32>(scalars: clean, shape: latentShape)
-    guard let image = try pipeline.decoder.decode([latent], scaleFactor: Self.decoderScaleFactor).first
+    guard let image = try pipeline.decoder.decode([latent], scaleFactor: Self.xlDecoderScaleFactor).first
     else { throw Failure.noOutput }
     return image
   }
@@ -177,10 +250,19 @@ actor DreamEngine {
   func unload() {
     release?.cancel()
     release = nil
-    pipeline?.textEncoder.unloadResources()
-    pipeline?.textEncoder2.unloadResources()
-    pipeline?.unet.forEach { $0.unloadResources() }
-    pipeline?.decoder.unloadResources()
+    switch pipeline {
+    case .lite(let loaded):
+      loaded.textEncoder.unloadResources()
+      loaded.unet.forEach { $0.unloadResources() }
+      loaded.decoder.unloadResources()
+    case .xl(let loaded):
+      loaded.textEncoder.unloadResources()
+      loaded.textEncoder2.unloadResources()
+      loaded.unet.forEach { $0.unloadResources() }
+      loaded.decoder.unloadResources()
+    case nil:
+      break
+    }
     pipeline = nil
     pipelineURL = nil
     emptyPromptEncoding = nil
@@ -188,9 +270,15 @@ actor DreamEngine {
 
   // MARK: - Loading
 
-  /// The models in the folder the download unpacked, as Apple's converter lays them out: two text
-  /// encoders, the U-Net in two chunks or in one, and the decoder.
-  private func load(_ url: URL) throws -> Pipeline {
+  /// Whether the folder holds the SDXL model: a second text encoder says so.
+  private static func isXL(_ url: URL) -> Bool {
+    FileManager.default.fileExists(
+      atPath: resources(in: url).appendingPathComponent("TextEncoder2.mlmodelc").path)
+  }
+
+  /// The models in the folder the download unpacked, as Apple's converter lays them out: the
+  /// U-Net in two chunks or in one, the decoder, and a text encoder — two of them for SDXL.
+  private func load(_ url: URL) throws -> Loaded {
     if let pipeline, pipelineURL == url { return pipeline }
     unload()
 
@@ -200,13 +288,6 @@ actor DreamEngine {
       let file = resources.appendingPathComponent(name)
       guard fileManager.fileExists(atPath: file.path) else { throw Failure.incomplete(name) }
       return file
-    }
-    // The first Anvil Dream had one text encoder. A phone that hasn't updated it still has that
-    // folder, and is told to update rather than that a file is missing.
-    let secondEncoder = resources.appendingPathComponent("TextEncoder2.mlmodelc")
-    guard fileManager.fileExists(atPath: secondEncoder.path) else {
-      throw fileManager.fileExists(atPath: resources.appendingPathComponent("TextEncoder.mlmodelc").path)
-        ? Failure.outdated : Failure.incomplete("TextEncoder2.mlmodelc")
     }
 
     let configuration = MLModelConfiguration()
@@ -238,16 +319,29 @@ actor DreamEngine {
       inputs[name]?.multiArrayConstraint?.shape.map { $0.intValue }
     }
 
-    let loaded = Pipeline(
-      textEncoder: TextEncoderXL(
-        tokenizer: tokenizer, modelAt: try require("TextEncoder.mlmodelc"),
-        configuration: configuration),
-      textEncoder2: TextEncoderXL(
-        tokenizer: tokenizer, modelAt: secondEncoder, configuration: configuration),
-      unet: unet, decoder: decoder,
-      sampleShape: shape("sample") ?? [2, 4, 128, 128],
-      timeIdShape: shape("time_ids") ?? [2, 6],
-      sampling: SDXLSampling(packageAt: url))
+    let loaded: Loaded
+    let secondEncoder = resources.appendingPathComponent("TextEncoder2.mlmodelc")
+    if fileManager.fileExists(atPath: secondEncoder.path) {
+      loaded = .xl(
+        XLPipeline(
+          textEncoder: TextEncoderXL(
+            tokenizer: tokenizer, modelAt: try require("TextEncoder.mlmodelc"),
+            configuration: configuration),
+          textEncoder2: TextEncoderXL(
+            tokenizer: tokenizer, modelAt: secondEncoder, configuration: configuration),
+          unet: unet, decoder: decoder,
+          sampleShape: shape("sample") ?? [2, 4, 128, 128],
+          timeIdShape: shape("time_ids") ?? [2, 6],
+          sampling: SDXLSampling(packageAt: url)))
+    } else {
+      loaded = .lite(
+        LitePipeline(
+          textEncoder: TextEncoder(
+            tokenizer: tokenizer, modelAt: try require("TextEncoder.mlmodelc"),
+            configuration: configuration),
+          unet: unet, decoder: decoder,
+          sampleShape: shape("sample") ?? [1, 4, Self.liteLatentSize, Self.liteLatentSize]))
+    }
     pipeline = loaded
     pipelineURL = url
     return loaded
@@ -298,14 +392,14 @@ actor DreamEngine {
   /// Both encoders' reading of `text`: their words side by side, as the U-Net takes them, and the
   /// pooled sentence from the second.
   private static func encode(
-    _ text: String, with pipeline: Pipeline
+    _ text: String, with pipeline: XLPipeline
   ) throws -> (hiddenStates: MLShapedArray<Float32>, pooled: MLShapedArray<Float32>) {
     let (words, _) = try pipeline.textEncoder.encode(text)
     let (words2, pooled) = try pipeline.textEncoder2.encode(text)
     return (hiddenStates(MLShapedArray(concatenating: [words, words2], alongAxis: 2)), pooled)
   }
 
-  /// The text encoders answer [1, 77, width]; the U-Net wants it as [1, width, 1, 77].
+  /// A text encoder answers [1, 77, width]; the U-Net wants it as [1, width, 1, 77].
   private static func hiddenStates(_ embedding: MLShapedArray<Float32>) -> MLShapedArray<Float32> {
     let shape = embedding.shape
     var states = MLShapedArray<Float32>(repeating: 0, shape: [shape[0], shape[2], 1, shape[1]])
@@ -328,7 +422,7 @@ actor DreamEngine {
 
   /// The empty prompt as `pipeline`'s encoders read it, worked out the first time it is wanted.
   private func emptyPrompt(
-    for pipeline: Pipeline
+    for pipeline: XLPipeline
   ) throws -> (hiddenStates: MLShapedArray<Float32>, pooled: MLShapedArray<Float32>) {
     if let emptyPromptEncoding { return emptyPromptEncoding }
     let encoded = try Self.encode("", with: pipeline)

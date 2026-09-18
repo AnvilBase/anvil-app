@@ -300,9 +300,11 @@ struct SettingsScreen: View {
         .onChange(of: settings.imageGenerationEnabled) { _, on in
           if !on { Task { await chat.unloadImageModel() } }
         }
-        // The model itself, under the switch it serves: what it costs to download, how far
-        // it has got, or that it is here — and a swipe to take it off the phone.
-        if let plan = plans.first(where: \.isImage) {
+        // The models that make pictures, under the switch they serve — Anvil Dream, and Anvil
+        // Dream Lite, smaller and quicker — each what it costs to download, how far it has got,
+        // or here with a mark against the one in use. Tap one to paint with it, swipe to take it
+        // off the phone. Both can be here; one paints.
+        ForEach(plans.filter(\.isImage)) { plan in
           imageModelRow(plan)
         }
       }
@@ -372,29 +374,43 @@ struct SettingsScreen: View {
     }
   }
 
-  /// The picture model's row in the Image section, called Model because the switch above it
-  /// already says what for: its download, its progress, or Installed with a swipe to delete.
+  /// One picture model's row in the Image section: its download, its progress, or — on the
+  /// phone — its name with a mark against it if it is the one that paints. Tap to paint with it,
+  /// swipe to delete it.
   @ViewBuilder
   private func imageModelRow(_ plan: ModelPlan) -> some View {
     if library.isInstalled(plan) {
-      LabeledContent("Model") {
-        Text("Installed")
+      Button {
+        guard !library.isActiveImage(plan) else { return }
+        library.selectImage(plan)
+        // The other model, if it was loaded, goes; the chosen one loads at the next picture.
+        Task { await chat.unloadImageModel() }
+      } label: {
+        HStack {
+          Text(plan.name)
+            .foregroundStyle(Color.primary)
+          Spacer()
+          if library.isActiveImage(plan) {
+            Image(systemName: "checkmark")
+              .foregroundStyle(Color.secondary)
+          }
+        }
       }
       .swipeActions(edge: .trailing) {
         Button("Delete", role: .destructive) {
           Task {
-            await chat.unloadImageModel()
+            if library.isActiveImage(plan) { await chat.unloadImageModel() }
             await library.remove(plan)
           }
         }
       }
       if library.hasUpdate(for: plan) {
-        downloadRow(plan, title: "Model", update: true)
+        downloadRow(plan, update: true)
       }
     } else if plan.isComingSoon {
-      LabeledContent("Model") { Text("Coming soon").foregroundStyle(.secondary) }
+      LabeledContent(plan.name) { Text("Coming soon").foregroundStyle(.secondary) }
     } else {
-      downloadRow(plan, title: "Model")
+      downloadRow(plan)
     }
   }
 

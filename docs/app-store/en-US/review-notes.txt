@@ -14,7 +14,7 @@ Anvil Pro is an optional auto-renewing subscription. Both products belong in one
 com.anvilbase.anvil.pro.monthly — 1 month, $9.99 (US)
 com.anvilbase.anvil.pro.yearly — 1 year, $99 (US)
 
-Settings > Anvil Pro shows App Store prices, Restore purchases, Privacy, and Terms. The app offers three models, each its own download: Anvil Core, free; Anvil Pro, an unrestricted text model (approximately 4.17 GB, which requires more memory than Core); and Image generation, an image model (approximately 3.02 GB; Anvil Dream in the catalog). The last two need the Anvil Pro subscription, which unlocks unrestricted answers, image generation, custom prompts, sampling, themes, icons, passcode lock, and audio replies. Free chat does not require a subscription. If Pro expires, the app returns to a free model.
+Settings > Anvil Pro shows App Store prices, Restore purchases, Privacy, and Terms. The app offers three models, each its own download: Anvil Core, free; Anvil Pro, an unrestricted text model (approximately 4.17 GB, which requires more memory than Core); and two image models, Anvil Dream (approximately 3.02 GB) and Anvil Dream Lite (approximately 0.87 GB). The image models need the Anvil Pro subscription, which unlocks unrestricted answers, image generation, custom prompts, sampling, themes, icons, passcode lock, and audio replies. Free chat does not require a subscription. If Pro expires, the app returns to a free model.
 
 Microphone/camera permissions are requested when those features are used. Dictation stays on device; unsupported languages do not fall back to server transcription. The system may download a speech language asset on first use.
 

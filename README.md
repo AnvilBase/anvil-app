@@ -125,14 +125,15 @@ one.
 
 ### Download it in the app
 
-The first screen lists the three things Anvil offers — **Anvil Core**, **Anvil Pro** and **Image
-generation** — each with its size and parameter count, as the catalog at
+The first screen lists what Anvil offers — **Anvil Core**, **Anvil Pro**, **Anvil Dream** and
+**Anvil Dream Lite** — each with its size and parameter count, as the catalog at
 [anvilai.com/api/models](https://www.anvilai.com/api/models) publishes them. Each is one file and
-one download. The catalog calls the picture model Anvil Dream; the app calls it what it is for. Anvil Core is the free one and the default: tap **Download** and leave it running. It
+one download. Anvil Core is the free one and the default: tap **Download** and leave it running. It
 is the model the chat runs on until another is chosen, and the one it comes back to if the Pro model
-can't be used. Anvil Pro is the unrestricted model and Image generation the one that makes pictures;
-both need Anvil Pro, so their cards lead to the paywall until it is active, and Image generation waits
-for a chat model to be on the phone, since a picture is made for a reply. A plan the catalog has announced
+can't be used. Anvil Pro is the unrestricted model; Anvil Dream and Anvil Dream Lite make pictures,
+the second smaller and quicker. All three need Anvil Pro, so their cards lead to the paywall until it
+is active, and a picture model waits for a chat model to be on the phone, since a picture is made for
+a reply. A plan the catalog has announced
 but not published yet says "Coming soon". A line under a download's bar says what is being done with
 it — fetched, checked, or, for the image model, unpacked — and the same line shows in Settings and in the
 chat's banner. A download that stops leaves **Try again** to carry on from what has already landed.
@@ -148,7 +149,8 @@ The three:
 | --- | --- | --- |
 | Anvil Core (`anvil-forge`) | 2.59 GB | [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0) |
 | Anvil Pro (`anvil-raw`, Pro, unrestricted) | 4.17 GB | [Gemma Terms of Use](https://ai.google.dev/gemma/terms) |
-| Image generation (`anvil-dream`, Pro, pictures) | 3.02 GB | [CreativeML Open RAIL++-M](https://github.com/Stability-AI/generative-models/blob/main/model_licenses/LICENSE-SDXL1.0) |
+| Anvil Dream (`anvil-dream`, Pro, pictures, 1024 px) | 3.02 GB | [CreativeML Open RAIL++-M](https://github.com/Stability-AI/generative-models/blob/main/model_licenses/LICENSE-SDXL1.0) |
+| Anvil Dream Lite (`anvil-dream-lite`, Pro, pictures, 512 px) | 0.87 GB | [MIT](https://huggingface.co/SimianLuo/LCM_Dreamshaper_v7) |
 
 A model is served as a list of 128 MiB parts, each behind a URL on anvilai.com that redirects to
 the part in a Cloudflare R2 bucket (`models.anvilai.com`), where a part that size is cached at the
@@ -164,11 +166,12 @@ the model files are published from
 publishes them to the bucket and says how the bucket is served — point `ANVIL_HOST` (see
 [Configuration](#configuration)) at your own deployment to serve your own.
 
-Models you download sit side by side. **Settings › Models** lists the same three, with a mark
+Models you download sit side by side. **Settings › Models** lists the chat models, with a mark
 against the one in use — tap another to switch, swipe one to delete it — and offers whichever isn't
-on the phone to download from there. Whether pictures get made at all is not a model to switch
-between — the image model works beside whichever model the chat is on — so it is a switch, **Image
-generation** in **Settings › Image** just below, shown once there is something to switch. With Pro
+on the phone to download from there. The picture models live in **Settings › Image**: the **Image
+generation** switch, then Anvil Dream and Anvil Dream Lite, each to download, or on the phone with a
+mark against the one that paints — tap the other to paint with it instead, swipe to delete. Both can
+be on the phone; one paints. With Pro
 active and either of its models still to download, the Models row on the first Settings screen wears
 a green mark, and so does the row that downloads it. If loading fails, the screen says why
 and offers **Try again**; the app reloads on its own when the settings it was loaded with change. The first load is slow; engine caches go in `Library/Caches/EngineCache`, so later
@@ -218,8 +221,9 @@ switched off, the message goes and a notice points at the download or the switch
 Realism by Stable Yogi V5 XL Lightning, a photorealistic SDXL model, run through Core ML on the
 Neural Engine: a 1024×1024 picture in seven passes of Euler ancestral with guidance of 1.5 against
 the empty prompt, the sampler and settings its package names in `PROVENANCE.json`. The samplers
-are `Sources/Engine/SDXLSampler.swift` and the loop is `DreamEngine.swift`. The first Anvil Dream,
-a Stable Diffusion 1.5 model, doesn't run any more: a phone that still has it is asked to update.
+are `Sources/Engine/SDXLSampler.swift` and the loop is `DreamEngine.swift`, which also runs Anvil
+Dream Lite — LCM Dreamshaper v7, a Stable Diffusion 1.5 Latent Consistency Model at 512 pixels, four
+passes with `LCMScheduler.swift` — for a package that has one text encoder.
 Pictures are kept with the chat the way photos are, and open full screen the same way. Nothing
 about the prompt or the picture leaves the phone.
 
@@ -354,7 +358,7 @@ Support/         per-app Info.plist and entitlements
 | `Chat/ChatArchive.swift` | Saves chats, photos, and totals as protected files |
 | `Chat/PrivateFiles.swift` | Complete file protection, excluded from backups |
 | `Engine/OnDeviceEngine.swift` | LiteRT-LM engine and conversation: load with fallbacks, stream, cancel, count |
-| `Engine/DreamEngine.swift`, `SDXLSampler.swift` | Anvil Dream: Core ML SDXL, with the sampler its package names |
+| `Engine/DreamEngine.swift`, `SDXLSampler.swift`, `LCMScheduler.swift` | Anvil Dream: Core ML SDXL with the sampler its package names, or Anvil Dream Lite, Stable Diffusion 1.5 with the Latent Consistency sampler |
 | `Engine/ImageArchive.swift` | Unpacks an image model's Apple Archive on the phone |
 | `Engine/ModelLibrary.swift` | The models on the phone, which one is active, switching and deleting |
 | `Engine/ModelCatalog.swift` | The models anvilai.com publishes, and where to fetch their parts |

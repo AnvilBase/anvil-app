@@ -49,11 +49,9 @@ enum ImageArchive {
   /// The files a folder is not an Anvil Dream without: the tokenizer's two, a text encoder, the
   /// U-Net in one piece or in two, and the decoder.
   ///
-  /// The question this asks is whether the unpacking finished, not whether the engine can run what
-  /// came out of it. An older Anvil Dream is a whole folder of the wrong model and has its own
-  /// answer — `DreamEngine.Failure.outdated`, which says to update it. Reading that as damage would
-  /// have the app throwing away a model it only needed to replace, downloading it again, and
-  /// arriving at the same conclusion.
+  /// The question this asks is whether the unpacking finished, not which model came out of it:
+  /// Anvil Dream Lite has one text encoder and Anvil Dream two, and both are whole with the files
+  /// named here.
   static func requireComplete(_ directory: URL, unpackedBytes: Int64? = nil) throws {
     let resources = DreamEngine.resources(in: directory)
     let fileManager = FileManager.default

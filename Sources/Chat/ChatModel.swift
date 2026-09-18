@@ -402,8 +402,8 @@ final class ChatModel {
       if pro.isUnlocked {
         chatNotice =
           imageModel == nil
-          ? "Download the image generation model in Settings › Models to make pictures."
-          : "Image generation is off. Turn it on in Settings › Models to make pictures."
+          ? "Download an image model in Settings › Image to make pictures."
+          : "Image generation is off. Turn it on in Settings › Image to make pictures."
       } else {
         showingPro = true
         return

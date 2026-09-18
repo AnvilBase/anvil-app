@@ -79,7 +79,7 @@ struct ProScreen: View {
         // Bought, and the models it unlocks still to fetch: each is its own download, chosen in
         // Models, and this is where someone who has just paid finds that out.
         if !proModelsOnPhone {
-          Text("Download Anvil Pro and the image generation model in Settings › Models.")
+          Text("Download Anvil Pro in Settings › Models, and an image model in Settings › Image.")
             .font(.footnote)
             .foregroundStyle(.secondary)
             .multilineTextAlignment(.center)
