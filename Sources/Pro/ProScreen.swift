@@ -136,12 +136,6 @@ struct ProScreen: View {
         Text(pro.isAvailable ? "Renews automatically. Cancel any time." : "Not available in this build.")
           .font(.footnote)
           .foregroundStyle(.secondary)
-        #if ANVIL_DEV
-          Text("Hold Subscribe to preview Pro in this build.")
-            .font(.footnote)
-            .foregroundStyle(.tertiary)
-        #endif
-
         HStack(spacing: 18) {
           Button("Restore purchases") { Task { await subscribe { await pro.restore() } } }
             .disabled(pro.isPurchasing)
