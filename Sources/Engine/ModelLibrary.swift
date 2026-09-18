@@ -28,11 +28,9 @@ struct ModelFile: Hashable, Sendable, Identifiable {
   var id: URL { url }
   var fileName: String { url.lastPathComponent }
 
-  /// What the model answers to, which is what the app calls it: the Pro model is Anvil Pro, under
-  /// whatever name the catalog publishes the file. The app offers two models and the model in the
-  /// chat should be one of the two it offers — a chat that says it is Anvil Raw names something
-  /// no screen in the app does.
-  var spokenName: String { isPro && kind == .text ? ModelPlan.proName : displayName }
+  /// What the model answers to, which is what the app calls it: the name the catalog publishes
+  /// it under, the same one its card and its row wear.
+  var spokenName: String { displayName }
 }
 
 /// The models on the phone, and which one the chat runs on.
@@ -214,47 +212,31 @@ final class ModelLibrary {
   }
 
   /// Why the plan can't start: what it needs free — its fullest moment plus the room to spare
-  /// after — against what the phone has once the plan has given back what it will. Nil when it
-  /// fits. One answer, asked before anything is deleted or fetched, and the same one the bar
-  /// on the screen draws.
+  /// after — against what the phone has. Nil when it fits. One answer, asked before anything is
+  /// fetched, and the same one the bar on the screen draws.
   func storageShortfall(for plan: ModelPlan) -> (needed: Int64, free: Int64)? {
     guard let free = ModelDownloadFiles.freeBytes() else { return nil }
     let needed = peakBytes(of: plan) + ModelDownloadFiles.storageBuffer
-    let available = free + reclaimed(by: plan)
-    return available < needed ? (needed, available) : nil
+    return free < needed ? (needed, free) : nil
   }
 
-  /// Downloads what the plan is missing, one file after another.
-  ///
-  /// One at a time, and in the plan's order, for two reasons: the model that makes pictures is
-  /// only installed beside a model to chat with, and two downloads at once are each half as fast
-  /// on the same connection. A file that stops stops the plan there, so Try again carries on from
-  /// what is already down rather than starting the whole plan over.
+  /// Downloads what the plan is missing. Nothing else is touched: a model joins whatever is on
+  /// the phone, and what goes is what someone swipes away. A download that stops leaves Try
+  /// again to carry on from what is already down rather than start over.
   func install(_ plan: ModelPlan) {
     guard planTasks[plan.id] == nil, purchasable(plan) else { return }
-    // Room for the whole plan, decided before a byte is fetched or a file deleted. Deciding
-    // it model by model as they started meant Anvil Core could be gone and the chat model
-    // down before the picture model found there was no room for it — a phone with less on it
-    // than it started with and nothing to show for the wait.
+    // Room for it, decided before a byte is fetched.
     if let short = storageShortfall(for: plan) {
       storageWarning = ModelDownloadFiles.storageMessage(
         for: plan.name, needed: short.needed, free: short.free)
       return
     }
-    if plan.isPro { installingPro = plan }
     downloadingPlan = plan
     planTasks[plan.id] = Task { [self] in
       defer {
         planTasks[plan.id] = nil
-        if plan.isPro { installingPro = nil }
         if downloadingPlan?.id == plan.id { downloadingPlan = nil }
       }
-      // Anvil Pro replaces Anvil Core rather than joining it, and it replaces it first:
-      // the room Core was holding is the room Pro is about to need, so it is given back
-      // before the download rather than after it. Two chat models on one phone is
-      // gigabytes held by the one nobody chats with any more, and a phone with space for
-      // one of the two should be able to have Pro without being told it is full.
-      if plan.isPro { await removeSuperseded() }
       for model in plan.publishedModels where !isInstalled(model) {
         install(model)
         while let task = installTasks[model.id] { _ = await task.value }
@@ -263,47 +245,9 @@ final class ModelLibrary {
     }
   }
 
-  /// Anvil Pro while its download is running, for the paywall to show how far it has got. Nil the
-  /// rest of the time.
-  private(set) var installingPro: ModelPlan?
-
-  /// Whichever plan is being installed, Pro or not, for the chat to name and measure
-  /// what is arriving. Nil when nothing is.
+  /// Whichever plan is being installed, for the chat to name and measure what is arriving. Nil
+  /// when nothing is.
   private(set) var downloadingPlan: ModelPlan?
-
-  /// Starts Anvil Pro downloading, catalog and all: what the paywall calls the moment a
-  /// subscription lands, so that buying Pro is the whole of getting it — nothing to find
-  /// afterwards and no second button to press. Nothing to do if Pro is already here or on its way.
-  ///
-  /// `proUnlocked` is set here rather than waited for. The root view hears the App Store's answer
-  /// and passes it to the library on the next view update, which is after this runs, and the
-  /// download checks it.
-  func installPro() async {
-    proUnlocked = true
-    guard planTasks[ModelPlan.proID] == nil,
-      let catalog = try? await ModelCatalog.load(),
-      let plan = ModelPlan.plans(from: catalog).first(where: \.isPro),
-      !isInstalled(plan)
-    else { return }
-    install(plan)
-  }
-
-  /// Whether downloading Anvil Pro would take Anvil Core off the phone: true while a free chat
-  /// model the catalog handed out is installed. The screens say so before the button is pressed,
-  /// so the space coming back is something you were told about rather than something you notice.
-  var proReplacesInstalledFree: Bool {
-    installed.contains { $0.kind == .text && !$0.isPro && $0.catalogID != nil }
-  }
-
-  /// The space downloading this plan would give back: Anvil Core's, for Anvil Pro, and
-  /// nothing for anything else. The screens count it against what the download costs, so
-  /// what they show is the room the phone will actually be left with.
-  func reclaimed(by plan: ModelPlan) -> Int64 {
-    guard plan.isPro else { return 0 }
-    return installed
-      .filter { $0.kind == .text && !$0.isPro && $0.catalogID != nil }
-      .reduce(0) { $0 + $1.fileSize }
-  }
 
   /// Stops whatever the plan has going and throws away what it had. What is already installed
   /// stays installed: this is cancelling a download, not deleting a model.
@@ -514,17 +458,6 @@ final class ModelLibrary {
   private func purchasable(_ plan: ModelPlan) -> Bool {
     proUnlocked || !plan.isPro
   }
-
-  /// Anvil Core, and anything else free the catalog handed out to chat with, once Anvil Pro's own
-  /// chat model stands in for it. A file imported by hand is left alone: Anvil didn't put it there,
-  /// so Pro doesn't take it away. The image model isn't touched either — Pro has one and free
-  /// doesn't, so there is nothing it replaces.
-  private func removeSuperseded() async {
-    for file in installed where file.kind == .text && !file.isPro && file.catalogID != nil {
-      await remove(file)
-    }
-  }
-
 
   private func setState(_ newState: State) {
     if state != newState { state = newState }

@@ -46,25 +46,17 @@ struct ProScreen: View {
     .background(theme.page)
     .safeAreaInset(edge: .bottom) { footer }
     .navigationBarTitleDisplayMode(.inline)
-    // Buying Pro starts Pro downloading from here, so here is where a phone without the room
-    // for it hears so — the same sentence the model screens use, and nothing deleted or
-    // fetched before it was said.
-    .alert("Not enough storage on your phone", isPresented: storageAlertShowing) {
-      Button("OK", role: .cancel) {}
-    } message: {
-      Text(library.storageWarning ?? "")
-    }
   }
 
-  private var storageAlertShowing: Binding<Bool> {
-    Binding(
-      get: { library.storageWarning != nil },
-      set: { if !$0 { library.storageWarning = nil } })
+  /// Whether both of the models Pro unlocks are on the phone. Until they are, the page says
+  /// where to get them: buying Pro unlocks them, and downloading each is a choice made in Models.
+  private var proModelsOnPhone: Bool {
+    library.installed.contains { $0.isPro && $0.kind == .text }
+      && library.installed.contains { $0.isPro && $0.kind == .image }
   }
 
   /// Each line is one thing Pro is, named in as few words as say it: the line stays whole on one
-  /// line, which a sentence would not. No model names here — Pro is one model, and these are the
-  /// things it does.
+  /// line, which a sentence would not. No model names here — these are the things Pro does.
   private static let features: [(symbol: String, title: String)] = [
     ("lock.open", "Unrestricted Answers"),
     ("paintbrush", "Image Generation"),
@@ -82,21 +74,15 @@ struct ProScreen: View {
   private var footer: some View {
     VStack(spacing: 10) {
       if pro.isUnlocked {
-        if let plan = library.installingPro {
-          // Bought, and already on its way down. What is left to know is how far it has got and
-          // that walking away doesn't stop it — the download outlives this screen.
-          ProgressView(value: library.progress(of: plan)?.fraction ?? 0)
-            .tint(theme.sendFill)
-          // Which file is on its way, by name — Anvil Pro is two — and that walking away is fine.
-          Text(
-            (library.stage(of: plan)?.label ?? "Anvil Pro is downloading")
-              + ". You can leave this screen.")
+        Label("Anvil Pro is active", systemImage: "checkmark.circle.fill")
+          .font(.headline)
+        // Bought, and the models it unlocks still to fetch: each is its own download, chosen in
+        // Models, and this is where someone who has just paid finds that out.
+        if !proModelsOnPhone {
+          Text("Download Anvil Pro and Anvil Dream in Settings › Models.")
             .font(.footnote)
             .foregroundStyle(.secondary)
             .multilineTextAlignment(.center)
-        } else {
-          Label("Anvil Pro is active", systemImage: "checkmark.circle.fill")
-            .font(.headline)
         }
         Button("Manage subscription") {
           if let url = URL(string: "https://apps.apple.com/account/subscriptions") { openURL(url) }
@@ -163,15 +149,10 @@ struct ProScreen: View {
     .background(theme.page)
   }
 
-  /// Pays, or restores, and then fetches what was paid for. Anvil Pro is a subscription and a pair
-  /// of files, and pressing a price should get you both: nobody should have to buy Pro and then go
-  /// and find the thing that downloads it. `installPro` is the one that decides there is anything
-  /// to fetch — it does nothing when Pro is already on the phone, as it is after a restore on a
-  /// phone that already had it.
+  /// Pays, or restores. What Pro unlocks is downloaded from Models, each model on its own, and
+  /// the footer above says so once the purchase has landed.
   private func subscribe(_ pay: () async -> Void) async {
     await pay()
-    guard pro.isUnlocked else { return }
-    await library.installPro()
   }
 
   /// One way to pay: a capsule with the price and, for the year, what it saves. Filled for the one

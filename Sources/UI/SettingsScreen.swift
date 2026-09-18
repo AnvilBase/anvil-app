@@ -144,11 +144,11 @@ struct SettingsScreen: View {
       .accessibilityLabel("Needs attention")
   }
 
-  /// Pro is paid for but not on the phone — none of it, or half of it — and nothing of it is on
-  /// its way. Someone who bought Pro and never downloaded it has a subscription doing nothing,
-  /// and the badge on the Models row is how they find out where to go.
+  /// Pro is paid for and what it unlocks isn't on the phone — Anvil Pro, Anvil Dream, or both —
+  /// and nothing is on its way. Someone who bought Pro and never downloaded its models has a
+  /// subscription doing nothing, and the badge on the Models row is how they find out where to go.
   private var proAwaitsDownload: Bool {
-    guard pro.isUnlocked, library.installingPro == nil else { return false }
+    guard pro.isUnlocked, !library.isDownloading else { return false }
     let hasChat = library.installed.contains { $0.isPro && $0.kind == .text }
     let hasPictures = library.installed.contains { $0.isPro && $0.kind == .image }
     return !(hasChat && hasPictures)
@@ -215,15 +215,13 @@ struct SettingsScreen: View {
 
   // MARK: - Sections
 
-  /// The two things Anvil is, one row each — Anvil Core and Anvil Pro — whatever state each is
-  /// in: on the phone with a mark against the one in use, waiting to be downloaded, or announced
+  /// The three things Anvil offers, one row each — Anvil Core, Anvil Pro and Anvil Dream —
+  /// whatever state each is in: on the phone with a mark against the one in use, waiting to be downloaded, or announced
   /// and not published yet. A model the catalog doesn't know, one imported by hand, comes after
-  /// them. Tap a model to switch to it, swipe one to delete it. Anvil Pro is listed either way,
-  /// and is the paywall's door rather than a model to switch to or download until Pro is active.
-  ///
-  /// Anvil Pro is two files — the unrestricted model and the one that makes pictures — and one
-  /// row: they arrive together, go together, and neither is a thing to choose instead of the
-  /// other. Whether pictures get made at all is a switch rather than a model: see `imageSection`.
+  /// them. Tap a model to switch to it, swipe one to delete it. The two that need Pro are listed
+  /// either way, and are the paywall's door rather than models to switch to or download until Pro
+  /// is active. Whether pictures get made at all is a switch rather than a model: see
+  /// `imageSection`.
   private var modelSection: some View {
     // No header: the page is called Models, and this is the first thing on it.
     Section {
@@ -305,11 +303,9 @@ struct SettingsScreen: View {
   /// a setting rather than a row under Models. Off, the model stays on the phone, nothing makes a
   /// picture with it, and the memory it had loaded is let go.
   private var imageSection: some View {
-    // Always here. Anvil Pro is one thing that arrives together — the model to chat
-    // with and the one that makes pictures — so having Pro means having Anvil Dream,
-    // and this switch is only whether it is used. Without Pro the row keeps its name
-    // and wears the badge where the switch would be, leading to the paywall like every
-    // other locked row: what the app can do shouldn't be invisible until it is paid for.
+    // Always here. Without Pro the row keeps its name and wears the badge where the switch
+    // would be, leading to the paywall like every other locked row: what the app can do
+    // shouldn't be invisible until it is paid for.
     Section("Image") {
       proGated("Image generation") {
         // With Pro but before its download has landed, the switch is there and can't be
@@ -322,7 +318,7 @@ struct SettingsScreen: View {
             if !on { Task { await chat.unloadImageModel() } }
           }
         if !dreamIsHere {
-          Text("Download Anvil Pro in Models to make pictures.")
+          Text("Download Anvil Dream in Models to make pictures.")
             .font(.footnote)
             .foregroundStyle(.secondary)
         }
@@ -367,12 +363,15 @@ struct SettingsScreen: View {
   @ViewBuilder
   private func planRow(_ plan: ModelPlan) -> some View {
     if plan.isPro, !pro.isUnlocked {
-      // Listed whether or not its files are on the phone, and the door to the page that sells it:
-      // what Pro is for is the thing that can't be had yet.
+      // Listed whether or not its file is on the phone, and the door to the page that sells it:
+      // what Pro is for is the thing that can't be had yet. The model that is Pro's namesake
+      // says what pressing it is; the picture model keeps its name and wears the badge.
       NavigationLink {
         ProScreen()
       } label: {
-        LabeledContent { proBadge } label: { Text("Upgrade to \(plan.name) Model") }
+        LabeledContent { proBadge } label: {
+          Text(plan.textModel != nil ? "Upgrade to \(plan.name) Model" : plan.name)
+        }
       }
     } else if library.isInstalled(plan) {
       installedRow(plan)
@@ -388,8 +387,7 @@ struct SettingsScreen: View {
     }
   }
 
-  /// A model that is on the phone: tap to run the chat on it, swipe to delete it. Deleting Anvil
-  /// Pro takes both of its files, because one row is one thing.
+  /// A model that is on the phone: tap to run the chat on it, swipe to delete it.
   private func installedRow(_ plan: ModelPlan) -> some View {
     Button {
       guard !library.isActive(plan) else { return }
@@ -448,9 +446,7 @@ struct SettingsScreen: View {
   }
 
   /// A model that could be on the phone. Its row is its name — the arrow beside it says what
-  /// tapping does — and what it costs in space, the whole of it; an update says so where the size
-  /// would be. Anvil Pro's two files come one after the other, so there is one bar for the pair
-  /// and it counts what has already landed.
+  /// tapping does — and what it costs in space; an update says so where the size would be.
   @ViewBuilder
   private func downloadRow(_ plan: ModelPlan, update: Bool = false) -> some View {
     let downloader = library.downloader(for: plan)
@@ -483,8 +479,7 @@ struct SettingsScreen: View {
         .buttonStyle(.borderless)
       }
     } else {
-      // A plan with nothing to chat with in it — only the model that makes pictures, its chat
-      // model not published yet — waits for a model to chat with.
+      // The model that makes pictures waits for a model to chat with.
       let waitsForChatModel = plan.textModel == nil && !library.hasTextModel
       Button {
         library.install(plan)
@@ -494,24 +489,8 @@ struct SettingsScreen: View {
             VStack(alignment: .leading, spacing: 2) {
               HStack(spacing: 6) {
                 Text(plan.name)
-                // The same mark the Models row wore on the way here: this is the row it meant.
+                // The same mark the Models row wore on the way here: this is a row it meant.
                 if plan.isPro, proAwaitsDownload { attentionBadge }
-              }
-              // The same line the install screen's card carries, for the subscriber who comes to
-              // Pro from here instead: pressing this takes Anvil Core off the phone.
-              if plan.isPro, library.proReplacesInstalledFree {
-                Text("Replaces Anvil Core")
-                  .font(.footnote)
-                  .foregroundStyle(.secondary)
-              }
-              // What the row fetches, file by file, the way the install screen's card says it:
-              // Anvil Pro is two files, and the one pressing this should know which two.
-              if plan.listsFiles {
-                ForEach(plan.publishedModels) { model in
-                  Text("\(model.name), \(ModelPlan.role(of: model)) · \(model.formattedSize)")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                }
               }
             }
           } icon: {
@@ -519,7 +498,7 @@ struct SettingsScreen: View {
           }
           .foregroundStyle(waitsForChatModel ? Color.secondary : Color.primary)
           Spacer()
-          Text(waitsForChatModel ? "Needs Anvil Core" : detail)
+          Text(waitsForChatModel ? "Needs a chat model" : detail)
             .foregroundStyle(Color.secondary)
         }
       }
@@ -527,7 +506,7 @@ struct SettingsScreen: View {
       // The same reading the install screen gives, for the same decision made here.
       StorageBar(
         needed: library.peakBytes(of: plan), keeps: library.keptBytes(of: plan),
-        free: freeBytes, capacity: capacityBytes, reclaimed: library.reclaimed(by: plan))
+        free: freeBytes, capacity: capacityBytes)
         .listRowSeparator(.hidden, edges: .top)
     }
   }

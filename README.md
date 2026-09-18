@@ -125,34 +125,29 @@ one.
 
 ### Download it in the app
 
-The first screen lists what Anvil offers as the two things it is — **Anvil Core** and **Anvil
-Pro** — each with its size and parameter count. Behind them are the models published at
-[anvilai.com/api/models](https://www.anvilai.com/api/models): Anvil Core is one file, and Anvil Pro
-is every file the catalog marks `pro` — the unrestricted model and the one that makes pictures —
-gathered into one card, so its size is both of them added up. Anvil Core is the free one and the
-default, marked **Recommended**: tap **Download** and leave it running. It is the model the chat
-runs on until another is chosen, and the one it comes back to if the Pro model can't be used. Anvil
-Pro leads to the paywall until Pro is active, and a plan the catalog has announced but not published
-yet says "Coming soon". Pro's card lists its two files by name before the button — **Anvil Raw**,
-the chat model, and **Anvil Dream**, the picture model, each with its size and a tick once it is
-on the phone — and they arrive one after another rather than together, the picture model only
-beside a model to chat with, under one progress bar for the pair. A line under the bar says which
-of the two is coming down and whether it is being fetched, checked or unpacked; the same line
-shows in Settings, on the Pro page and in the chat's banner. A download that stops stops the plan
-there, so **Try again** carries on from what has already landed.
+The first screen lists the three things Anvil offers — **Anvil Core**, **Anvil Pro** and **Anvil
+Dream** — each with its size and parameter count, as the catalog at
+[anvilai.com/api/models](https://www.anvilai.com/api/models) publishes them. Each is one file and
+one download. Anvil Core is the free one and the default: tap **Download** and leave it running. It
+is the model the chat runs on until another is chosen, and the one it comes back to if the Pro model
+can't be used. Anvil Pro is the unrestricted model and Anvil Dream the one that makes pictures; both
+need Anvil Pro, so their cards lead to the paywall until it is active, and Anvil Dream waits for a
+chat model to be on the phone, since a picture is made for a reply. A plan the catalog has announced
+but not published yet says "Coming soon". A line under a download's bar says what is being done with
+it — fetched, checked, or, for Anvil Dream, unpacked — and the same line shows in Settings and in the
+chat's banner. A download that stops leaves **Try again** to carry on from what has already landed.
 The development app has a **Skip** in the corner, for getting to the chat without waiting on
 gigabytes; the chat then says no model is installed until one is.
 
-The grouping is `Sources/Engine/ModelPlan.swift`, and it is the only place that knows the catalog is
-longer than the list of things the app sells: add a third `pro` model to the catalog and it joins
-Anvil Pro rather than appearing beside it.
+`Sources/Engine/ModelPlan.swift` is the reading of the catalog every screen uses: one plan per
+model, in the catalog's order.
 
-The files behind the two:
+The three:
 
 | Model | Size | Licence |
 | --- | --- | --- |
 | Anvil Core (`anvil-forge`) | 2.59 GB | [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0) |
-| Anvil Raw (`anvil-raw`, Pro, unrestricted) | 4.17 GB | [Gemma Terms of Use](https://ai.google.dev/gemma/terms) |
+| Anvil Pro (`anvil-raw`, Pro, unrestricted) | 4.17 GB | [Gemma Terms of Use](https://ai.google.dev/gemma/terms) |
 | Anvil Dream (`anvil-dream`, Pro, pictures) | 3.02 GB | [CreativeML Open RAIL++-M](https://github.com/Stability-AI/generative-models/blob/main/model_licenses/LICENSE-SDXL1.0) |
 
 A model is served as a list of 128 MiB parts, each behind a URL on anvilai.com that redirects to
@@ -169,12 +164,13 @@ the model files are published from
 publishes them to the bucket and says how the bucket is served — point `ANVIL_HOST` (see
 [Configuration](#configuration)) at your own deployment to serve your own.
 
-Models you download sit side by side. **Settings › Models** lists the same two, with a mark against
-the one in use — tap the other to switch, swipe one to delete it — and offers whichever isn't on the
-phone to download from there. Deleting Anvil Pro takes both of its files, because one row is one
-thing. Whether pictures get made at all is not a model to switch between — the picture model works
-beside whichever model the chat is on — so it is a switch, **Image generation** in **Settings ›
-Image** just below, shown once there is something to switch. If loading fails, the screen says why
+Models you download sit side by side. **Settings › Models** lists the same three, with a mark
+against the one in use — tap another to switch, swipe one to delete it — and offers whichever isn't
+on the phone to download from there. Whether pictures get made at all is not a model to switch
+between — Anvil Dream works beside whichever model the chat is on — so it is a switch, **Image
+generation** in **Settings › Image** just below, shown once there is something to switch. With Pro
+active and either of its models still to download, the Models row on the first Settings screen wears
+a red mark, and so does the row that downloads it. If loading fails, the screen says why
 and offers **Try again**; Settings has **Reload model** too. The first load is slow; engine caches go in `Library/Caches/EngineCache`, so later
 launches are much faster.
 

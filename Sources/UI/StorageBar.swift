@@ -24,16 +24,6 @@ struct StorageBar: View {
   /// A download asks whether it fits and is answered in green or red; what is installed
   /// isn't a question, so it is drawn plainly and says what it takes.
   var isProposed: Bool = true
-  /// What the download gives back before it takes anything: Anvil Core's space, when
-  /// Anvil Pro is what is being weighed. Counted as free, because by the time the first
-  /// byte lands it will be — Core goes first — and the room shown is the room there is.
-  /// The caption counts it too: what Pro costs this phone is what it keeps less what
-  /// Core gives back.
-  var reclaimed: Int64 = 0
-
-  /// What is free once the download has given back what it will.
-  private var effectiveFree: Int64? { free.map { $0 + reclaimed } }
-
   /// Room to leave over once the model is in. A phone with a few megabytes spare is a
   /// phone that stutters, warns, and eventually can't take a photo — so the answer to
   /// "does it fit" is not "yes, exactly", it is "yes, with room to live in".
@@ -44,7 +34,7 @@ struct StorageBar: View {
 
   /// Whether there is room for the model and the room to spare after it.
   var fits: Bool {
-    guard isProposed, let free = effectiveFree else { return true }
+    guard isProposed, let free = free else { return true }
     return free - needed >= Self.buffer
   }
 
@@ -91,7 +81,7 @@ struct StorageBar: View {
   /// that is everything already on the phone; for what is installed it is everything
   /// else, so the models' share reads as its own slice rather than as part of the rest.
   private var used: Int64 {
-    guard let capacity, let free = effectiveFree else { return 0 }
+    guard let capacity, let free = free else { return 0 }
     let occupied = max(capacity - free, 0)
     return isProposed ? occupied : max(occupied - needed, 0)
   }
@@ -111,19 +101,8 @@ struct StorageBar: View {
     // The one number that matters when it fits: what pressing Download costs. What is left
     // afterwards used to follow it, and read as a second thing to weigh up when the bar
     // and its colour had already said the phone can take it.
-    guard let free = effectiveFree else { return "\(Self.format(needed)) to download" }
-    if fits {
-      let kept = keeps ?? needed
-      // A download that gives space back first — Anvil Pro, which takes Anvil Core off the
-      // phone before it lands — costs the phone the difference, not the whole. Said as what
-      // the phone will hold more than it does now, once Core has gone: the gross figure read
-      // as if Core stayed, and the bar beside it had already left Core out.
-      guard reclaimed > 0 else { return "\(Self.format(kept)) to download" }
-      let net = kept - reclaimed
-      return net >= 0
-        ? "\(Self.format(kept)) to download · \(Self.format(net)) more than now"
-        : "\(Self.format(kept)) to download · \(Self.format(-net)) less than now"
-    }
+    guard let free = free else { return "\(Self.format(needed)) to download" }
+    if fits { return "\(Self.format(keeps ?? needed)) to download" }
     // What is missing, said as the number to go and free up, because that is the thing
     // to act on. The buffer is part of it: it is needed, so it is counted.
     let short = Self.buffer - (free - needed)

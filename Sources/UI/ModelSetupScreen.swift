@@ -1,13 +1,12 @@
 import SwiftUI
 
 /// The first screen, shown until a chat model has been installed. What Anvil offers, one card
-/// each — Anvil Core, free and the way in, and Anvil Pro, which is the unrestricted model and the
-/// one that makes pictures, as one thing — with the files, their sizes and their checksums all
-/// coming from anvilai.com. A card carries no badge: there are two of them, the mark in front of
-/// each name already says which is which, and a line calling one of two things Recommended mostly
-/// says something about the other. What each one is, its card says in words underneath. Anvil Pro's
-/// card leads to the paywall until Pro is active, and a plan the catalog has announced but not
-/// published yet says so.
+/// each — Anvil Core, free and the way in; Anvil Pro, the unrestricted model; and Anvil Dream,
+/// the one that makes pictures — with the files, their sizes and their checksums all coming from
+/// anvilai.com. Each downloads on its own. A card carries no badge: the mark in front of each name
+/// says which need Pro, and what each one is, its card says in words underneath. The Pro cards
+/// lead to the paywall until Pro is active, and a plan the catalog has announced but not published
+/// yet says so.
 struct ModelSetupScreen: View {
   @Environment(\.theme) private var theme
   @Environment(ProAccess.self) private var pro
@@ -140,17 +139,6 @@ struct ModelSetupScreen: View {
         .font(.subheadline)
         .foregroundStyle(.secondary)
 
-      // Anvil Pro is two files, and the card says which two before the button that fetches
-      // them: each by the name the catalog gives it, what it is for, and what it weighs. A tick
-      // marks one already here, so half of Pro on the phone reads as half.
-      if plan.listsFiles {
-        VStack(alignment: .leading, spacing: 6) {
-          ForEach(plan.publishedModels) { model in
-            fileLine(model)
-          }
-        }
-      }
-
       // The two numbers worth knowing before pressing Download: what it costs in space — the
       // whole plan, both files of it — and how big a model it is. An announced plan has no file
       // yet, so no size.
@@ -172,7 +160,7 @@ struct ModelSetupScreen: View {
       if !plan.isComingSoon, !library.isInstalled(plan) {
         StorageBar(
           needed: library.peakBytes(of: plan), keeps: library.keptBytes(of: plan),
-          free: freeBytes, capacity: capacityBytes, reclaimed: library.reclaimed(by: plan))
+          free: freeBytes, capacity: capacityBytes)
       }
 
       action(for: plan)
@@ -193,10 +181,8 @@ struct ModelSetupScreen: View {
     let downloader = library.downloader(for: plan)
     if let downloader, downloader.isActive {
       VStack(alignment: .leading, spacing: 10) {
-        // One bar for the plan, not one per file: Anvil Pro is two downloads and one thing being
-        // downloaded, so the bar counts what is already here as ground covered.
         let progress = library.progress(of: plan)
-        // Which file the bar is on, by name: the pair's bar alone doesn't say.
+        // What is being done with it: fetched, checked, or — a picture model — unpacked.
         if let stage = library.stage(of: plan) {
           Text(stage.label)
             .font(.subheadline.weight(.medium))
@@ -257,7 +243,7 @@ struct ModelSetupScreen: View {
       NavigationLink {
         ProScreen()
       } label: {
-        Label("Anvil Pro", systemImage: "lock")
+        Label("Unlock with Anvil Pro", systemImage: "lock")
           .font(.headline)
           .frame(maxWidth: .infinity)
           .frame(height: ChatStyle.inlineControl)
@@ -265,9 +251,8 @@ struct ModelSetupScreen: View {
       }
       .buttonStyle(.plain)
     } else {
-      // A plan with nothing to chat with in it — its chat model announced but not published yet,
-      // leaving only the one that makes pictures — waits for a model to chat with: a picture is
-      // made for a reply, so there has to be a reply.
+      // The one that makes pictures waits for a model to chat with: a picture is made for a
+      // reply, so there has to be a reply.
       let waitsForChatModel = plan.textModel == nil && !library.hasTextModel
       VStack(spacing: 8) {
         // The same ink the welcome screen's Continue is: the one thing to press on this screen.
@@ -285,42 +270,11 @@ struct ModelSetupScreen: View {
         .buttonStyle(.plain)
         .disabled(waitsForChatModel)
         if waitsForChatModel {
-          Text("Download Anvil Core first")
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-        } else if plan.isPro, library.proReplacesInstalledFree {
-          // Said before the button is pressed rather than noticed after it: Pro's model is what
-          // you chat with from here, so the space Anvil Core was holding comes back.
-          Text("Replaces Anvil Core")
+          Text("Download a chat model first")
             .font(.footnote)
             .foregroundStyle(.secondary)
         }
       }
-    }
-  }
-
-  /// One file of a plan: a tick or an empty ring for whether it is here, the name with what it
-  /// is for underneath, and its size. The role sits under the name rather than beside it so the
-  /// name never has to wrap to make room for it.
-  private func fileLine(_ model: CatalogModel) -> some View {
-    let installed = library.isInstalled(model)
-    return HStack(alignment: .firstTextBaseline, spacing: 8) {
-      Image(systemName: installed ? "checkmark.circle.fill" : "circle")
-        .font(.subheadline)
-        .foregroundStyle(installed ? Color.primary : Color.secondary)
-      VStack(alignment: .leading, spacing: 2) {
-        Text(model.name)
-          .font(.subheadline.weight(.medium))
-          .lineLimit(1)
-        Text(ModelPlan.roleTitle(of: model))
-          .font(.caption)
-          .foregroundStyle(.secondary)
-      }
-      Spacer()
-      Text(model.formattedSize)
-        .font(.subheadline)
-        .foregroundStyle(.secondary)
-        .monospacedDigit()
     }
   }
 
