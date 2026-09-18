@@ -96,7 +96,8 @@ actor DreamEngine {
     if pipeline == nil, os_proc_available_memory() < Self.memoryNeeded {
       throw Failure.notEnoughMemory
     }
-    if pipeline == nil || pipelineURL != model.url { progress(.loading) }
+    let freshlyLoaded = pipeline == nil || pipelineURL != model.url
+    if freshlyLoaded { progress(.loading) }
     let pipeline = try load(model.url)
     progress(.reading)
     defer {
@@ -132,7 +133,10 @@ actor DreamEngine {
       sample, sigma in
       try Task.checkCancellation()
       pass += 1
-      progress(.painting(pass: pass, of: passes))
+      // The first pass of a freshly loaded U-Net is where Core ML compiles it for the Neural
+      // Engine — minutes, the first time on a phone — and "Step 1 of 7" over that read as
+      // stuck. Said as what it is; the steps count from the second pass.
+      progress(pass == 1 && freshlyLoaded ? .preparing : .painting(pass: pass, of: passes))
       let scale = 1 / (sigma * sigma + 1).squareRoot()
       let scaled = sample.map { $0 * scale }
       let input = MLShapedArray<Float32>(
@@ -341,6 +345,8 @@ actor DreamEngine {
 enum PictureStage: Equatable, Sendable {
   case loading
   case reading
+  /// The U-Net's first pass after a load: Core ML compiling it for this phone, the first time.
+  case preparing
   case painting(pass: Int, of: Int)
   case finishing
 
@@ -348,6 +354,7 @@ enum PictureStage: Equatable, Sendable {
     switch self {
     case .loading: 0.02
     case .reading: 0.08
+    case .preparing: 0.1
     case .painting(let pass, let passes):
       passes > 0 ? 0.1 + 0.8 * Double(max(pass - 1, 0)) / Double(passes) : 0.1
     case .finishing: 0.92
@@ -358,6 +365,7 @@ enum PictureStage: Equatable, Sendable {
     switch self {
     case .loading: "Loading the model…"
     case .reading: "Reading the prompt…"
+    case .preparing: "Preparing the model for this iPhone…"
     case .painting(let pass, let passes): "Step \(pass) of \(passes)…"
     case .finishing: "Finishing…"
     }
