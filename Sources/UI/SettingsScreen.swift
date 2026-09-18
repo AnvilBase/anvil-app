@@ -174,10 +174,14 @@ struct SettingsScreen: View {
   /// is not a model to choose between — it works beside whichever model the chat is on — so it is
   /// a setting rather than a row under Models. Off, the model stays on the phone, nothing makes a
   /// picture with it, and the memory it had loaded is let go.
-  @ViewBuilder
   private var imageSection: some View {
-    if library.imageModel != nil {
-      Section("Image") {
+    // Always here. Anvil Pro is one thing that arrives together — the model to chat
+    // with and the one that makes pictures — so having Pro means having Anvil Dream,
+    // and this switch is only whether it is used. Without Pro the row keeps its name
+    // and wears the badge where the switch would be, leading to the paywall like every
+    // other locked row: what the app can do shouldn't be invisible until it is paid for.
+    Section("Image") {
+      proGated("Image generation") {
         Toggle("Image generation", isOn: $settings.imageGenerationEnabled)
           .onChange(of: settings.imageGenerationEnabled) { _, on in
             if !on { Task { await chat.unloadImageModel() } }
