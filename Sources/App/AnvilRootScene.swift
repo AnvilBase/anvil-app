@@ -54,6 +54,16 @@ private struct RootView: View {
   /// app moving you on, not something you did being acknowledged.
   private static let screenChange: Animation = .easeIn(duration: 0.22)
 
+  /// What the chat opens on: the model that is ready, or — once a model has ever been
+  /// installed — a stand-in for the moment there isn't one, so that a download swapping
+  /// Anvil Core for Anvil Pro or a subscription lapsing is the chat saying it can't load
+  /// a model, with Settings a tap away. Choosing a model is the way in, and only that:
+  /// this is nil, and that screen shows, only before there has ever been one.
+  private var chatModel: ModelFile? {
+    if case .ready(let model) = library.state { return model }
+    return chat.settings.hasFinishedModelSetup ? missingModel : nil
+  }
+
   /// A model that isn't there, for the chat to open on when there is nothing to open on.
   /// The chat tries to load it, is told there is no such file, and shows that; nothing is
   /// invented about what it would have been.
@@ -84,17 +94,14 @@ private struct RootView: View {
           chat.settings.save()
         }
         .transition(.opacity)
-      } else if case .ready(let model) = library.state {
+      } else if let model = chatModel {
+        // One branch for the chat, whatever model it has, so that the view keeps its
+        // identity when the model changes under it. Anvil Core going at the start of a
+        // Pro download leaves a moment with nothing loadable, and when that moment was
+        // a branch of its own SwiftUI built a new chat for it — and took the Settings
+        // sheet, and the progress bar someone was watching, down with the old one.
+        // Same branch, same view: the sheet stays up and the bar keeps moving.
         ChatScreen(chat: chat, model: model, library: library)
-          .transition(.opacity)
-      } else if chat.settings.hasFinishedModelSetup, let placeholder = missingModel {
-        // Choosing a model is the way in, and only that. Once there has been one, a
-        // moment without a usable one — a download swapping Anvil Core for Anvil Pro,
-        // a subscription lapsing — is the chat saying it can't load a model, with
-        // Settings a tap away. It used to drop back to the screen that chooses one,
-        // which after Core had been superseded was a screen with nothing on it to
-        // press: an app that had started itself over.
-        ChatScreen(chat: chat, model: placeholder, library: library)
           .transition(.opacity)
       } else {
         ModelSetupScreen(library: library)
