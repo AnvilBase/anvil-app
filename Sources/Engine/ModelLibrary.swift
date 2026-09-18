@@ -161,17 +161,15 @@ final class ModelLibrary {
     let count: Int
     let phase: ModelDownloader.Phase
 
-    /// "Downloading Anvil Pro", "Unpacking the image generation model".
-    var label: String {
-      let verb: String
+    /// A word for the moment the bar can't show: "Checking…" while a part is hashed,
+    /// "Unpacking…" while a picture model's archive is expanded. Nil while bytes are simply
+    /// arriving — the bar already says that, and a line repeating it is a line too many.
+    var note: String? {
       switch phase {
-      case .checking: verb = "Checking"
-      case .installing: verb = model.isImage ? "Unpacking" : "Installing"
-      case .downloading, .idle, .finished, .failed: verb = "Downloading"
+      case .checking: "Checking…"
+      case .installing: model.isImage ? "Unpacking…" : "Installing…"
+      case .downloading, .idle, .finished, .failed: nil
       }
-      let which = count > 1 ? " (\(position) of \(count))" : ""
-      let name = model.isImage ? "the image generation model" : model.name
-      return "\(verb) \(name)\(which)"
     }
   }
 

@@ -994,14 +994,14 @@ private struct DownloadingRow: View {
           .foregroundStyle(.secondary)
           .monospacedDigit()
       }
-      // Which of the plan's files the bar is on, and what is being done with it.
-      if let stage = library.stage(of: plan) {
-        Text(stage.label)
+      ProgressView(value: fraction)
+        .tint(theme.sendFill)
+      // Only the moments the bar can't show: a part being checked, an archive being unpacked.
+      if let note = library.stage(of: plan)?.note {
+        Text(note)
           .font(.footnote)
           .foregroundStyle(.secondary)
       }
-      ProgressView(value: fraction)
-        .tint(theme.sendFill)
       Button("Cancel", role: .destructive) { Task { await library.cancelInstall(plan) } }
         .font(.subheadline)
         // Said outright: a button left to the default style inside a Form row hands its taps to

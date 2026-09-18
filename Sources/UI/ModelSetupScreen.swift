@@ -182,17 +182,14 @@ struct ModelSetupScreen: View {
     if let downloader, downloader.isActive {
       VStack(alignment: .leading, spacing: 10) {
         let progress = library.progress(of: plan)
-        // What is being done with it: fetched, checked, or — a picture model — unpacked.
-        if let stage = library.stage(of: plan) {
-          Text(stage.label)
-            .font(.subheadline.weight(.medium))
-        }
         ProgressView(value: progress?.fraction ?? downloader.fraction)
           // The same ink Download is filled with, rather than the accent: on this screen the one
           // thing you started is the one thing that should be showing its progress in it.
           .tint(theme.sendFill)
         HStack {
-          Text(transferred(progress) ?? transferred(downloader))
+          // What the bar can't show — a part being checked, an archive being unpacked — in
+          // place of the byte count for that moment; otherwise the count alone.
+          Text(library.stage(of: plan)?.note ?? transferred(progress) ?? transferred(downloader))
           Spacer()
           Text("\(Int((progress?.fraction ?? downloader.fraction) * 100))%")
         }
