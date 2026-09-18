@@ -300,10 +300,10 @@ struct SettingsScreen: View {
         .onChange(of: settings.imageGenerationEnabled) { _, on in
           if !on { Task { await chat.unloadImageModel() } }
         }
-        if !dreamIsHere {
-          Text("Download the image generation model in Models to make pictures.")
-            .font(.footnote)
-            .foregroundStyle(.secondary)
+        // The model itself, under the switch it serves: what it costs to download, how far
+        // it has got, or that it is here — and a swipe to take it off the phone.
+        if let plan = plans.first(where: \.isImage) {
+          imageModelRow(plan)
         }
       }
     }
@@ -333,7 +333,9 @@ struct SettingsScreen: View {
 
   /// The rows in the order the catalog gives them, with whatever the catalog doesn't know after.
   private var modelRows: [ModelRow] {
-    let offered = plans
+    // The chat models. The picture model has its row in the Image section, beside the switch
+    // that turns it on.
+    let offered = plans.filter { !$0.isImage }
     var rows = offered.map(ModelRow.plan)
     let accounted = Set(offered.flatMap { library.installedFiles(of: $0) })
     for file in library.installed where !accounted.contains(file) && file.kind == .text {
@@ -367,6 +369,32 @@ struct SettingsScreen: View {
       LabeledContent { Text("Coming soon").foregroundStyle(.secondary) } label: { Text(plan.name) }
     } else {
       downloadRow(plan)
+    }
+  }
+
+  /// The picture model's row in the Image section, called Model because the switch above it
+  /// already says what for: its download, its progress, or Installed with a swipe to delete.
+  @ViewBuilder
+  private func imageModelRow(_ plan: ModelPlan) -> some View {
+    if library.isInstalled(plan) {
+      LabeledContent("Model") {
+        Text("Installed")
+      }
+      .swipeActions(edge: .trailing) {
+        Button("Delete", role: .destructive) {
+          Task {
+            await chat.unloadImageModel()
+            await library.remove(plan)
+          }
+        }
+      }
+      if library.hasUpdate(for: plan) {
+        downloadRow(plan, title: "Model", update: true)
+      }
+    } else if plan.isComingSoon {
+      LabeledContent("Model") { Text("Coming soon").foregroundStyle(.secondary) }
+    } else {
+      downloadRow(plan, title: "Model")
     }
   }
 
@@ -431,8 +459,9 @@ struct SettingsScreen: View {
   /// A model that could be on the phone. Its row is its name — the arrow beside it says what
   /// tapping does — and what it costs in space; an update says so where the size would be.
   @ViewBuilder
-  private func downloadRow(_ plan: ModelPlan, update: Bool = false) -> some View {
+  private func downloadRow(_ plan: ModelPlan, title: String? = nil, update: Bool = false) -> some View {
     let downloader = library.downloader(for: plan)
+    let name = title ?? plan.name
     // What pressing it costs, which is what is left to fetch rather than what the plan weighs.
     let remaining = library.remainingSize(of: plan)
     let cost =
@@ -444,10 +473,10 @@ struct SettingsScreen: View {
     if let downloader, downloader.isActive {
       // Its own view: the bar moves several times a second, and only the row should move
       // with it, not the whole form under a scrolling thumb.
-      DownloadingRow(plan: plan, library: library, downloader: downloader)
+      DownloadingRow(plan: plan, title: name, library: library, downloader: downloader)
     } else if let downloader, case .failed(let message) = downloader.phase {
       VStack(alignment: .leading, spacing: 6) {
-        Text(plan.name)
+        Text(name)
         Text(message)
           .font(.footnote)
           .foregroundStyle(.secondary)
@@ -471,7 +500,7 @@ struct SettingsScreen: View {
           Label {
             VStack(alignment: .leading, spacing: 2) {
               HStack(spacing: 6) {
-                Text(plan.name)
+                Text(name)
                 // The same mark the Models row wore on the way here: this is a row it meant.
                 if plan.isPro, proAwaitsDownload { attentionBadge }
               }
@@ -961,6 +990,7 @@ struct SettingsScreen: View {
 private struct DownloadingRow: View {
   @Environment(\.theme) private var theme
   let plan: ModelPlan
+  var title: String? = nil
   let library: ModelLibrary
   let downloader: ModelDownloader
 
@@ -968,7 +998,7 @@ private struct DownloadingRow: View {
     let fraction = library.progress(of: plan)?.fraction ?? downloader.fraction
     VStack(alignment: .leading, spacing: 8) {
       HStack {
-        Text(plan.name)
+        Text(title ?? plan.name)
         Spacer()
         Text("\(Int(fraction * 100))%")
           .foregroundStyle(.secondary)

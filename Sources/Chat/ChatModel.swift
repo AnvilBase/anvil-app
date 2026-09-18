@@ -898,7 +898,14 @@ final class ChatModel {
     }
     defer {
       if setDownChatModel, let loadedModel {
-        Task { await self.load(loadedModel, force: true) }
+        // Turns means turns: the picture model is set down before the chat model is picked
+        // up, not kept warm for the next picture under it. Kept, it was 3 GB still resident
+        // while 4 GB of chat model came back — over what an 8 GB phone will give one app,
+        // and the app was killed the moment the picture was done.
+        Task {
+          await self.dream.unload()
+          await self.load(loadedModel, force: true)
+        }
       }
     }
     do {
