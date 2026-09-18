@@ -103,10 +103,10 @@ struct StorageBar: View {
     // and its colour had already said the phone can take it.
     guard let free = free else { return "\(Self.format(needed)) to download" }
     if fits { return "\(Self.format(keeps ?? needed)) to download" }
-    // What is missing, said as the number to go and free up, because that is the thing
-    // to act on. The buffer is part of it: it is needed, so it is counted.
-    let short = Self.buffer - (free - needed)
-    return "Needs \(Self.format(short)) more space · \(Self.format(free)) free"
+    // The whole of what it needs beside what there is, so the two numbers can be compared
+    // at a glance. "1.65 GB more" next to "9.5 GB free" read as a contradiction; the buffer
+    // is part of the need, so it is counted in.
+    return "Needs \(Self.format(needed + Self.buffer)) free · \(Self.format(free)) free"
   }
 
   static func format(_ bytes: Int64) -> String {
