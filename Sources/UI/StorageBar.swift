@@ -10,9 +10,12 @@ import SwiftUI
 /// Green or red, and nothing in between. There is one decision here and the colour is
 /// it, so a glance is the whole reading.
 struct StorageBar: View {
-  /// The bytes the middle band stands for: what a download would add, or — when
-  /// `isProposed` is false — what the models on the phone already take.
+  /// The bytes the middle band stands for: what a download needs at its fullest moment, or —
+  /// when `isProposed` is false — what the models on the phone already take.
   let needed: Int64
+  /// What the download leaves behind once it is done, when that is less than `needed`: a
+  /// picture model's archive goes once it is unpacked. Nil means the same as `needed`.
+  var keeps: Int64? = nil
   /// What the phone has free right now, or nil when it won't say.
   let free: Int64?
   /// Everything the phone holds, used and free, or nil when it won't say.
@@ -105,7 +108,8 @@ struct StorageBar: View {
     }
     guard let free = effectiveFree else { return "\(Self.format(needed)) to download" }
     if fits {
-      return "\(Self.format(needed)) to download · \(Self.format(free - needed)) free afterwards"
+      let after = free - (keeps ?? needed)
+      return "\(Self.format(keeps ?? needed)) to download · \(Self.format(after)) free afterwards"
     }
     // What is missing, said as the number to go and free up, because that is the thing
     // to act on. The buffer is part of it: it is needed, so it is counted.

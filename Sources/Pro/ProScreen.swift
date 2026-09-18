@@ -46,6 +46,20 @@ struct ProScreen: View {
     .background(theme.page)
     .safeAreaInset(edge: .bottom) { footer }
     .navigationBarTitleDisplayMode(.inline)
+    // Buying Pro starts Pro downloading from here, so here is where a phone without the room
+    // for it hears so — the same sentence the model screens use, and nothing deleted or
+    // fetched before it was said.
+    .alert("Not enough storage on your phone", isPresented: storageAlertShowing) {
+      Button("OK", role: .cancel) {}
+    } message: {
+      Text(library.storageWarning ?? "")
+    }
+  }
+
+  private var storageAlertShowing: Binding<Bool> {
+    Binding(
+      get: { library.storageWarning != nil },
+      set: { if !$0 { library.storageWarning = nil } })
   }
 
   /// Each line is one thing Pro is, named in as few words as say it: the line stays whole on one

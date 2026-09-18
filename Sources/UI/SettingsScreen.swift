@@ -416,8 +416,8 @@ struct SettingsScreen: View {
       .disabled(waitsForChatModel)
       // The same reading the install screen gives, for the same decision made here.
       StorageBar(
-        needed: library.remainingSize(of: plan), free: freeBytes, capacity: capacityBytes,
-        reclaimed: library.reclaimed(by: plan))
+        needed: library.peakBytes(of: plan), keeps: library.keptBytes(of: plan),
+        free: freeBytes, capacity: capacityBytes, reclaimed: library.reclaimed(by: plan))
         .listRowSeparator(.hidden, edges: .top)
     }
   }

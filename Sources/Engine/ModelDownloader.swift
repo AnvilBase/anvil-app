@@ -545,7 +545,10 @@ enum ModelDownloadFiles {
   ) -> (needed: Int64, free: Int64)? {
     let remaining = model.parts.dropFirst(nextPart).reduce(Int64(0)) { $0 + $1.sizeBytes }
     let largestPart = model.parts.map(\.sizeBytes).max() ?? 0
-    var needed = remaining + largestPart + storageBuffer
+    // A picture model is unpacked beside its archive, so it needs room for both until the
+    // archive goes. Counted here as it is counted for the plan, so the two never disagree.
+    let unpacking = model.isImage ? (model.unpackedBytes ?? model.sizeBytes) : 0
+    var needed = remaining + largestPart + unpacking + storageBuffer
     if nextPart == 0 { needed = max(needed, model.requiredFreeBytes) }
     needed += reserving
     guard let free = freeBytes(), free < needed else { return nil }

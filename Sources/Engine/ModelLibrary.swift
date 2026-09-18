@@ -160,6 +160,37 @@ final class ModelLibrary {
     plan.publishedModels.filter { !isInstalled($0) }.reduce(0) { $0 + $1.sizeBytes }
   }
 
+  /// What the plan will hold on the phone once it is in: a chat model is its file, a picture
+  /// model is the folder its archive unpacks to.
+  func keptBytes(of plan: ModelPlan) -> Int64 {
+    plan.publishedModels.filter { !isInstalled($0) }.reduce(0) {
+      $0 + ($1.isImage ? ($1.unpackedBytes ?? $1.sizeBytes) : $1.sizeBytes)
+    }
+  }
+
+  /// What the plan needs at its fullest moment, which is more than it keeps. A picture model
+  /// arrives as an archive and is unpacked beside it — both on disk at once until the unpacking
+  /// is done and the archive goes — and by then every model before it in the plan is already
+  /// down. This is the number a download has to be measured against before it starts: the bar
+  /// said Anvil Pro fit and the download said it didn't, because the bar counted what Pro
+  /// keeps and the download met the moment it needs the most.
+  func peakBytes(of plan: ModelPlan) -> Int64 {
+    plan.publishedModels.filter { !isInstalled($0) }.reduce(0) {
+      $0 + $1.sizeBytes + ($1.isImage ? ($1.unpackedBytes ?? $1.sizeBytes) : 0)
+    }
+  }
+
+  /// Why the plan can't start: what it needs free — its fullest moment plus the room to spare
+  /// after — against what the phone has once the plan has given back what it will. Nil when it
+  /// fits. One answer, asked before anything is deleted or fetched, and the same one the bar
+  /// on the screen draws.
+  func storageShortfall(for plan: ModelPlan) -> (needed: Int64, free: Int64)? {
+    guard let free = ModelDownloadFiles.freeBytes() else { return nil }
+    let needed = peakBytes(of: plan) + ModelDownloadFiles.storageBuffer
+    let available = free + reclaimed(by: plan)
+    return available < needed ? (needed, available) : nil
+  }
+
   /// Downloads what the plan is missing, one file after another.
   ///
   /// One at a time, and in the plan's order, for two reasons: the model that makes pictures is
@@ -168,6 +199,15 @@ final class ModelLibrary {
   /// what is already down rather than starting the whole plan over.
   func install(_ plan: ModelPlan) {
     guard planTasks[plan.id] == nil, purchasable(plan) else { return }
+    // Room for the whole plan, decided before a byte is fetched or a file deleted. Deciding
+    // it model by model as they started meant Anvil Core could be gone and the chat model
+    // down before the picture model found there was no room for it — a phone with less on it
+    // than it started with and nothing to show for the wait.
+    if let short = storageShortfall(for: plan) {
+      storageWarning = ModelDownloadFiles.storageMessage(
+        for: plan.name, needed: short.needed, free: short.free)
+      return
+    }
     if plan.isPro { installingPro = plan }
     downloadingPlan = plan
     planTasks[plan.id] = Task { [self] in
