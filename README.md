@@ -171,7 +171,7 @@ between — the image model works beside whichever model the chat is on — so i
 generation** in **Settings › Image** just below, shown once there is something to switch. With Pro
 active and either of its models still to download, the Models row on the first Settings screen wears
 a green mark, and so does the row that downloads it. If loading fails, the screen says why
-and offers **Try again**; Settings has **Reload model** too. The first load is slow; engine caches go in `Library/Caches/EngineCache`, so later
+and offers **Try again**; the app reloads on its own when the settings it was loaded with change. The first load is slow; engine caches go in `Library/Caches/EngineCache`, so later
 launches are much faster.
 
 ## What the app does
@@ -241,7 +241,7 @@ unfinished code block renders as code while the reply streams.
 
 **Settings**, in order: system prompt · memory · voice input · web search · metrics ·
 generation (temperature, top-K, top-P, max reply length) · model (backend, context size,
-image input — these need **Reload model**) · chat history (delete chats after 1, 3, 7, or 30 days, or
+image input — changing these reloads the model on its own) · chat history (delete chats after 1, 3, 7, or 30 days, or
 never) · developer (development app only).
 
 **Metrics.** The caption under each reply — tokens, decode speed, time to first token, where it ran —

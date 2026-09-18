@@ -226,16 +226,6 @@ struct SettingsScreen: View {
     // No header: the page is called Models, and this is the first thing on it.
     Section {
       ForEach(modelRows) { row in modelRow(row) }
-      // By hand, for the times only a person can tell that now is the time: the app reloads
-      // on its own when the settings change and when replies keep failing (see
-      // `ChatModel.reloadIfNeeded`), and this is the same reload, asked for outright.
-      Button {
-        Task { await chat.reloadModel() }
-      } label: {
-        Label("Reload model", systemImage: "arrow.clockwise")
-          .foregroundStyle(Color.primary)
-      }
-      .disabled(library.active == nil || chat.loadState == .loading || chat.isGenerating)
       // What the models on this phone take, and what is left. Always here, whether or
       // not there is anything to download: a model is the largest thing the app puts on
       // a phone, and the list of them is where to say so.
@@ -903,7 +893,7 @@ struct SettingsScreen: View {
 
   /// A row that opens a page in Safari. In ink like the rows around it rather than the tint a
   /// link takes on its own: leaving the app is not a bigger thing than any other row does. The
-  /// symbol in front is the row's, in the same ink, as Reload model and Export chats have theirs.
+  /// symbol in front is the row's, in the same ink, as Export chats has its own.
   private func link(_ title: String, systemImage: String, to url: URL) -> some View {
     link(to: url) { Label(title, systemImage: systemImage) }
   }
