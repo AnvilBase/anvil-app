@@ -312,15 +312,22 @@ struct SettingsScreen: View {
     // shouldn't be invisible until it is paid for.
     Section("Image") {
       proGated("Image generation") {
-        // With Pro but before its download has landed, the switch is there and can't be
-        // thrown: there is nothing yet for it to switch on, and a switch that says On
-        // over a model that isn't on the phone is a promise the next message breaks.
+        // With Pro but before its download has landed, the switch is there, off, faded and
+        // can't be thrown: there is nothing yet for it to switch on, and a switch that says On
+        // over a model that isn't on the phone is a promise the next message breaks. The
+        // setting itself is left alone, so the switch comes back to what it was set to once
+        // the model is here.
         let dreamIsHere = library.imageModel != nil
-        Toggle("Image generation", isOn: $settings.imageGenerationEnabled)
-          .disabled(!dreamIsHere)
-          .onChange(of: settings.imageGenerationEnabled) { _, on in
-            if !on { Task { await chat.unloadImageModel() } }
-          }
+        Toggle(
+          "Image generation",
+          isOn: dreamIsHere ? $settings.imageGenerationEnabled : .constant(false)
+        )
+        .disabled(!dreamIsHere)
+        // The same fade a locked card wears on the install screen.
+        .opacity(dreamIsHere ? 1 : 0.55)
+        .onChange(of: settings.imageGenerationEnabled) { _, on in
+          if !on { Task { await chat.unloadImageModel() } }
+        }
         if !dreamIsHere {
           Text("Download the image generation model in Models to make pictures.")
             .font(.footnote)
