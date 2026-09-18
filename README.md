@@ -170,7 +170,7 @@ on the phone to download from there. Whether pictures get made at all is not a m
 between — the image model works beside whichever model the chat is on — so it is a switch, **Image
 generation** in **Settings › Image** just below, shown once there is something to switch. With Pro
 active and either of its models still to download, the Models row on the first Settings screen wears
-a red mark, and so does the row that downloads it. If loading fails, the screen says why
+a green mark, and so does the row that downloads it. If loading fails, the screen says why
 and offers **Try again**; Settings has **Reload model** too. The first load is slow; engine caches go in `Library/Caches/EngineCache`, so later
 launches are much faster.
 

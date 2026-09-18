@@ -137,10 +137,11 @@ struct SettingsScreen: View {
     }
   }
 
-  /// The red mark that says a row has something waiting behind it.
+  /// The green mark that says a row has something waiting behind it: something to get, not
+  /// something wrong.
   private var attentionBadge: some View {
     Image(systemName: "exclamationmark.circle.fill")
-      .foregroundStyle(.red)
+      .foregroundStyle(.green)
       .accessibilityLabel("Needs attention")
   }
 

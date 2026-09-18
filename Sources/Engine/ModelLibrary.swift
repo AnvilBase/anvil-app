@@ -360,18 +360,6 @@ final class ModelLibrary {
     if changed { await refresh() }
   }
 
-  /// Called on launch and each time the app comes back to the screen, because "still downloading"
-  /// ought to mean still downloading — a download waiting behind a Resume button someone has to
-  /// find is one that stopped. A model this run has already tried and failed is left alone:
-  /// `downloads` holds its downloader, and retrying it on every glance at the app would be an
-  /// alert about a full phone on every glance at the app.
-  func resumeInterrupted() {
-    for model in interruptedDownloads
-    where installTasks[model.id] == nil && downloads[model.id] == nil && !isInstalled(model) {
-      install(model)
-    }
-  }
-
   func refresh() async {
     // Only finished models are listed — a file still being built has another extension — so a
     // download under way is no reason not to look.
@@ -387,9 +375,8 @@ final class ModelLibrary {
         // interrupted back when unpacking wrote straight into place. It reads as installed, so the
         // app offers pictures and the first one asked for fails on a file that was never written.
         // It goes: what the app says it has should be what it has. A download still part-way
-        // through is picked up by `resumeInterrupted`, which unpacks it again from the archive if
-        // that is still on the phone; otherwise Anvil Pro asks to be downloaded again, and asks for
-        // the picture model alone, since the model to chat with is already here.
+        // through waits behind Resume, which unpacks it again from the archive if that is still on
+        // the phone; otherwise the image model is offered for download again.
         if file.kind == .image, !ImageArchive.isComplete(file.url, unpackedBytes: file.expectedBytes) {
           try? await Task.detached { try ModelFiles.remove(file) }.value
           continue

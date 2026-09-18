@@ -135,8 +135,9 @@ private struct RootView: View {
       ModelDownloadFiles.discardAbandonedUnpacking()
       ModelDownloadFiles.discardLeftovers()
       await chat.restoreHistory()
+      // A download the app was closed part-way through is not picked up here: the screens
+      // offer to carry it on, and nothing comes down the wire that nobody pressed for.
       await library.refresh()
-      library.resumeInterrupted()
     }
     // Two steps up from the system default, everywhere, and the only place any text size is set:
     // everything else in the app asks for .body, .subheadline and the rest, so one number here
@@ -199,7 +200,6 @@ private struct RootView: View {
         lock.uncover()
         Task {
           await library.refresh()
-          library.resumeInterrupted()
           await chat.purgeExpiredChats()
           // Coming back is the moment worth trying a model that wouldn't load again: whatever was
           // holding the memory it needed — another app, a picture being made — has had the time
