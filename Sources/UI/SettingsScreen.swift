@@ -242,24 +242,24 @@ struct SettingsScreen: View {
   /// What anvilai.com publishes, read as the two things on offer.
   private var plans: [ModelPlan] { ModelPlan.plans(from: catalog) }
 
-  /// What the app holds on the phone, in two rows: the models and their cache together on a
-  /// bar, captioned with the models' own share, and the cache on a row of its own. A model is
-  /// the largest thing the app puts on a phone, and this is where to say so. The caches keep
-  /// themselves — whatever isn't a model's own goes on its own (`ModelFiles.pruneCaches`) — so
-  /// the row reports and nothing more.
+  /// What the app holds on the phone: the models and their cache on one bar, as two bands
+  /// of the same ink — the models darker, the cache lighter — and the caption saying each.
+  /// A model is the largest thing the app puts on a phone, and this is where to say so. The
+  /// caches keep themselves — whatever isn't a model's own goes on its own
+  /// (`ModelFiles.pruneCaches`) — so the row reports and nothing more.
   private var storageSection: some View {
     Section("Storage") {
       VStack(alignment: .leading, spacing: 8) {
         Text("Total storage")
-        // The models and what the engines have cached beside them, which is what iOS counts
-        // against the app: the bar says the number Settings › Storage says.
+        // The two together are what iOS counts against the app: the bar says the number
+        // Settings › Storage says, in two parts.
         StorageBar(
           needed: installedModelBytes + cacheBytes, free: freeBytes, capacity: capacityBytes,
-          installedCaption: "\(Self.format(installedModelBytes)) of models",
+          installedCaption: cacheBytes > 0
+            ? "\(Self.format(installedModelBytes)) of models · \(Self.format(cacheBytes)) of cache"
+            : "\(Self.format(installedModelBytes)) of models",
+          cache: cacheBytes,
           isProposed: false)
-      }
-      LabeledContent("Cache size") {
-        Text(Self.format(cacheBytes))
       }
     }
   }

@@ -24,6 +24,10 @@ struct StorageBar: View {
   /// one 4.17 GB model on it read as a mistake; the rest is the engine's cache, and the caption
   /// says so when it is told the split.
   var installedCaption: String? = nil
+  /// For what is installed: how much of `needed` is the engines' cache rather than the models
+  /// themselves. Drawn as its own band, lighter than the models', so the two read apart on the
+  /// bar the way they do in the caption.
+  var cache: Int64 = 0
   /// Whether the middle band is something being weighed up or something already there.
   /// A download asks whether it fits and is answered in green or red; what is installed
   /// isn't a question, so it is drawn plainly and says what it takes.
@@ -42,7 +46,10 @@ struct StorageBar: View {
     return free - needed >= Self.buffer
   }
 
-  private var tint: Color { isProposed ? (fits ? .green : .red) : .secondary }
+  /// The middle band: green or red for a download; for what is installed, the page's own
+  /// ink, darker for the models and lighter for their cache.
+  private var tint: Color { isProposed ? (fits ? .green : .red) : Color.primary.opacity(0.7) }
+  private var cacheTint: Color { Color.primary.opacity(0.3) }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 6) {
@@ -60,19 +67,24 @@ struct StorageBar: View {
     }
   }
 
-  /// Three bands in one line: what the phone already holds, what this would add, and
-  /// what would be left. The middle one is the model, in the colour that says whether
-  /// it can go there at all.
+  /// Bands in one line: what the phone already holds, what this would add — or, for what is
+  /// installed, the models and then their cache — and what would be left. The middle is the
+  /// model, in the colour that says whether it can go there at all.
   private var bar: some View {
     GeometryReader { geometry in
       let width = geometry.size.width
       HStack(spacing: 1) {
         Rectangle()
-          .fill(Color.secondary.opacity(0.35))
+          .fill(Color.secondary.opacity(0.25))
           .frame(width: width * fraction(of: used))
         Rectangle()
           .fill(tint)
-          .frame(width: width * fraction(of: needed))
+          .frame(width: width * fraction(of: needed - min(cache, needed)))
+        if !isProposed, cache > 0 {
+          Rectangle()
+            .fill(cacheTint)
+            .frame(width: width * fraction(of: min(cache, needed)))
+        }
         Rectangle()
           .fill(Color.secondary.opacity(0.12))
       }
