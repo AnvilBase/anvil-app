@@ -106,11 +106,11 @@ struct StorageBar: View {
       guard let free, let capacity else { return "\(Self.format(needed)) of models" }
       return "\(Self.format(needed)) of models · \(Self.format(free)) free of \(Self.format(capacity))"
     }
+    // The one number that matters when it fits: what pressing Download costs. What is left
+    // afterwards used to follow it, and read as a second thing to weigh up when the bar
+    // and its colour had already said the phone can take it.
     guard let free = effectiveFree else { return "\(Self.format(needed)) to download" }
-    if fits {
-      let after = free - (keeps ?? needed)
-      return "\(Self.format(keeps ?? needed)) to download · \(Self.format(after)) free afterwards"
-    }
+    if fits { return "\(Self.format(keeps ?? needed)) to download" }
     // What is missing, said as the number to go and free up, because that is the thing
     // to act on. The buffer is part of it: it is needed, so it is counted.
     let short = Self.buffer - (free - needed)
