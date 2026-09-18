@@ -10,12 +10,17 @@ import SwiftUI
 /// Green or red, and nothing in between. There is one decision here and the colour is
 /// it, so a glance is the whole reading.
 struct StorageBar: View {
-  /// What the download will take, in bytes.
+  /// The bytes the middle band stands for: what a download would add, or — when
+  /// `isProposed` is false — what the models on the phone already take.
   let needed: Int64
   /// What the phone has free right now, or nil when it won't say.
   let free: Int64?
   /// Everything the phone holds, used and free, or nil when it won't say.
   let capacity: Int64?
+  /// Whether the middle band is something being weighed up or something already there.
+  /// A download asks whether it fits and is answered in green or red; what is installed
+  /// isn't a question, so it is drawn plainly and says what it takes.
+  var isProposed: Bool = true
 
   /// Room to leave over once the model is in. A phone with a few megabytes spare is a
   /// phone that stutters, warns, and eventually can't take a photo — so the answer to
@@ -27,17 +32,18 @@ struct StorageBar: View {
 
   /// Whether there is room for the model and the room to spare after it.
   var fits: Bool {
-    guard let free else { return true }
+    guard isProposed, let free else { return true }
     return free - needed >= Self.buffer
   }
 
-  private var tint: Color { fits ? .green : .red }
+  private var tint: Color { isProposed ? (fits ? .green : .red) : .secondary }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 6) {
       bar
       HStack(spacing: 4) {
         Image(systemName: fits ? "internaldrive" : "exclamationmark.triangle.fill")
+          .accessibilityHidden(true)
           .font(.caption2)
           .foregroundStyle(fits ? Color.secondary : tint)
         Text(caption)
@@ -69,9 +75,13 @@ struct StorageBar: View {
     .frame(height: 6)
   }
 
+  /// The first band: what the phone holds that isn't the middle band. For a download
+  /// that is everything already on the phone; for what is installed it is everything
+  /// else, so the models' share reads as its own slice rather than as part of the rest.
   private var used: Int64 {
     guard let capacity, let free else { return 0 }
-    return max(capacity - free, 0)
+    let occupied = max(capacity - free, 0)
+    return isProposed ? occupied : max(occupied - needed, 0)
   }
 
   /// A band's share of the bar. Without a capacity to divide by there is nothing to
@@ -82,6 +92,10 @@ struct StorageBar: View {
   }
 
   private var caption: String {
+    if !isProposed {
+      guard let free, let capacity else { return "\(Self.format(needed)) of models" }
+      return "\(Self.format(needed)) of models · \(Self.format(free)) free of \(Self.format(capacity))"
+    }
     guard let free else { return "\(Self.format(needed)) to download" }
     if fits {
       return "\(Self.format(needed)) to download · \(Self.format(free - needed)) free afterwards"

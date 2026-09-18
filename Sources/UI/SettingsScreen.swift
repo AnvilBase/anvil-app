@@ -165,6 +165,12 @@ struct SettingsScreen: View {
   private var modelSection: some View {
     Section("Models") {
       ForEach(modelRows) { row in modelRow(row) }
+      // What the models on this phone take, and what is left. Always here, whether or
+      // not there is anything to download: a model is the largest thing the app puts on
+      // a phone, and the list of them is where to say so.
+      StorageBar(
+        needed: installedModelBytes, free: freeBytes, capacity: capacityBytes,
+        isProposed: false)
     }
     .task { catalog = (try? await ModelCatalog.load()) ?? [] }
     .task(id: library.installed) {
@@ -175,6 +181,12 @@ struct SettingsScreen: View {
 
   /// What anvilai.com publishes, read as the two things on offer.
   private var plans: [ModelPlan] { ModelPlan.plans(from: catalog) }
+
+  /// Everything the models take together — a text model is a file, an image model a
+  /// folder, and `ModelFile` already carries the size of either.
+  private var installedModelBytes: Int64 {
+    library.installed.reduce(0) { $0 + $1.fileSize }
+  }
 
   /// Pictures, which Anvil Pro makes: one switch, and only once there is something to switch. It
   /// is not a model to choose between — it works beside whichever model the chat is on — so it is
