@@ -128,6 +128,12 @@ private struct RootView: View {
     .onChange(of: pro.isUnlocked, initial: true) { _, unlocked in
       library.proUnlocked = unlocked
     }
+    // And the signed transaction that proves it to anvilai.com, which won't serve a
+    // Pro model without one. Same place, for the same reason: the App Store's answer
+    // is read once, here, and everything downstream is told.
+    .onChange(of: pro.subscriptionProof, initial: true) { _, proof in
+      ModelDownloader.subscriptionProof = proof
+    }
     .onChange(of: chat.settings.appIcon) { _, icon in
       icon.apply()
     }

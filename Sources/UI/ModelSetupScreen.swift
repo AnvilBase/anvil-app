@@ -13,6 +13,9 @@ struct ModelSetupScreen: View {
   @Environment(ProAccess.self) private var pro
   let library: ModelLibrary
 
+  /// Its own, rather than the chat's: this screen is the first one, and on a phone with no model
+  /// there is no chat yet to borrow one from.
+  @State private var network = NetworkStatus()
   @State private var plans: [ModelPlan] = []
   @State private var catalogError: String?
   @State private var isLoadingCatalog = true
@@ -82,6 +85,14 @@ struct ModelSetupScreen: View {
       }
       Toggle("Download over cellular", isOn: cellularBinding)
         .font(.subheadline)
+      // A phone on cellular with that switch off doesn't fail a download and doesn't run one: iOS
+      // holds it until there is Wi-Fi, which from the outside is a download that has gone very
+      // slow for no stated reason. Said plainly, with the switch that starts it directly above.
+      if network.isCellular, !library.allowsCellular {
+        Text("This iPhone is on cellular, so downloads are waiting for Wi-Fi.")
+          .font(.footnote)
+          .foregroundStyle(.secondary)
+      }
     } else {
       Text("No model is published yet.")
         .font(.subheadline)

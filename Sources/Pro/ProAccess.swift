@@ -35,6 +35,14 @@ final class ProAccess {
   /// What went wrong the last time a purchase or restore was tried, for the paywall to show.
   private(set) var lastError: String?
 
+  /// The signed transaction the App Store issued for this subscription, exactly as it
+  /// arrived. It travels with a request for a Pro model, which anvilai.com will only
+  /// serve to someone who has one: Apple signs it, so the site can check it without
+  /// asking Apple and without Anvil holding a secret. Nil when Pro isn't active —
+  /// including in the development app, where previewing Pro is a local switch and not
+  /// a subscription, and so gets nothing to show the server.
+  private(set) var subscriptionProof: String?
+
   #if ANVIL_DEV
     /// The development app looking at Pro without buying it. Off from launch, so the development
     /// app starts out as the free app, which is what the paywall and every locked feature have to
@@ -97,13 +105,19 @@ final class ProAccess {
 
   private func refreshEntitlement() async {
     var entitled = false
+    var proof: String?
     for await result in Transaction.currentEntitlements {
       guard case .verified(let transaction) = result else { continue }
       if Self.productIDs.contains(transaction.productID), transaction.revocationDate == nil {
         entitled = true
+        // Kept as it came rather than rebuilt from the decoded transaction: the
+        // signature is over these bytes, and anything re-encoded is a different
+        // string that Apple never signed.
+        proof = result.jwsRepresentation
       }
     }
     isEntitled = entitled
+    subscriptionProof = proof
   }
 
   /// Buys one of the two products. Which one is the paywall's choice; both are Pro.

@@ -69,14 +69,26 @@ final class ModelDownloadSession: NSObject {
   func download(
     _ part: CatalogPart,
     allowsCellular: Bool,
+    proof: String? = nil,
     onProgress: @escaping (Int64, Int64) -> Void
   ) async throws -> URL {
     // A part that arrived while the app was closed is already on disk.
     if let staged = ModelDownloadFiles.stagedPart(part) { return staged }
 
     var request = URLRequest(url: part.url)
+    // Who is asking, for a model that is paid for. The App Store signed it, so the
+    // site can tell a subscriber from anyone else without Anvil keeping a secret or
+    // the app keeping an account. A free model carries nothing and needs nothing.
+    if let proof {
+      request.setValue("Bearer \(proof)", forHTTPHeaderField: "Authorization")
+    }
     request.allowsCellularAccess = allowsCellular
-    request.allowsExpensiveNetworkAccess = allowsCellular
+    // Not tied to the switch above, which is about this phone's own plan. iOS calls a Personal
+    // Hotspot expensive as well as cellular, and it reaches the app as Wi-Fi — so refusing
+    // expensive access stopped downloads dead for anyone on a hotspot, something the switch never
+    // said it would do and which from the outside is a progress bar that doesn't move.
+    // `allowsCellularAccess` already keeps this phone's own cellular out of it.
+    request.allowsExpensiveNetworkAccess = true
     let task = session.downloadTask(with: request)
 
     return try await withTaskCancellationHandler {

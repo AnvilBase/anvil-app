@@ -9,12 +9,21 @@ import Observation
 final class NetworkStatus {
   private(set) var isOnline = true
 
+  /// Whether the way out is this phone's own cellular. A several-gigabyte download doesn't start on
+  /// it unasked — and doesn't fail either, it waits for Wi-Fi, which is why the model screen says
+  /// so rather than leaving a bar that never moves.
+  private(set) var isCellular = false
+
   private let monitor = NWPathMonitor()
 
   init() {
     monitor.pathUpdateHandler = { [weak self] path in
       let online = path.status == .satisfied
-      Task { @MainActor in self?.isOnline = online }
+      let cellular = path.usesInterfaceType(.cellular)
+      Task { @MainActor in
+        self?.isOnline = online
+        self?.isCellular = cellular
+      }
     }
     monitor.start(queue: DispatchQueue(label: "\(AppFlavor.storageNamespace).NetworkStatus"))
   }

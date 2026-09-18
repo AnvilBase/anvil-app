@@ -44,6 +44,12 @@ final class ModelDownloader {
   }
 
   private static let cellularKey = "modelDownloadAllowsCellular"
+
+  /// The signed transaction for the subscription, when there is one — see
+  /// `ProAccess.subscriptionProof`. The root view keeps this in step with the App
+  /// Store, the same way it does `ModelLibrary.proUnlocked`, so a download that starts
+  /// after a subscription lapses has nothing to show and is refused.
+  static var subscriptionProof: String?
   private static let maximumAttempts = 3
 
   var isActive: Bool {
@@ -110,8 +116,11 @@ final class ModelDownloader {
     for position in index..<model.parts.count where inFlight[position] == nil {
       let part = model.parts[position]
       partProgress[position] = 0
+      // Only a Pro model's parts carry it: a free model is free to anyone, and sending
+      // a subscription with a request for Anvil Core would say otherwise.
+      let proof = (model.isPro ? Self.subscriptionProof : nil)
       inFlight[position] = Task { [self] in
-        try await fetch(part) { written in
+        try await fetch(part, proof: proof) { written in
           Task { @MainActor in
             self.noteProgress(of: position, bytes: min(written, part.sizeBytes))
           }
@@ -167,8 +176,7 @@ final class ModelDownloader {
       phase = .checking
       do {
         try await Task.detached(priority: .userInitiated) {
-          try ModelDownloadFiles.verify(staged, matches: part.sha256)
-          try ModelDownloadFiles.append(staged, to: destination)
+          try ModelDownloadFiles.appendVerifying(staged, to: destination, matches: part.sha256)
           try? FileManager.default.removeItem(at: staged)
         }.value
       } catch ModelDownloadFiles.Failure.checksum {
@@ -199,13 +207,13 @@ final class ModelDownloader {
   /// Retries a part a couple of times. A connection dropping part way through three gigabytes is
   /// ordinary, and only the part in hand has to be fetched again.
   private func fetch(
-    _ part: CatalogPart, onProgress: @escaping @Sendable (Int64) -> Void
+    _ part: CatalogPart, proof: String?, onProgress: @escaping @Sendable (Int64) -> Void
   ) async throws -> URL {
     var attempt = 1
     while true {
       do {
         return try await ModelDownloadSession.shared.download(
-          part, allowsCellular: Self.allowsCellular
+          part, allowsCellular: Self.allowsCellular, proof: proof
         ) { written, _ in onProgress(written) }
       } catch {
         if error is CancellationError || (error as? URLError)?.code == .cancelled {
@@ -315,9 +323,15 @@ enum ModelDownloadFiles {
     guard digest == expected.lowercased() else { throw Failure.checksum }
   }
 
-  /// Appends a part to the file being built, rolling back if the write fails part way (a full disk,
-  /// say) so the file never holds half a part.
-  static func append(_ url: URL, to destination: URL) throws {
+  /// Appends a part to the file being built and checks it against the catalog's hash on the way
+  /// past, rolling back if either the write fails (a full disk, say) or the part turns out to be the
+  /// wrong bytes — so the file never holds half a part or a damaged one.
+  ///
+  /// One pass, not two. Hashing a part and then copying it read every byte of every part twice, and
+  /// a model is gigabytes: the second read bought nothing, since the bytes are already in hand on
+  /// their way into the file. The cost of being wrong is a truncate, which is what a failed write
+  /// already did.
+  static func appendVerifying(_ url: URL, to destination: URL, matches expected: String) throws {
     let fileManager = FileManager.default
     if !fileManager.fileExists(atPath: destination.path) {
       fileManager.createFile(atPath: destination.path, contents: nil)
@@ -329,10 +343,14 @@ enum ModelDownloadFiles {
       try? writer.close()
     }
     let start = try writer.seekToEnd()
+    var hasher = SHA256()
     do {
       while let chunk = try reader.read(upToCount: chunkSize), !chunk.isEmpty {
+        hasher.update(data: chunk)
         try writer.write(contentsOf: chunk)
       }
+      let digest = hasher.finalize().map { String(format: "%02x", $0) }.joined()
+      guard digest == expected.lowercased() else { throw Failure.checksum }
       try writer.synchronize()
     } catch {
       try? writer.truncate(atOffset: start)
