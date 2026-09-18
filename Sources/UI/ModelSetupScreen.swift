@@ -1,12 +1,12 @@
 import SwiftUI
 
-/// The first screen, shown until a chat model has been installed. What Anvil offers, one card
-/// each — Anvil Core, free and the way in; Anvil Pro, the unrestricted model; and Anvil Dream,
-/// the one that makes pictures — with the files, their sizes and their checksums all coming from
-/// anvilai.com. Each downloads on its own. A card carries no badge: the mark in front of each name
-/// says which need Pro, and what each one is, its card says in words underneath. The Pro cards
-/// lead to the paywall until Pro is active, and a plan the catalog has announced but not published
-/// yet says so.
+/// The first screen, shown until a chat model has been installed. The models the chat can run on,
+/// one card each — Anvil Core, free and the way in, and Anvil Pro, the unrestricted model — with
+/// the files, their sizes and their checksums all coming from anvilai.com. The picture models are
+/// not here: this screen chooses what to chat with, and pictures are added later in Settings ›
+/// Image. A card carries no badge: the mark in front of each name says which needs Pro, and what
+/// each one is, its card says in words underneath. The Pro card leads to the paywall until Pro is
+/// active, and a plan the catalog has announced but not published yet says so.
 struct ModelSetupScreen: View {
   @Environment(\.theme) private var theme
   @Environment(ProAccess.self) private var pro
@@ -322,7 +322,8 @@ struct ModelSetupScreen: View {
       // As the catalog lists them, read as plans: the order is decided there, once, for every
       // screen.
       let catalog = try await ModelCatalog.load()
-      plans = ModelPlan.plans(from: catalog)
+      // Chat models only: this screen is the way in, and the way in is something to chat with.
+      plans = ModelPlan.plans(from: catalog).filter { !$0.isImage }
       await library.adoptNames(from: catalog)
     } catch {
       catalogError = error.localizedDescription

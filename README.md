@@ -125,15 +125,15 @@ one.
 
 ### Download it in the app
 
-The first screen lists what Anvil offers — **Anvil Core**, **Anvil Pro**, **Anvil Dream** and
-**Anvil Dream Lite** — each with its size and parameter count, as the catalog at
-[anvilai.com/api/models](https://www.anvilai.com/api/models) publishes them. Each is one file and
-one download. Anvil Core is the free one and the default: tap **Download** and leave it running. It
+The first screen lists the chat models — **Anvil Core** and **Anvil Pro** — each with its size and
+parameter count, as the catalog at [anvilai.com/api/models](https://www.anvilai.com/api/models)
+publishes them. Each is one file and one download. The picture models, **Anvil Dream** and **Anvil
+Dream Lite**, are added later in Settings › Image. Anvil Core is the free one and the default: tap **Download** and leave it running. It
 is the model the chat runs on until another is chosen, and the one it comes back to if the Pro model
-can't be used. Anvil Pro is the unrestricted model; Anvil Dream and Anvil Dream Lite make pictures,
-the second smaller and quicker. All three need Anvil Pro, so their cards lead to the paywall until it
-is active, and a picture model waits for a chat model to be on the phone, since a picture is made for
-a reply. A plan the catalog has announced
+can't be used. Anvil Pro is the unrestricted model and needs Anvil Pro, so its card leads to the
+paywall until it is active. Anvil Dream and Anvil Dream Lite make pictures, the second smaller and
+quicker; both need Pro too, and a picture model waits for a chat model to be on the phone, since a
+picture is made for a reply. A plan the catalog has announced
 but not published yet says "Coming soon". A line under a download's bar says what is being done with
 it — fetched, checked, or, for the image model, unpacked — and the same line shows in Settings and in the
 chat's banner. A download that stops leaves **Try again** to carry on from what has already landed.
