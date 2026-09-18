@@ -14,7 +14,7 @@ struct MarkdownView: View {
   let text: String
 
   var body: some View {
-    let blocks = MarkdownParser.blocks(from: text)
+    let blocks = MarkdownCache.blocks(for: text)
     VStack(alignment: .leading, spacing: 10) {
       ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
         view(for: block)
@@ -67,6 +67,10 @@ struct MarkdownView: View {
   }
 
   static func inline(_ text: String) -> AttributedString {
+    MarkdownCache.inline(text, parse: parseInline)
+  }
+
+  private static func parseInline(_ text: String) -> AttributedString {
     let options = AttributedString.MarkdownParsingOptions(
       interpretedSyntax: .inlineOnlyPreservingWhitespace)
     return (try? AttributedString(markdown: inlineMathAsCode(text), options: options))
@@ -319,5 +323,43 @@ private struct TableBlockView: View {
 
   private func cell(_ row: [String], _ column: Int) -> String {
     column < row.count ? row[column] : ""
+  }
+}
+
+/// What the parser made of a text, kept so it is made once.
+///
+/// A streaming reply changes the chat's messages on every token, and every row on the screen
+/// is rebuilt each time — the reply's, and every finished message above it. Parsed afresh on
+/// each rebuild, a long chat cost the main thread a full markdown parse of everything on the
+/// page per token, and that was the stutter that stopped the drawer opening while a reply was
+/// being written. Finished text is the same text every time; this hands back the same answer.
+/// Bounded, so a long session doesn't keep every draft of every reply.
+@MainActor
+enum MarkdownCache {
+  private static let blocks = NSCache<NSString, Box<[MarkdownBlock]>>()
+  private static let inlines = NSCache<NSString, Box<AttributedString>>()
+  private static let limit = 400
+
+  static func blocks(for text: String) -> [MarkdownBlock] {
+    blocks.countLimit = limit
+    let key = text as NSString
+    if let hit = blocks.object(forKey: key) { return hit.value }
+    let parsed = MarkdownParser.blocks(from: text)
+    blocks.setObject(Box(parsed), forKey: key)
+    return parsed
+  }
+
+  static func inline(_ text: String, parse: (String) -> AttributedString) -> AttributedString {
+    inlines.countLimit = limit
+    let key = text as NSString
+    if let hit = inlines.object(forKey: key) { return hit.value }
+    let parsed = parse(text)
+    inlines.setObject(Box(parsed), forKey: key)
+    return parsed
+  }
+
+  private final class Box<Value> {
+    let value: Value
+    init(_ value: Value) { self.value = value }
   }
 }

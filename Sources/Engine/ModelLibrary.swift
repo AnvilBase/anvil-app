@@ -408,6 +408,9 @@ final class ModelLibrary {
         files.append(file)
       }
       apply(files)
+      // Whatever is cached for a model that isn't here goes with it.
+      let kept = files
+      Task.detached(priority: .utility) { ModelFiles.pruneCaches(keeping: kept) }
     } catch {
       setState(.failed(error.localizedDescription))
     }
@@ -426,6 +429,8 @@ final class ModelLibrary {
       try await Task.detached { try ModelFiles.remove(file) }.value
       if ModelFiles.activeFileName() == file.fileName { ModelFiles.setActiveFileName(nil) }
       apply(installed.filter { $0 != file })
+      let kept = installed
+      Task.detached(priority: .utility) { ModelFiles.pruneCaches(keeping: kept) }
     } catch {
       setState(.failed(error.localizedDescription))
     }
@@ -519,12 +524,82 @@ enum ModelFiles {
 
   /// Engine caches, which make later launches much faster. Caches survives relaunches, unlike tmp,
   /// and is never backed up.
+  ///
+  /// Not small. LiteRT-LM writes its packed weights here — `<model>.xnnpack_cache_<id>` — and
+  /// that file is about the size of the model: four gigabytes for Anvil Raw, on top of the four
+  /// the model is. Core ML keeps its compiled Neural Engine bundles for Anvil Dream in the
+  /// Caches folder too, in a folder of its own. iOS counts all of it against the app, so what
+  /// Settings › Storage says the app takes is the models plus this, and the "13 GB" that started
+  /// it was seven of models and six of cache. Hence `pruneCaches` and `clearCaches`.
   static func cacheDirectory() throws -> URL {
     let caches = try FileManager.default.url(
       for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
     let directory = caches.appendingPathComponent("EngineCache", isDirectory: true)
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     return directory
+  }
+
+  /// Where Core ML keeps what it compiled for the Neural Engine: a folder somewhere under
+  /// Caches whose name carries `e5rt`. Looked for rather than known, since where iOS puts it
+  /// isn't promised, and one level down is as far as it has ever been.
+  private static func coreMLCacheDirectories() -> [URL] {
+    guard
+      let caches = try? FileManager.default.url(
+        for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
+    else { return [] }
+    let fileManager = FileManager.default
+    func entries(of directory: URL) -> [URL] {
+      (try? fileManager.contentsOfDirectory(
+        at: directory, includingPropertiesForKeys: [.isDirectoryKey], options: .skipsHiddenFiles)) ?? []
+    }
+    var found: [URL] = []
+    for entry in entries(of: caches) {
+      if entry.lastPathComponent.localizedCaseInsensitiveContains("e5rt") {
+        found.append(entry)
+      } else if (try? entry.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true {
+        found += entries(of: entry).filter {
+          $0.lastPathComponent.localizedCaseInsensitiveContains("e5rt")
+        }
+      }
+    }
+    return found
+  }
+
+  /// Everything the engines have cached, in bytes: what iOS counts against the app beyond the
+  /// models themselves.
+  static func cacheBytes() -> Int64 {
+    var total: Int64 = 0
+    if let engine = try? cacheDirectory() { total += directorySize(of: engine) }
+    for directory in coreMLCacheDirectories() { total += directorySize(of: directory) }
+    return total
+  }
+
+  /// Throws away the caches of models that are no longer on the phone. A cache is named for
+  /// its model, so one whose model is gone is weight and nothing else: Anvil Core's four
+  /// gigabytes of packed weights were still here after Anvil Pro replaced it. The picture
+  /// model's compiled bundles go the same way once no picture model is installed.
+  static func pruneCaches(keeping installed: [ModelFile]) {
+    let fileManager = FileManager.default
+    let textModels = installed.filter { $0.kind == .text }.map(\.fileName)
+    if let engine = try? cacheDirectory(),
+      let entries = try? fileManager.contentsOfDirectory(at: engine, includingPropertiesForKeys: nil)
+    {
+      for entry in entries
+      where !textModels.contains(where: { entry.lastPathComponent.hasPrefix($0) }) {
+        try? fileManager.removeItem(at: entry)
+      }
+    }
+    if !installed.contains(where: { $0.kind == .image }) {
+      for directory in coreMLCacheDirectories() { try? fileManager.removeItem(at: directory) }
+    }
+  }
+
+  /// Throws away every engine cache. The next load of each model rebuilds its own, and takes
+  /// longer for it — a minute for a chat model, most of one for the first picture.
+  static func clearCaches() {
+    let fileManager = FileManager.default
+    if let engine = try? cacheDirectory() { try? fileManager.removeItem(at: engine) }
+    for directory in coreMLCacheDirectories() { try? fileManager.removeItem(at: directory) }
   }
 
   /// Every model in the directory, by name: text model files, and image model folders.

@@ -33,6 +33,9 @@ struct SettingsScreen: View {
   @State private var catalog: [CatalogModel] = []
   @State private var freeBytes: Int64?
   @State private var capacityBytes: Int64?
+  /// What the engines have cached beside the models — see `ModelFiles.cacheDirectory`.
+  @State private var cacheBytes: Int64 = 0
+  @State private var isClearingCaches = false
 
   private var storageAlertShowing: Binding<Bool> {
     Binding(
@@ -120,7 +123,10 @@ struct SettingsScreen: View {
           .navigationBarTitleDisplayMode(.inline)
         #endif
     } label: {
+      // In the row's ink, not the tint a link's symbol takes on its own: the mark names the
+      // page, it doesn't act, and nothing here should be louder than the words beside it.
       Label(title, systemImage: systemImage)
+        .foregroundStyle(Color.primary)
     }
   }
 
@@ -198,21 +204,66 @@ struct SettingsScreen: View {
     // No header: the page is called Models, and this is the first thing on it.
     Section {
       ForEach(modelRows) { row in modelRow(row) }
+      // By hand, for the times only a person can tell that now is the time: the app reloads
+      // on its own when the settings change and when replies keep failing (see
+      // `ChatModel.reloadIfNeeded`), and this is the same reload, asked for outright.
+      Button {
+        Task { await chat.reloadModel() }
+      } label: {
+        Label("Reload model", systemImage: "arrow.clockwise")
+          .foregroundStyle(Color.primary)
+      }
+      .disabled(library.active == nil || chat.loadState == .loading || chat.isGenerating)
       // What the models on this phone take, and what is left. Always here, whether or
       // not there is anything to download: a model is the largest thing the app puts on
       // a phone, and the list of them is where to say so.
       VStack(alignment: .leading, spacing: 8) {
         Text("Total storage")
           .font(.subheadline)
+        // The models and what the engines have cached beside them, which is what iOS counts
+        // against the app: the bar says the number Settings › Storage says.
         StorageBar(
-          needed: installedModelBytes, free: freeBytes, capacity: capacityBytes,
+          needed: installedModelBytes + cacheBytes, free: freeBytes, capacity: capacityBytes,
           isProposed: false)
       }
+      // The caches are as large as the models and can go at any time; the next load of each
+      // model builds its own again, slowly. The row says what they weigh, which is the reason
+      // anyone would press it.
+      Button {
+        clearCaches()
+      } label: {
+        HStack {
+          Label("Clear caches", systemImage: "trash")
+            .foregroundStyle(Color.primary)
+          Spacer()
+          Text(ByteCountFormatter.string(fromByteCount: cacheBytes, countStyle: .file))
+            .foregroundStyle(.secondary)
+        }
+      }
+      .disabled(
+        cacheBytes == 0 || isClearingCaches || chat.loadState == .loading || chat.isGenerating
+          || library.isDownloading)
     }
     .task { catalog = (try? await ModelCatalog.load()) ?? [] }
     .task(id: library.installed) {
       freeBytes = DeviceStorage.free()
       capacityBytes = DeviceStorage.capacity()
+      cacheBytes = await Task.detached { ModelFiles.cacheBytes() }.value
+    }
+  }
+
+  /// Sets both engines down, throws the caches away, and picks the chat model back up, which
+  /// rebuilds its cache as it loads.
+  private func clearCaches() {
+    isClearingCaches = true
+    Task {
+      let model = library.active
+      await chat.unload()
+      await Task.detached { ModelFiles.clearCaches() }.value
+      cacheBytes = await Task.detached { ModelFiles.cacheBytes() }.value
+      freeBytes = DeviceStorage.free()
+      if let model { await chat.load(model) }
+      isClearingCaches = false
     }
   }
 
@@ -379,8 +430,6 @@ struct SettingsScreen: View {
   @ViewBuilder
   private func downloadRow(_ plan: ModelPlan, update: Bool = false) -> some View {
     let downloader = library.downloader(for: plan)
-    let progress = library.progress(of: plan)
-    let fraction = progress?.fraction ?? downloader?.fraction ?? 0
     // What pressing it costs, which is what is left to fetch rather than what the plan weighs.
     let remaining = library.remainingSize(of: plan)
     let cost =
@@ -390,22 +439,9 @@ struct SettingsScreen: View {
       library.isInterrupted(plan)
       ? "Resume" : (update ? "Update · \(plan.formattedSize)" : cost)
     if let downloader, downloader.isActive {
-      VStack(alignment: .leading, spacing: 8) {
-        HStack {
-          Text(plan.name)
-          Spacer()
-          Text("\(Int(fraction * 100))%")
-            .foregroundStyle(.secondary)
-            .monospacedDigit()
-        }
-        ProgressView(value: fraction)
-          .tint(theme.sendFill)
-        Button("Cancel", role: .destructive) { Task { await library.cancelInstall(plan) } }
-          .font(.subheadline)
-          // Said outright: a button left to the default style inside a Form row hands its taps to
-          // the row, which has nothing to do with them, and the press goes nowhere.
-          .buttonStyle(.borderless)
-      }
+      // Its own view: the bar moves several times a second, and only the row should move
+      // with it, not the whole form under a scrolling thumb.
+      DownloadingRow(plan: plan, library: library, downloader: downloader)
     } else if let downloader, case .failed(let message) = downloader.phase {
       VStack(alignment: .leading, spacing: 6) {
         Text(plan.name)
@@ -916,6 +952,36 @@ struct SettingsScreen: View {
     case 0: "Never"
     case 1: "1 day"
     default: "\(days) days"
+    }
+  }
+}
+
+/// A model on its way: the name, how far, a bar, and Cancel. Kept out of `SettingsScreen`'s
+/// body on purpose — see `DownloadProgressBanner` in the chat for why — so that what the bar's
+/// movement rebuilds is this row.
+private struct DownloadingRow: View {
+  @Environment(\.theme) private var theme
+  let plan: ModelPlan
+  let library: ModelLibrary
+  let downloader: ModelDownloader
+
+  var body: some View {
+    let fraction = library.progress(of: plan)?.fraction ?? downloader.fraction
+    VStack(alignment: .leading, spacing: 8) {
+      HStack {
+        Text(plan.name)
+        Spacer()
+        Text("\(Int(fraction * 100))%")
+          .foregroundStyle(.secondary)
+          .monospacedDigit()
+      }
+      ProgressView(value: fraction)
+        .tint(theme.sendFill)
+      Button("Cancel", role: .destructive) { Task { await library.cancelInstall(plan) } }
+        .font(.subheadline)
+        // Said outright: a button left to the default style inside a Form row hands its taps to
+        // the row, which has nothing to do with them, and the press goes nowhere.
+        .buttonStyle(.borderless)
     }
   }
 }

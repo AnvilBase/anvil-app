@@ -28,9 +28,17 @@ final class ModelDownloader {
   private(set) var receivedBytes: Int64 = 0
   private(set) var totalBytes: Int64 = 0
 
-  private var inFlight: [Int: Task<URL, Error>] = [:]
-  private var partProgress: [Int: Int64] = [:]
-  private var appendedBytes: Int64 = 0
+  @ObservationIgnored private var inFlight: [Int: Task<URL, Error>] = [:]
+  @ObservationIgnored private var partProgress: [Int: Int64] = [:]
+  @ObservationIgnored private var appendedBytes: Int64 = 0
+  /// When `receivedBytes` last moved, and whether a move is already waiting its turn.
+  @ObservationIgnored private var lastPublish: ContinuousClock.Instant?
+  @ObservationIgnored private var publishPending = false
+  /// How often `receivedBytes` is allowed to move. Every part in flight reports ten times a
+  /// second, and eight parts at once is eighty layout passes a second for every screen showing
+  /// a bar — which is what made Settings stutter under a thumb while Anvil Pro came down. Four
+  /// a second is as smooth as a bar needs to be.
+  private static let publishInterval: Duration = .milliseconds(250)
 
   /// Bytes other downloads still need, counted against free space before this one starts or
   /// carries on. Set by the library, which can see them all.
@@ -133,7 +141,26 @@ final class ModelDownloader {
     // A part that has already been appended is no longer counted separately.
     guard partProgress[position] != nil else { return }
     partProgress[position] = bytes
+    publishReceived()
+  }
+
+  /// Moves `receivedBytes` to what has actually arrived — at once when asked to, and otherwise
+  /// no more often than `publishInterval`, with one move held back for the end of the interval
+  /// so the bar always ends up where the bytes are.
+  private func publishReceived(now: Bool = false) {
+    if !now, let last = lastPublish, last.duration(to: .now) < Self.publishInterval {
+      guard !publishPending else { return }
+      publishPending = true
+      Task { [weak self] in
+        try? await Task.sleep(for: Self.publishInterval)
+        guard let self else { return }
+        self.publishPending = false
+        self.publishReceived(now: true)
+      }
+      return
+    }
     receivedBytes = appendedBytes + partProgress.values.reduce(0, +)
+    lastPublish = .now
   }
 
   private func download(_ model: CatalogModel) async throws {
@@ -149,7 +176,7 @@ final class ModelDownloader {
     var badChecksums = 0
     appendedBytes = model.parts.prefix(nextPart).reduce(Int64(0)) { $0 + $1.sizeBytes }
     partsCompleted = nextPart
-    receivedBytes = appendedBytes
+    publishReceived(now: true)
     defer { cancelInFlight() }
 
     // Parts arrive in whatever order the network gives them, but they are only ever appended in
@@ -192,7 +219,7 @@ final class ModelDownloader {
       nextPart += 1
       partsCompleted = nextPart
       appendedBytes += part.sizeBytes
-      receivedBytes = appendedBytes + partProgress.values.reduce(0, +)
+      publishReceived(now: true)
       ModelDownloadFiles.saveState(ModelDownloadState(model: model, nextPart: nextPart))
     }
 

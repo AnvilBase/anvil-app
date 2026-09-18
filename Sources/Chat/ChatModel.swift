@@ -132,6 +132,9 @@ final class ChatModel {
   /// word about it. The screen shows the word; this decides when.
   private(set) var firstPictureIsTakingItsTime = false
   private var firstPictureNote: Task<Void, Never>?
+  /// Where the picture being made has got to, from Anvil Dream, for the screen to draw under
+  /// "Making the picture…". Nil when no picture is being made.
+  private(set) var pictureStage: PictureStage?
   /// How long the first picture goes before the screen says the first one is slower.
   private static let firstPictureNoteAfter: Duration = .seconds(10)
 
@@ -159,6 +162,13 @@ final class ChatModel {
     firstPictureNote?.cancel()
     firstPictureNote = nil
     firstPictureIsTakingItsTime = false
+    pictureStage = nil
+  }
+
+  /// What Anvil Dream is handed to report with: each stage lands on the main actor and the
+  /// screen redraws its line.
+  private var pictureProgress: @Sendable (PictureStage) -> Void {
+    { [weak self] stage in Task { @MainActor in self?.pictureStage = stage } }
   }
 
   /// What to do when the picture model turns out to be damaged: the library looks at the folder
@@ -221,11 +231,11 @@ final class ChatModel {
 
   /// Loads the model again when it needs it.
   ///
-  /// There used to be a Reload model button in Settings › Models for this, which asked someone to
-  /// know that reloading was a thing and that now was the time for it. The app knows both: it knows
-  /// when its engine is no longer the one the settings describe, when the load failed, and when
-  /// reply after reply comes back an error. So it does it itself — when Settings closes, when the
-  /// app comes back to the screen, and after a reply has failed twice running.
+  /// Settings › Models has a Reload model button for this too, for the times only a person can
+  /// tell that now is the time. It is not the ordinary way: the app knows when its engine is no
+  /// longer the one the settings describe, when the load failed, and when reply after reply comes
+  /// back an error, and does the reload itself — when Settings closes, when the app comes back to
+  /// the screen, and after a reply has failed twice running.
   func reloadIfNeeded() async {
     guard loadedModel != nil else { return }
     // Settings the model wasn't loaded with. Not a symptom of anything going wrong — it is the
@@ -605,6 +615,37 @@ final class ChatModel {
     }
   }
 
+  /// True for a message of yours, when the chat is free to take it again.
+  func canResend(_ id: ChatMessage.ID) -> Bool {
+    guard loadState == .ready, !isGenerating, !isPreparingImage, editingMessageID == nil,
+      let message = openChat.messages.first(where: { $0.id == id }), message.role == .user
+    else { return false }
+    return !message.text.isEmpty || message.hasImage || message.attachment != nil
+  }
+
+  /// Sends a past message of yours again, as it was — words, photo and file — as a new turn at
+  /// the end of the chat. Nothing is replaced: that is what editing is for. It goes through
+  /// `send` like a message typed now, so a request for a picture is a picture again.
+  func resend(_ id: ChatMessage.ID) {
+    guard canResend(id), let message = openChat.messages.first(where: { $0.id == id }) else { return }
+    let chatID = openChat.id
+    isPreparingImage = message.hasImage
+    Task {
+      var image: PreparedImage?
+      if message.hasImage, let preview = images[id],
+        let data = await archive.loadImage(chatID: chatID, messageID: id)
+      {
+        image = PreparedImage(jpegData: data, preview: preview)
+      }
+      isPreparingImage = false
+      guard openChat.id == chatID, canResend(id) else { return }
+      draft = message.text
+      pendingImage = image
+      pendingFile = message.attachment
+      send()
+    }
+  }
+
   func stop() {
     speechOutput.stop()
     guard let task = generationTask, !isStopping else { return }
@@ -861,7 +902,7 @@ final class ChatModel {
       }
     }
     do {
-      let image = try await dream.generate(description, from: imageModel)
+      let image = try await dream.generate(description, from: imageModel, progress: pictureProgress)
       guard let data = ImageProcessing.jpegData(image) else { throw DreamEngine.Failure.noOutput }
       if let decoded = ImageProcessing.decode(data) { images[replyID] = decoded }
       updateMessage(replyID) {
@@ -946,10 +987,11 @@ final class ChatModel {
     let imageGenerator: (@Sendable (String) async throws -> Data)?
     if options.imageGeneration, let imageModel {
       let dream = dream
+      let progress = pictureProgress
       imageGenerator = { [weak self] prompt in
         await MainActor.run { self?.pictureBegan() }
         defer { Task { @MainActor in self?.pictureEnded() } }
-        let image = try await dream.generate(prompt, from: imageModel)
+        let image = try await dream.generate(prompt, from: imageModel, progress: progress)
         guard let data = ImageProcessing.jpegData(image) else { throw DreamEngine.Failure.noOutput }
         return data
       }

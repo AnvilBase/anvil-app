@@ -14,6 +14,7 @@ struct MessageRow: View {
   let isStreaming: Bool
   let isReplacedByEdit: Bool
   let canEdit: Bool
+  let canResend: Bool
   let canRegenerate: Bool
   /// Whether to offer the measurements for this reply. They are for working on Anvil, not for
   /// using it, so the public app never shows them.
@@ -21,7 +22,10 @@ struct MessageRow: View {
   /// Whether the first picture of this launch has gone on long enough to say why. Decided by
   /// the model; drawn here under "Making the picture…".
   var firstPictureIsTakingItsTime: Bool = false
+  /// Where the picture has got to, when one is being made: a line and a bar under the brush.
+  var pictureStage: PictureStage? = nil
   let onEdit: () -> Void
+  let onResend: () -> Void
   let onRegenerate: () -> Void
   let onSelectText: () -> Void
   let onShowStats: () -> Void
@@ -180,16 +184,26 @@ struct MessageRow: View {
   /// says what it's looking for, and a picture says it's being made.
   private var workingIndicator: some View {
     HStack(spacing: 8) {
-      // A picture gets the brush; everything else the pixels. Painting is a different kind of
-      // wait from thinking — longer, with a thing at the end — and looks like one.
+      // The same pixels whatever the wait is for: a picture had a brush of its own for a while,
+      // and the grid read better. What kind of wait it is, the words beside it say.
+      PixelThinking()
       if message.imagePrompt != nil, image == nil {
-        PixelPainting()
-      } else {
-        PixelThinking()
-      }
-      if message.imagePrompt != nil, image == nil {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 4) {
           Text("Making the picture…")
+          // How far along it is, in the engine's own words, over a bar that runs the stages
+          // end to end. The bar is the width of a short line of text: a hint of progress,
+          // not a download.
+          if let pictureStage {
+            Text(pictureStage.label)
+              .font(.footnote)
+              .foregroundStyle(.tertiary)
+              .monospacedDigit()
+              .contentTransition(.numericText())
+            ProgressView(value: pictureStage.fraction)
+              .tint(theme.sendFill)
+              .frame(width: 140)
+              .animation(.easeOut(duration: 0.3), value: pictureStage.fraction)
+          }
           if firstPictureIsTakingItsTime {
             Text("The first one takes a little longer while the model warms up.")
               .font(.footnote)
@@ -198,6 +212,7 @@ struct MessageRow: View {
           }
         }
         .animation(.easeOut(duration: 0.25), value: firstPictureIsTakingItsTime)
+        .animation(.easeOut(duration: 0.25), value: pictureStage == nil)
       } else if message.sources != nil {
         Text("Reading results…")
       } else if message.searchQueries != nil {
@@ -304,23 +319,29 @@ struct MessageRow: View {
     .accessibilityLabel(title)
   }
 
-  /// Long-press menu: copy the whole message, select part of it, ask for another reply, or — for
-  /// your own messages — edit and resend.
   @ViewBuilder
+  /// Held down, a message of yours offers the three things you can do with it — Copy, Edit,
+  /// Resend — and nothing else. A reply offers Copy and Select Text, and Regenerate when it is
+  /// the last one.
   private var menuItems: some View {
-    if isUser {
-      Button("Edit and resend", systemImage: "pencil", action: onEdit)
-        .disabled(!canEdit)
-    }
-    if !isUser, canRegenerate {
-      Button("Regenerate", systemImage: "arrow.clockwise", action: onRegenerate)
-    }
     #if canImport(UIKit)
       Button("Copy", systemImage: "doc.on.doc") { UIPasteboard.general.string = message.text }
         .disabled(message.text.isEmpty)
-      Button("Select Text", systemImage: "selection.pin.in.out", action: onSelectText)
-        .disabled(message.text.isEmpty)
     #endif
+    if isUser {
+      Button("Edit", systemImage: "pencil", action: onEdit)
+        .disabled(!canEdit)
+      Button("Resend", systemImage: "arrow.up.circle", action: onResend)
+        .disabled(!canResend)
+    } else {
+      if canRegenerate {
+        Button("Regenerate", systemImage: "arrow.clockwise", action: onRegenerate)
+      }
+      #if canImport(UIKit)
+        Button("Select Text", systemImage: "selection.pin.in.out", action: onSelectText)
+          .disabled(message.text.isEmpty)
+      #endif
+    }
   }
 
   /// The whole line, read out by VoiceOver: "212 tokens · 24.8 tok/s · 0.9s to first token · GPU".

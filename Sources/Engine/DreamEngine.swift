@@ -83,8 +83,11 @@ actor DreamEngine {
   private var release: Task<Void, Never>?
 
   /// The picture for `prompt`, as the decoded image. Cancelling the task stops between passes.
+  /// Makes the picture, telling `progress` where it has got to as it goes: the stages are what
+  /// the screen shows under "Making the picture…", so a minute's wait has a number in it.
   func generate(
-    _ prompt: String, from model: ModelFile, seed: UInt64? = nil
+    _ prompt: String, from model: ModelFile, seed: UInt64? = nil,
+    progress: @Sendable (PictureStage) -> Void = { _ in }
   ) async throws -> CGImage {
     release?.cancel()
     // Asked before anything is loaded, of the budget iOS actually gives this process — not
@@ -93,7 +96,9 @@ actor DreamEngine {
     if pipeline == nil, os_proc_available_memory() < Self.memoryNeeded {
       throw Failure.notEnoughMemory
     }
+    if pipeline == nil || pipelineURL != model.url { progress(.loading) }
     let pipeline = try load(model.url)
+    progress(.reading)
     defer {
       if os_proc_available_memory() < Self.memoryComfortable { unload() } else { scheduleRelease() }
     }
@@ -120,10 +125,14 @@ actor DreamEngine {
     let sampler = SDXLSampler(method: pipeline.sampling.method, steps: pipeline.sampling.steps)
     let guidance = pipeline.sampling.guidance
     let start = noise.gaussians(count: count).map { $0 * sampler.sigmas[0] }
+    let passes = sampler.passCount
+    var pass = 0
 
     let clean = try sampler.sample(start, noise: { noise.gaussians(count: count) }) {
       sample, sigma in
       try Task.checkCancellation()
+      pass += 1
+      progress(.painting(pass: pass, of: passes))
       let scale = 1 / (sigma * sigma + 1).squareRoot()
       let scaled = sample.map { $0 * scale }
       let input = MLShapedArray<Float32>(
@@ -154,6 +163,7 @@ actor DreamEngine {
     }
 
     try Task.checkCancellation()
+    progress(.finishing)
     let latent = MLShapedArray<Float32>(scalars: clean, shape: latentShape)
     guard let image = try pipeline.decoder.decode([latent], scaleFactor: Self.decoderScaleFactor).first
     else { throw Failure.noOutput }
@@ -320,5 +330,36 @@ actor DreamEngine {
     let encoded = try Self.encode("", with: pipeline)
     emptyPromptEncoding = encoded
     return encoded
+  }
+}
+
+/// Where a picture has got to, for the screen to say. The stages are the ones anyone waiting
+/// would want named: the model coming off disk (the long one, the first time), the prompt being
+/// read, the passes of painting counted out, and the decode at the end. `fraction` lays them
+/// along one bar: loading and reading take the first tenth between them, the painting the next
+/// eight, the finish the last.
+enum PictureStage: Equatable, Sendable {
+  case loading
+  case reading
+  case painting(pass: Int, of: Int)
+  case finishing
+
+  var fraction: Double {
+    switch self {
+    case .loading: 0.02
+    case .reading: 0.08
+    case .painting(let pass, let passes):
+      passes > 0 ? 0.1 + 0.8 * Double(max(pass - 1, 0)) / Double(passes) : 0.1
+    case .finishing: 0.92
+    }
+  }
+
+  var label: String {
+    switch self {
+    case .loading: "Loading the model…"
+    case .reading: "Reading the prompt…"
+    case .painting(let pass, let passes): "Step \(pass) of \(passes)…"
+    case .finishing: "Finishing…"
+    }
   }
 }

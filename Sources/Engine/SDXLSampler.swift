@@ -79,6 +79,16 @@ struct SDXLSampler {
     return (1 - weight) * Float(low) + weight * Float(high)
   }
 
+  /// How many times `sample` runs the network: once a step, or twice for every step but the
+  /// last when the method takes a midpoint. What a progress bar counts.
+  var passCount: Int {
+    let steps = max(sigmas.count - 1, 0)
+    switch method {
+    case .eulerAncestral: return steps
+    case .dpmSDEKarras: return max(2 * steps - 1, 0)
+    }
+  }
+
   /// The clean image, from `start` — pure noise at `sigmas[0]`. `noise` is asked for fresh
   /// Gaussian noise the size of the sample; `denoise` runs the network.
   func sample(

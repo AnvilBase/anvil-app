@@ -300,7 +300,8 @@ struct ChatScreen: View {
 
   private var composer: some View {
     VStack(spacing: 0) {
-      downloadProgress
+      // Its own view, so a moving bar redraws the bar and not the conversation under it.
+      DownloadProgressBanner(library: library)
       // The development app's one line of readings, and whether the model is still warming up.
       if showsDevelopmentFeatures { DevStatusStrip(chat: chat) }
       Composer(
@@ -308,41 +309,6 @@ struct ChatScreen: View {
         isInputFocused: $inputFocused,
         onShowPhoto: { fullScreenPhoto = FullScreenPhoto(image: $0) })
     }
-  }
-
-  /// What is arriving, while something is, in the words the install screen uses: the
-  /// name, how much of how much, and a bar. The composer under it won't send until it
-  /// has landed — the engine is about to be swapped under the conversation — so this is
-  /// also the answer to why it won't.
-  @ViewBuilder
-  private var downloadProgress: some View {
-    if let plan = library.downloadingPlan, let progress = library.progress(of: plan) {
-      VStack(alignment: .leading, spacing: 6) {
-        HStack {
-          Text("Downloading \(plan.name)")
-            .font(.subheadline.weight(.semibold))
-          Spacer()
-          Text("\(Int(progress.fraction * 100))%")
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-            .monospacedDigit()
-        }
-        ProgressView(value: progress.fraction)
-          .tint(theme.sendFill)
-        Text("\(Self.format(progress.received)) of \(Self.format(progress.total))")
-          .font(.caption)
-          .foregroundStyle(.secondary)
-          .monospacedDigit()
-      }
-      .padding(.horizontal, 20)
-      .padding(.top, 10)
-      .padding(.bottom, 4)
-      .transition(.opacity)
-    }
-  }
-
-  private static func format(_ bytes: Int64) -> String {
-    ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
   }
 
   /// A line that appears over the conversation for a moment and then goes: pressing Send before the
@@ -442,13 +408,16 @@ struct ChatScreen: View {
               isStreaming: chat.isGenerating && message.id == chat.messages.last?.id,
               isReplacedByEdit: chat.isReplacedByEdit(message.id),
               canEdit: !chat.isGenerating,
+              canResend: chat.canResend(message.id),
               canRegenerate: chat.canRegenerate(message.id),
               showsMetrics: showsDevelopmentFeatures,
               firstPictureIsTakingItsTime: chat.firstPictureIsTakingItsTime,
+              pictureStage: chat.pictureStage,
               onEdit: {
                 chat.beginEditing(message.id)
                 inputFocused = true
               },
+              onResend: { chat.resend(message.id) },
               onRegenerate: { chat.regenerate(message.id) },
               onSelectText: { textToSelect = message },
               onShowStats: { statsMessage = message },
@@ -637,5 +606,50 @@ private struct LatestMessageTracker: ViewModifier {
   @available(iOS 18.0, *)
   private static func isNearBottom(_ geometry: ScrollGeometry) -> Bool {
     geometry.visibleRect.maxY >= geometry.contentSize.height - 60
+  }
+}
+
+/// What is arriving, while something is, in the words the install screen uses: the name, how
+/// much of how much, and a bar. The composer under it won't send until it has landed — the
+/// engine is about to be swapped under the conversation — so this is also the answer to why
+/// it won't.
+///
+/// A view of its own rather than a piece of the chat screen's body, and this matters: the bar
+/// moves several times a second, and whatever body reads the number it moves with is the body
+/// that is rebuilt each time. Read here, the rebuild is this banner; read in the chat screen, it
+/// was the whole conversation, and the drawer stopped answering to a thumb while Anvil Pro came
+/// down.
+private struct DownloadProgressBanner: View {
+  @Environment(\.theme) private var theme
+  let library: ModelLibrary
+
+  var body: some View {
+    if let plan = library.downloadingPlan, let progress = library.progress(of: plan) {
+      VStack(alignment: .leading, spacing: 6) {
+        HStack {
+          Text("Downloading \(plan.name)")
+            .font(.subheadline.weight(.semibold))
+          Spacer()
+          Text("\(Int(progress.fraction * 100))%")
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .monospacedDigit()
+        }
+        ProgressView(value: progress.fraction)
+          .tint(theme.sendFill)
+        Text("\(Self.format(progress.received)) of \(Self.format(progress.total))")
+          .font(.caption)
+          .foregroundStyle(.secondary)
+          .monospacedDigit()
+      }
+      .padding(.horizontal, 20)
+      .padding(.top, 10)
+      .padding(.bottom, 4)
+      .transition(.opacity)
+    }
+  }
+
+  private static func format(_ bytes: Int64) -> String {
+    ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
   }
 }
