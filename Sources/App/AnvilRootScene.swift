@@ -54,6 +54,20 @@ private struct RootView: View {
   /// app moving you on, not something you did being acknowledged.
   private static let screenChange: Animation = .easeIn(duration: 0.22)
 
+  /// A model that isn't there, for the chat to open on when there is nothing to open on.
+  /// The chat tries to load it, is told there is no such file, and shows that; nothing is
+  /// invented about what it would have been.
+  private var missingModel: ModelFile? {
+    guard let directory = try? ModelFiles.modelsDirectory() else { return nil }
+    return ModelFile(
+      url: directory.appendingPathComponent("none.\(ModelFiles.fileExtension)"),
+      fileSize: 0,
+      modificationDate: .distantPast,
+      displayName: "No model",
+      catalogID: nil,
+      version: nil)
+  }
+
   /// The theme the settings ask for, if Pro says so; Ink otherwise. Decided here, once, so a lapsed
   /// subscription falls back everywhere at the same moment and nothing downstream has to ask.
   private var theme: AppTheme {
@@ -72,6 +86,15 @@ private struct RootView: View {
         .transition(.opacity)
       } else if case .ready(let model) = library.state {
         ChatScreen(chat: chat, model: model, library: library)
+          .transition(.opacity)
+      } else if chat.settings.hasFinishedModelSetup, let placeholder = missingModel {
+        // Choosing a model is the way in, and only that. Once there has been one, a
+        // moment without a usable one — a download swapping Anvil Core for Anvil Pro,
+        // a subscription lapsing — is the chat saying it can't load a model, with
+        // Settings a tap away. It used to drop back to the screen that chooses one,
+        // which after Core had been superseded was a screen with nothing on it to
+        // press: an app that had started itself over.
+        ChatScreen(chat: chat, model: placeholder, library: library)
           .transition(.opacity)
       } else {
         ModelSetupScreen(library: library)
@@ -127,6 +150,17 @@ private struct RootView: View {
     // model falls back the moment a subscription lapses, the same way the theme does.
     .onChange(of: pro.isUnlocked, initial: true) { _, unlocked in
       library.proUnlocked = unlocked
+    }
+    // Bought, rather than merely unlocked: only a subscription supersedes Anvil Core.
+    .onChange(of: pro.isEntitled, initial: true) { _, entitled in
+      library.proIsPurchased = entitled
+    }
+    // The first model to finish is the end of setting one up, and there is no going back
+    // to that screen afterwards.
+    .onChange(of: library.state, initial: true) { _, state in
+      guard case .ready = state, !chat.settings.hasFinishedModelSetup else { return }
+      chat.settings.hasFinishedModelSetup = true
+      chat.settings.save()
     }
     // And the signed transaction that proves it to anvilai.com, which won't serve a
     // Pro model without one. Same place, for the same reason: the App Store's answer

@@ -170,6 +170,10 @@ struct AppSettings: Codable, Equatable, Sendable {
   var appearance = AppearancePreference.system
   /// Whether the welcome screen has been shown. It is shown once, on the first launch.
   var hasSeenWelcome = false
+  /// Whether a model has ever finished installing. The screen that chooses one is the
+  /// way in and nothing else: once there has been a model, a moment without a usable
+  /// one is the chat saying so, not the app starting over.
+  var hasFinishedModelSetup = false
 
   // MARK: - Anvil Pro
   //

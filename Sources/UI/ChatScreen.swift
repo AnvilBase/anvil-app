@@ -88,6 +88,9 @@ struct ChatScreen: View {
     .task(id: model) { await chat.load(model) }
     // Anvil Dream comes and goes with the library — installed, deleted, Pro lapsing — and the chat
     // hears about it here, the same way it is handed the text model.
+    .onChange(of: library.isDownloading, initial: true) { _, downloading in
+      chat.isInstallingModel = downloading
+    }
     .onChange(of: library.imageModel, initial: true) { _, imageModel in
       chat.setImageModel(imageModel)
       // And how the chat gets rid of one that turns out to be damaged. Here, because this is the
@@ -283,10 +286,48 @@ struct ChatScreen: View {
   }
 
   private var composer: some View {
-    Composer(
-      chat: chat,
-      isInputFocused: $inputFocused,
-      onShowPhoto: { fullScreenPhoto = FullScreenPhoto(image: $0) })
+    VStack(spacing: 0) {
+      downloadProgress
+      Composer(
+        chat: chat,
+        isInputFocused: $inputFocused,
+        onShowPhoto: { fullScreenPhoto = FullScreenPhoto(image: $0) })
+    }
+  }
+
+  /// What is arriving, while something is, in the words the install screen uses: the
+  /// name, how much of how much, and a bar. The composer under it won't send until it
+  /// has landed — the engine is about to be swapped under the conversation — so this is
+  /// also the answer to why it won't.
+  @ViewBuilder
+  private var downloadProgress: some View {
+    if let plan = library.downloadingPlan, let progress = library.progress(of: plan) {
+      VStack(alignment: .leading, spacing: 6) {
+        HStack {
+          Text("Downloading \(plan.name)")
+            .font(.subheadline.weight(.semibold))
+          Spacer()
+          Text("\(Int(progress.fraction * 100))%")
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .monospacedDigit()
+        }
+        ProgressView(value: progress.fraction)
+          .tint(theme.sendFill)
+        Text("\(Self.format(progress.received)) of \(Self.format(progress.total))")
+          .font(.caption)
+          .foregroundStyle(.secondary)
+          .monospacedDigit()
+      }
+      .padding(.horizontal, 20)
+      .padding(.top, 10)
+      .padding(.bottom, 4)
+      .transition(.opacity)
+    }
+  }
+
+  private static func format(_ bytes: Int64) -> String {
+    ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
   }
 
   /// A line that appears over the conversation for a moment and then goes: pressing Send before the

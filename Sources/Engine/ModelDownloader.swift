@@ -519,9 +519,11 @@ enum ModelDownloadFiles {
     return values.volumeAvailableCapacityForImportantUsage
   }
 
-  /// Room left over once a model is installed. Two gigabytes: enough that iOS isn't warning about
-  /// space the moment the download lands, and the camera and everything else still have room.
-  static let storageBuffer: Int64 = 2_000_000_000
+  /// Room left over once a model is installed. Five gigabytes: enough that the phone goes on
+  /// working normally afterwards rather than merely fitting the model — iOS not warning about
+  /// space, photos and everything else still with somewhere to go. The bar on the model screens
+  /// draws this same number, so what it shows in red is exactly what this refuses.
+  static let storageBuffer: Int64 = 5_000_000_000
 
   /// What a download needs free to start or carry on: what is left to fetch, the one part being
   /// staged, the buffer, and whatever other downloads under way still need (`reserving`). Nil when

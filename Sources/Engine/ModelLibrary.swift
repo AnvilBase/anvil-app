@@ -68,6 +68,13 @@ final class ModelLibrary {
     didSet { if proUnlocked != oldValue { apply(installed) } }
   }
 
+  /// Whether Pro is actually bought, as opposed to being looked at. The development
+  /// app's preview switch unlocks Pro for a run and is off again at the next launch —
+  /// and deleting Anvil Core on the strength of that left the phone with a Pro model it
+  /// was no longer allowed to use and nothing else, which is a chat with no model in
+  /// it. What is previewed is the screens; files are not deleted for a preview.
+  var proIsPurchased = false
+
   private var isRefreshing = false
   private var installTasks: [String: Task<Void, Never>] = [:]
   /// The plan installs under way, by plan id. A plan's files are fetched one after another, so
@@ -164,16 +171,18 @@ final class ModelLibrary {
   func install(_ plan: ModelPlan) {
     guard planTasks[plan.id] == nil, purchasable(plan) else { return }
     if plan.isPro { installingPro = plan }
+    downloadingPlan = plan
     planTasks[plan.id] = Task { [self] in
       defer {
         planTasks[plan.id] = nil
         if plan.isPro { installingPro = nil }
+        if downloadingPlan?.id == plan.id { downloadingPlan = nil }
       }
       // Anvil Pro replaces Anvil Core rather than joining it: two chat models on one phone is
       // gigabytes held by the one nobody chats with any more. Core goes ahead of the download only
       // when the phone hasn't room for both — the download would refuse to start otherwise, and a
       // phone with room for one of the two should still be able to have Pro.
-      if plan.isPro, !fits(plan) { await removeSuperseded() }
+      if plan.isPro, !fits(plan), proIsPurchased { await removeSuperseded() }
       for model in plan.publishedModels where !isInstalled(model) {
         install(model)
         while let task = installTasks[model.id] { _ = await task.value }
@@ -189,6 +198,10 @@ final class ModelLibrary {
   /// Anvil Pro while its download is running, for the paywall to show how far it has got. Nil the
   /// rest of the time.
   private(set) var installingPro: ModelPlan?
+
+  /// Whichever plan is being installed, Pro or not, for the chat to name and measure
+  /// what is arriving. Nil when nothing is.
+  private(set) var downloadingPlan: ModelPlan?
 
   /// Starts Anvil Pro downloading, catalog and all: what the paywall calls the moment a
   /// subscription lands, so that buying Pro is the whole of getting it — nothing to find
@@ -424,6 +437,7 @@ final class ModelLibrary {
   /// so Pro doesn't take it away. The image model isn't touched either — Pro has one and free
   /// doesn't, so there is nothing it replaces.
   private func removeSuperseded() async {
+    guard proIsPurchased else { return }
     for file in installed where file.kind == .text && !file.isPro && file.catalogID != nil {
       await remove(file)
     }

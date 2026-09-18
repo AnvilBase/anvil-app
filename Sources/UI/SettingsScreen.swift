@@ -26,6 +26,8 @@ struct SettingsScreen: View {
   @State private var showingProForChoice = false
   /// What anvilai.com publishes, for the models that aren't on the phone yet.
   @State private var catalog: [CatalogModel] = []
+  @State private var freeBytes: Int64?
+  @State private var capacityBytes: Int64?
 
   private var storageAlertShowing: Binding<Bool> {
     Binding(
@@ -165,6 +167,10 @@ struct SettingsScreen: View {
       ForEach(modelRows) { row in modelRow(row) }
     }
     .task { catalog = (try? await ModelCatalog.load()) ?? [] }
+    .task(id: library.installed) {
+      freeBytes = DeviceStorage.free()
+      capacityBytes = DeviceStorage.capacity()
+    }
   }
 
   /// What anvilai.com publishes, read as the two things on offer.
@@ -386,6 +392,9 @@ struct SettingsScreen: View {
         }
       }
       .disabled(waitsForChatModel)
+      // The same reading the install screen gives, for the same decision made here.
+      StorageBar(needed: library.remainingSize(of: plan), free: freeBytes, capacity: capacityBytes)
+        .listRowSeparator(.hidden, edges: .top)
     }
   }
 

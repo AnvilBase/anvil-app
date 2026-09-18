@@ -142,8 +142,14 @@ final class ChatModel {
   /// back on by itself when the connection returns.
   var webSearchOn: Bool { settings.webSearchEnabled && network.isOnline }
 
+  /// A model is coming down. The chat waits for it: the engine is about to be swapped
+  /// under the conversation — Anvil Pro replaces Anvil Core when it lands — and a reply
+  /// begun on one model and finished on another is not a reply anyone asked for.
+  /// Set by the chat screen, which is where the library and the chat meet.
+  var isInstallingModel = false
+
   var canSend: Bool {
-    loadState == .ready && !isGenerating && !isPreparingImage
+    loadState == .ready && !isGenerating && !isPreparingImage && !isInstallingModel
       && (!draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || pendingImage != nil
         || pendingFile != nil)
   }

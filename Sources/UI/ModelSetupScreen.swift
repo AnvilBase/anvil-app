@@ -16,6 +16,10 @@ struct ModelSetupScreen: View {
   /// Its own, rather than the chat's: this screen is the first one, and on a phone with no model
   /// there is no chat yet to borrow one from.
   @State private var network = NetworkStatus()
+  /// Read when the screen appears and after anything lands or is deleted, rather than
+  /// per row: every card asks the same question of the same disk.
+  @State private var freeBytes: Int64?
+  @State private var capacityBytes: Int64?
   @State private var plans: [ModelPlan] = []
   @State private var catalogError: String?
   @State private var isLoadingCatalog = true
@@ -41,6 +45,8 @@ struct ModelSetupScreen: View {
       .navigationTitle("Choose a model")
     }
     .task { await loadCatalog() }
+    .task(id: library.installed) { readStorage() }
+    .onChange(of: library.isDownloading) { _, _ in readStorage() }
     .alert("Not enough storage on your phone", isPresented: storageAlertShowing) {
       Button("OK", role: .cancel) {}
     } message: {
@@ -100,6 +106,11 @@ struct ModelSetupScreen: View {
     }
   }
 
+  private func readStorage() {
+    freeBytes = DeviceStorage.free()
+    capacityBytes = DeviceStorage.capacity()
+  }
+
   private var cellularBinding: Binding<Bool> {
     Binding(get: { library.allowsCellular }, set: { library.allowsCellular = $0 })
   }
@@ -140,6 +151,14 @@ struct ModelSetupScreen: View {
           if !plan.isComingSoon { Divider().frame(height: 32) }
           stat("Parameters", parameters)
         }
+      }
+
+      // What it will cost this phone, before the button that spends it. Only where
+      // there is something left to fetch: an installed plan has already been paid for
+      // in space, and a plan with nothing published yet has no size to speak of.
+      if !plan.isComingSoon, !library.isInstalled(plan) {
+        StorageBar(
+          needed: library.remainingSize(of: plan), free: freeBytes, capacity: capacityBytes)
       }
 
       action(for: plan)
