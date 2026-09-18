@@ -495,7 +495,7 @@ enum ModelFiles {
   /// the model is. Core ML keeps its compiled Neural Engine bundles for Anvil Dream in the
   /// Caches folder too, in a folder of its own. iOS counts all of it against the app, so what
   /// Settings › Storage says the app takes is the models plus this, and the "13 GB" that started
-  /// it was seven of models and six of cache. Hence `pruneCaches` and `clearCaches`.
+  /// it was seven of models and six of cache. Hence `pruneCaches`, which runs on its own.
   static func cacheDirectory() throws -> URL {
     let caches = try FileManager.default.url(
       for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
@@ -539,18 +539,24 @@ enum ModelFiles {
     return total
   }
 
-  /// Throws away the caches of models that are no longer on the phone. A cache is named for
-  /// its model, so one whose model is gone is weight and nothing else: Anvil Core's four
-  /// gigabytes of packed weights were still here after Anvil Pro replaced it. The picture
-  /// model's compiled bundles go the same way once no picture model is installed.
+  /// Throws away every cache that isn't the one a model on the phone is using. Run whenever
+  /// the models are read and whenever one is deleted, so nothing has to be pressed: a cache
+  /// whose model is gone is weight and nothing else, and so is the cache of a version of a
+  /// model that has since been downloaded again. The picture model's compiled bundles go the
+  /// same way once no picture model is installed.
+  ///
+  /// The engine names a cache for the file it was built from — the file's name, then its
+  /// modification time in whole seconds, then its size in bytes, then what the cache holds:
+  /// `anvil-raw.litertlm_1789768884_4166094048_mldrift_weight_cache.bin`. Matching on the
+  /// name alone kept every cache a file of that name had ever had, and a model downloaded
+  /// twice was two gigabytes of cache twice.
   static func pruneCaches(keeping installed: [ModelFile]) {
     let fileManager = FileManager.default
-    let textModels = installed.filter { $0.kind == .text }.map(\.fileName)
+    let textModels = installed.filter { $0.kind == .text }
     if let engine = try? cacheDirectory(),
       let entries = try? fileManager.contentsOfDirectory(at: engine, includingPropertiesForKeys: nil)
     {
-      for entry in entries
-      where !textModels.contains(where: { entry.lastPathComponent.hasPrefix($0) }) {
+      for entry in entries where !textModels.contains(where: { belongs(entry, to: $0) }) {
         try? fileManager.removeItem(at: entry)
       }
     }
@@ -559,12 +565,16 @@ enum ModelFiles {
     }
   }
 
-  /// Throws away every engine cache. The next load of each model rebuilds its own, and takes
-  /// longer for it — a minute for a chat model, most of one for the first picture.
-  static func clearCaches() {
-    let fileManager = FileManager.default
-    if let engine = try? cacheDirectory() { try? fileManager.removeItem(at: engine) }
-    for directory in coreMLCacheDirectories() { try? fileManager.removeItem(at: directory) }
+  /// Whether a cache entry was built from this file as it is now: same name, same size, and a
+  /// timestamp within a couple of seconds of the file's, since the engine and Foundation may
+  /// round the same instant differently and a live cache thrown away is a minute's load.
+  private static func belongs(_ entry: URL, to file: ModelFile) -> Bool {
+    let name = entry.lastPathComponent
+    guard name.hasPrefix(file.fileName + "_") else { return false }
+    let fields = name.dropFirst(file.fileName.count + 1).split(separator: "_", maxSplits: 2)
+    guard fields.count >= 2, let stamp = Double(fields[0]), let size = Int64(fields[1])
+    else { return false }
+    return size == file.fileSize && abs(stamp - file.modificationDate.timeIntervalSince1970) < 2
   }
 
   /// Every model in the directory, by name: text model files, and image model folders.

@@ -35,7 +35,6 @@ struct SettingsScreen: View {
   @State private var capacityBytes: Int64?
   /// What the engines have cached beside the models — see `ModelFiles.cacheDirectory`.
   @State private var cacheBytes: Int64 = 0
-  @State private var isClearingCaches = false
 
   private var storageAlertShowing: Binding<Bool> {
     Binding(
@@ -244,28 +243,12 @@ struct SettingsScreen: View {
         Text("Total storage")
           .font(.subheadline)
         // The models and what the engines have cached beside them, which is what iOS counts
-        // against the app: the bar says the number Settings › Storage says.
+        // against the app: the bar says the number Settings › Storage says. The caches keep
+        // themselves: whatever isn't a model's own goes on its own (`ModelFiles.pruneCaches`).
         StorageBar(
           needed: installedModelBytes + cacheBytes, free: freeBytes, capacity: capacityBytes,
           isProposed: false)
       }
-      // The caches are as large as the models and can go at any time; the next load of each
-      // model builds its own again, slowly. The row says what they weigh, which is the reason
-      // anyone would press it.
-      Button {
-        clearCaches()
-      } label: {
-        HStack {
-          Label("Clear caches", systemImage: "trash")
-            .foregroundStyle(Color.primary)
-          Spacer()
-          Text(ByteCountFormatter.string(fromByteCount: cacheBytes, countStyle: .file))
-            .foregroundStyle(.secondary)
-        }
-      }
-      .disabled(
-        cacheBytes == 0 || isClearingCaches || chat.loadState == .loading || chat.isGenerating
-          || library.isDownloading)
     }
     .task {
       catalog = (try? await ModelCatalog.load()) ?? []
@@ -275,21 +258,6 @@ struct SettingsScreen: View {
       freeBytes = DeviceStorage.free()
       capacityBytes = DeviceStorage.capacity()
       cacheBytes = await Task.detached { ModelFiles.cacheBytes() }.value
-    }
-  }
-
-  /// Sets both engines down, throws the caches away, and picks the chat model back up, which
-  /// rebuilds its cache as it loads.
-  private func clearCaches() {
-    isClearingCaches = true
-    Task {
-      let model = library.active
-      await chat.unload()
-      await Task.detached { ModelFiles.clearCaches() }.value
-      cacheBytes = await Task.detached { ModelFiles.cacheBytes() }.value
-      freeBytes = DeviceStorage.free()
-      if let model { await chat.load(model) }
-      isClearingCaches = false
     }
   }
 
