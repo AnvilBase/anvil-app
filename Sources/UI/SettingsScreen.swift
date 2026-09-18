@@ -200,10 +200,20 @@ struct SettingsScreen: View {
     // other locked row: what the app can do shouldn't be invisible until it is paid for.
     Section("Image") {
       proGated("Image generation") {
+        // With Pro but before its download has landed, the switch is there and can't be
+        // thrown: there is nothing yet for it to switch on, and a switch that says On
+        // over a model that isn't on the phone is a promise the next message breaks.
+        let dreamIsHere = library.imageModel != nil
         Toggle("Image generation", isOn: $settings.imageGenerationEnabled)
+          .disabled(!dreamIsHere)
           .onChange(of: settings.imageGenerationEnabled) { _, on in
             if !on { Task { await chat.unloadImageModel() } }
           }
+        if !dreamIsHere {
+          Text("Download Anvil Pro in Models to make pictures.")
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+        }
       }
     }
   }
