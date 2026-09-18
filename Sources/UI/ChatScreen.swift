@@ -21,6 +21,9 @@ struct ChatScreen: View {
   @State private var isFollowingLatest = true
   @State private var isUserScrolling = false
   @FocusState private var inputFocused: Bool
+  /// The safe area the drawer hands the chat, as last measured: nothing at the top, since the
+  /// drawer runs edge to edge, and the keyboard's inset at the bottom while one is up.
+  @State private var ambientInsets = EdgeInsets()
 
   private let bottomID = "bottom"
 
@@ -43,13 +46,18 @@ struct ChatScreen: View {
         // it should put the sidebar back, not the chat.
         onOpenSettings: { showingSettings = true })
     } content: {
-      GeometryReader { proxy in
-        // The drawer runs the chat to the screen's edges, which leaves everything inside it a safe
-        // area of nothing, so what is missing is put back here. There is no `NavigationStack` doing
-        // it any more: the stack was only ever here for a toolbar, and a navigation bar that has
-        // been hidden is still a navigation bar — it goes on taking every touch over the top of the
-        // screen, which is where these buttons now are, and none of them could be pressed.
-        let missing = WindowInsets.missing(from: proxy.safeAreaInsets)
+      // The drawer runs the chat to the screen's edges, which leaves everything inside it a safe
+      // area of nothing, so what is missing is put back here. There is no `NavigationStack` doing
+      // it any more: the stack was only ever here for a toolbar, and a navigation bar that has
+      // been hidden is still a navigation bar — it goes on taking every touch over the top of the
+      // screen, which is where these buttons now are, and none of them could be pressed.
+      //
+      // Measured into state rather than read in a `GeometryReader` closure, for the reason
+      // `SidebarContainer` gives: on iOS 26 that closure is not run again for a change in what
+      // it reads, and everything below it that watched the chat would have been drawn from a
+      // stale template.
+      let missing = WindowInsets.missing(from: ambientInsets)
+      Group {
         content
           // The colour runs to the screen edges; the content itself stays inside the safe area.
           .background(theme.page.ignoresSafeArea())
@@ -74,6 +82,7 @@ struct ChatScreen: View {
             Color.clear.frame(height: missing.bottom).allowsHitTesting(false)
           }
       }
+      .onGeometryChange(for: EdgeInsets.self) { $0.safeAreaInsets } action: { ambientInsets = $0 }
     }
     .onChange(of: chat.messagesSent) {
       // Whatever sent it — the button, or dictation finishing on its own — the keyboard goes down

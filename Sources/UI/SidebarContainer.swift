@@ -18,104 +18,118 @@ struct SidebarContainer<Sidebar: View, Content: View>: View {
 
   /// The insets to keep the drawer clear of the notch and the home indicator.
   ///
-  /// A `GeometryReader` that ignores the safe area is not promised to keep reporting what it
-  /// ignored, and on the reading where it reports nothing the drawer would sit under the notch. So
-  /// the proxy is believed when it says something, and the window is asked when it doesn't.
+  /// A view that ignores the safe area is not promised to keep being told what it ignored, and on
+  /// the reading where it is told nothing the drawer would sit under the notch. So the measurement
+  /// is believed when it says something, and the window is asked when it doesn't.
   private static func resolvedInsets(_ proxy: EdgeInsets) -> EdgeInsets {
     proxy.top > 0 ? proxy : WindowInsets.current
   }
 
+  /// The screen as last measured — its size, and the safe area it was handed.
+  @State private var measured = Measured(size: .zero, insets: EdgeInsets())
+
+  private struct Measured: Equatable {
+    var size: CGSize
+    var insets: EdgeInsets
+  }
+
   var body: some View {
-    GeometryReader { proxy in
-      // Ignoring the safe area means measuring the whole screen, so the chat runs edge to edge the
-      // way every other iOS app does and no strip of a different colour is left behind the notch or
-      // the home indicator. Each side then insets its own contents: the chat's NavigationStack does
-      // it automatically, and the drawer is given the insets below.
-      let insets = Self.resolvedInsets(proxy.safeAreaInsets)
-      let width = min(ChatStyle.sidebarWidth, proxy.size.width * 0.86)
-      let offset = min(max((isOpen ? width : 0) + drag, 0), width)
-      let progress = width > 0 ? offset / width : 0
-      let shape = RoundedRectangle(cornerRadius: ChatStyle.pageCorner, style: .continuous)
-      // The drawer is there the moment the chat starts moving rather than arriving with it, so
-      // the first few points of a drag already show what is underneath.
-      let revealed = min(1, progress * 1.5)
+    // The size comes from a measurement kept in state, not from a `GeometryReader` closure.
+    // This used to be one, and the drawer stopped opening from its button: on iOS 26 the
+    // closure is run again only when the geometry changes, and a read of `isOpen` made inside
+    // it counts for nothing. The button set the state, this view's body ran, and the closure —
+    // where the offset was worked out — did not, until the keyboard came up and changed the
+    // layout. Everything here is worked out in the body itself, where a read is a dependency.
+    let insets = Self.resolvedInsets(measured.insets)
+    let size = measured.size == .zero ? WindowInsets.windowSize : measured.size
+    let width = min(ChatStyle.sidebarWidth, size.width * 0.86)
+    let offset = min(max((isOpen ? width : 0) + drag, 0), width)
+    let progress = width > 0 ? offset / width : 0
+    let shape = RoundedRectangle(cornerRadius: ChatStyle.pageCorner, style: .continuous)
+    // The drawer is there the moment the chat starts moving rather than arriving with it, so
+    // the first few points of a drag already show what is underneath.
+    let revealed = min(1, progress * 1.5)
 
-      ZStack(alignment: .leading) {
-        sidebar
-          // A fallback keeps the drawer off the very edge on a device that reports no insets.
-          .padding(.top, max(insets.top, 12))
-          .padding(.bottom, max(insets.bottom, 12))
-          .frame(width: width)
-          .frame(maxHeight: .infinity)
-          // Closing, the drawer doesn't simply get covered over — it goes out of focus and fades,
-          // hanging back a little as the chat comes across it, and all three follow the finger
-          // rather than the clock. Opening, it runs in reverse and the drawer comes to meet you.
-          .blur(radius: (1 - revealed) * 10)
-          .opacity(revealed)
-          .offset(x: -(1 - progress) * width * 0.22)
-          .accessibilityHidden(progress < 0.5)
-          // The drawer keeps its full height if the keyboard is up behind the chat.
-          .ignoresSafeArea(.keyboard)
+    ZStack(alignment: .leading) {
+      sidebar
+        // A fallback keeps the drawer off the very edge on a device that reports no insets.
+        .padding(.top, max(insets.top, 12))
+        .padding(.bottom, max(insets.bottom, 12))
+        .frame(width: width)
+        .frame(maxHeight: .infinity)
+        // Closing, the drawer doesn't simply get covered over — it goes out of focus and fades,
+        // hanging back a little as the chat comes across it, and all three follow the finger
+        // rather than the clock. Opening, it runs in reverse and the drawer comes to meet you.
+        .blur(radius: (1 - revealed) * 10)
+        .opacity(revealed)
+        .offset(x: -(1 - progress) * width * 0.22)
+        .accessibilityHidden(progress < 0.5)
+        // The drawer keeps its full height if the keyboard is up behind the chat.
+        .ignoresSafeArea(.keyboard)
 
-        // The shadow is cast by a plain shape behind the chat, not by the chat itself. Shadowing
-        // the conversation means rendering the whole screen off-screen again on every frame of the
-        // drag, and on a long chat that is what made the drawer stutter.
-        shape
-          .fill(theme.page)
-          .frame(width: proxy.size.width, height: proxy.size.height)
-          // Two soft ones rather than one dark one. A single 28% shadow at this size reads as a
-          // grey band painted down the edge of the page — and it no longer has to carry the
-          // separating on its own, now that the hairline draws the edge and the page lifts off the
-          // drawer as it goes. So: a wide, faint one for the depth, and a short, fainter one just
-          // under the edge for the contact, which together fall away instead of stopping.
-          .shadow(color: .black.opacity(0.10 * progress), radius: 30, x: -10)
-          .shadow(color: .black.opacity(0.06 * progress), radius: 8, x: -2)
-          .offset(x: offset)
-          .allowsHitTesting(false)
+      // The shadow is cast by a plain shape behind the chat, not by the chat itself. Shadowing
+      // the conversation means rendering the whole screen off-screen again on every frame of the
+      // drag, and on a long chat that is what made the drawer stutter.
+      shape
+        .fill(theme.page)
+        .frame(width: size.width, height: size.height)
+        // Two soft ones rather than one dark one. A single 28% shadow at this size reads as a
+        // grey band painted down the edge of the page — and it no longer has to carry the
+        // separating on its own, now that the hairline draws the edge and the page lifts off the
+        // drawer as it goes. So: a wide, faint one for the depth, and a short, fainter one just
+        // under the edge for the contact, which together fall away instead of stopping.
+        .shadow(color: .black.opacity(0.10 * progress), radius: 30, x: -10)
+        .shadow(color: .black.opacity(0.06 * progress), radius: 8, x: -2)
+        .offset(x: offset)
+        .allowsHitTesting(false)
 
-        content
-          .frame(width: proxy.size.width, height: proxy.size.height)
-          .overlay {
-            // The chat lifts off the drawer as it slides rather than being dimmed into it, a
-            // shade at a time and in step with the finger. Under the clip, not over it: a full
-            // square laid on top would paint its own corners straight back over the rounded ones,
-            // and the chat would slide open looking square.
-            ChatStyle.pageLift
-              .opacity(0.1 * progress)
-              .allowsHitTesting(progress > 0.01)
-              .onTapGesture { setOpen(false) }
-          }
-          .clipShape(shape)
-          .overlay {
-            // The page and the drawer are the same colour, so this hairline is what actually draws
-            // the edge of the chat. It arrives with the slide and is gone by the time the chat is
-            // closed and its corners are back outside the screen.
-            shape
-              .strokeBorder(theme.hairline, lineWidth: 0.75)
-              .opacity(progress)
-              .allowsHitTesting(false)
-          }
-          .offset(x: offset)
-          .accessibilityHidden(progress > 0.5)
-      }
-      // What the rounded corners cut away, and the strips above and below the drawer, open onto
-      // this rather than onto the black of the window behind everything.
-      .background(theme.page.ignoresSafeArea())
-      #if canImport(UIKit)
-        // One recogniser does both directions. A zero-sized view is the only way to reach into the
-        // view hierarchy from here; it takes no touches of its own.
-        .background {
-          DrawerPan(isOpen: isOpen, drawerWidth: width) { phase in
-            switch phase {
-            case .changed(let translation):
-              drag = translation
-            case .ended(let translation, let velocity):
-              settle(width: width, translation: translation, velocity: velocity)
-            }
+      content
+        .frame(width: size.width, height: size.height)
+        .overlay {
+          // The chat lifts off the drawer as it slides rather than being dimmed into it, a
+          // shade at a time and in step with the finger. Under the clip, not over it: a full
+          // square laid on top would paint its own corners straight back over the rounded ones,
+          // and the chat would slide open looking square.
+          ChatStyle.pageLift
+            .opacity(0.1 * progress)
+            .allowsHitTesting(progress > 0.01)
+            .onTapGesture { setOpen(false) }
+        }
+        .clipShape(shape)
+        .overlay {
+          // The page and the drawer are the same colour, so this hairline is what actually draws
+          // the edge of the chat. It arrives with the slide and is gone by the time the chat is
+          // closed and its corners are back outside the screen.
+          shape
+            .strokeBorder(theme.hairline, lineWidth: 0.75)
+            .opacity(progress)
+            .allowsHitTesting(false)
+        }
+        .offset(x: offset)
+        .accessibilityHidden(progress > 0.5)
+    }
+    // Fills what it is given, the way the GeometryReader did, and measures it.
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    // What the rounded corners cut away, and the strips above and below the drawer, open onto
+    // this rather than onto the black of the window behind everything.
+    .background(theme.page.ignoresSafeArea())
+    #if canImport(UIKit)
+      // One recogniser does both directions. A zero-sized view is the only way to reach into the
+      // view hierarchy from here; it takes no touches of its own.
+      .background {
+        DrawerPan(isOpen: isOpen, drawerWidth: width) { phase in
+          switch phase {
+          case .changed(let translation):
+            drag = translation
+          case .ended(let translation, let velocity):
+            settle(width: width, translation: translation, velocity: velocity)
           }
         }
-      #endif
-    }
+      }
+    #endif
+    .onGeometryChange(for: Measured.self) { proxy in
+      Measured(size: proxy.size, insets: proxy.safeAreaInsets)
+    } action: { measured = $0 }
     // The notch and the home indicator are the chat's business, not the container's, so it runs
     // edge to edge. The keyboard is deliberately not ignored: the chat has to keep that inset for
     // the composer to ride up with the keyboard, and to follow a finger dragging it back down.

@@ -12,12 +12,27 @@ import SwiftUI
 /// go on. ``SidebarContainer`` ignores it for the whole screen, so both halves of the drawer ask
 /// the window instead, which still knows.
 enum WindowInsets {
-  static var current: EdgeInsets {
-    #if canImport(UIKit)
-      let window = UIApplication.shared.connectedScenes
+  #if canImport(UIKit)
+    private static var window: UIWindow? {
+      UIApplication.shared.connectedScenes
         .compactMap { $0 as? UIWindowScene }
         .flatMap(\.windows)
         .first { $0.isKeyWindow }
+    }
+  #endif
+
+  /// The window's size, for a view that has to draw before it has been measured.
+  static var windowSize: CGSize {
+    #if canImport(UIKit)
+      if let window { return window.bounds.size }
+      return UIScreen.main.bounds.size
+    #else
+      return CGSize(width: 390, height: 844)
+    #endif
+  }
+
+  static var current: EdgeInsets {
+    #if canImport(UIKit)
       if let safeArea = window?.safeAreaInsets {
         return EdgeInsets(
           top: safeArea.top, leading: safeArea.left, bottom: safeArea.bottom,
