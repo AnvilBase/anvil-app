@@ -143,12 +143,14 @@ struct ModelSetupScreen: View {
       // The two numbers worth knowing before pressing Download: what it costs in space — the
       // whole plan, both files of it — and how big a model it is. An announced plan has no file
       // yet, so no size.
+      // Two numbers side by side, each in its own half. No rule between them: a hairline
+      // standing beside "Parameters" read as a stray mark, and the gap already says they are
+      // two things.
       HStack(spacing: 0) {
         if !plan.isComingSoon {
           stat("Size", plan.formattedSize)
         }
         if let parameters = plan.parameters {
-          if !plan.isComingSoon { Divider().frame(height: 32) }
           stat("Parameters", parameters)
         }
       }

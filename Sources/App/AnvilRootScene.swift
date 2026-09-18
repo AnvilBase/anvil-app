@@ -133,6 +133,7 @@ private struct RootView: View {
       // And clears away an unpacking the app was closed in the middle of. Here, before any download
       // is resumed, so it can never be one that is under way.
       ModelDownloadFiles.discardAbandonedUnpacking()
+      ModelDownloadFiles.discardLeftovers()
       await chat.restoreHistory()
       await library.refresh()
       library.resumeInterrupted()

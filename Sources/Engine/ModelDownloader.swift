@@ -374,6 +374,41 @@ enum ModelDownloadFiles {
   /// Throws away an unpacking that never finished: the app was closed part way through expanding
   /// an archive, and the half-written folder beside the model is of no use to anyone. Called once at
   /// launch, before anything starts unpacking again, so it can never meet one in progress.
+  /// Throws away whatever a finished install left behind: its archive, any parts still staged
+  /// for it, its resume state. Each is deleted when the install finishes, with a `try?` — a
+  /// delete that fails is not worth failing the install over — but a delete that failed is
+  /// three gigabytes sitting beside the model it was already unpacked into, and Anvil Pro
+  /// reading as ten on a phone where it is seven. Run at launch, when nothing is installing.
+  static func discardLeftovers() {
+    let fileManager = FileManager.default
+    guard let models = try? ModelFiles.modelsDirectory() else { return }
+    let installed = Set(installedModels().map(\.id))
+    // An archive is named for its catalog id — anvil-dream.aar.partial — and so is a state
+    // file, so the id is the one thing to match on rather than guessing at an extension.
+    if let contents = try? fileManager.contentsOfDirectory(at: models, includingPropertiesForKeys: nil) {
+      for url in contents
+      where url.pathExtension == partialExtension
+        && installed.contains(where: { url.lastPathComponent.hasPrefix($0 + ".") })
+      {
+        try? fileManager.removeItem(at: url)
+      }
+    }
+    for id in installed {
+      try? fileManager.removeItem(at: models.appendingPathComponent(stateFileName(for: id)))
+    }
+    // Staged parts belong to a download in progress or to nothing. At launch there is no
+    // download in progress that isn't about to be resumed from its own state file, and a
+    // resume fetches again what it doesn't find — so anything staged for a model that is
+    // already installed is just weight.
+    if let incoming = try? incomingDirectory(),
+      let staged = try? fileManager.contentsOfDirectory(at: incoming, includingPropertiesForKeys: nil)
+    {
+      for part in staged where installed.contains(where: { part.lastPathComponent.hasPrefix($0) }) {
+        try? fileManager.removeItem(at: part)
+      }
+    }
+  }
+
   static func discardAbandonedUnpacking() {
     let fileManager = FileManager.default
     guard let models = try? ModelFiles.modelsDirectory(),
