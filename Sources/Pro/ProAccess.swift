@@ -44,12 +44,20 @@ final class ProAccess {
   private(set) var subscriptionProof: String?
 
   #if ANVIL_DEV
-    /// The development app looking at Pro without buying it. Off from launch, so the development
-    /// app starts out as the free app, which is what the paywall and every locked feature have to
-    /// look right in; the developer screen's switch turns it on to see the Pro screens. Not
-    /// persisted: it is a way of seeing the screens, not a way of having the feature, and every
-    /// launch starts with it off again.
-    var previewUnlocked = false
+    /// The development app looking at Pro without buying it. Off on a fresh install, so the
+    /// development app starts out as the free app, which is what the paywall and every locked
+    /// feature have to look right in; the developer screen's switch turns it on.
+    ///
+    /// Remembered across launches now, where it used to reset. Anvil Pro replaces Anvil Core
+    /// the moment it starts downloading, so a preview that forgot itself at the next launch
+    /// left the phone with a Pro model it wasn't allowed to run and nothing else — a chat that
+    /// couldn't load a model, and no way to get one back but downloading Core again. A real
+    /// subscription doesn't forget itself between launches; neither should the stand-in.
+    var previewUnlocked: Bool {
+      get { UserDefaults.standard.bool(forKey: Self.previewKey) }
+      set { UserDefaults.standard.set(newValue, forKey: Self.previewKey) }
+    }
+    private static let previewKey = "proPreviewUnlocked"
   #endif
 
   var isUnlocked: Bool {

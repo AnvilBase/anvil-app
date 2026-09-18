@@ -4,6 +4,7 @@ import SwiftUI
 /// and the composer under it.
 struct ChatScreen: View {
   @Environment(\.theme) private var theme
+  @Environment(ProAccess.self) private var pro
   @Environment(AppLock.self) private var lock
   @Bindable var chat: ChatModel
   let model: ModelFile
@@ -236,6 +237,14 @@ struct ChatScreen: View {
   /// does the trying itself, on its own schedule — see `ChatModel.reloadIfNeeded` — when the
   /// settings change, when the app comes back to the screen, and after replies keep failing. What
   /// is worth changing by hand — the model, the context — is in Settings › Models.
+  private var proModelIsLocked: Bool {
+    !pro.isUnlocked && library.installed.contains { $0.isPro && $0.kind == .text }
+  }
+
+  private static let proLockedReason =
+    "Anvil Pro isn't active, and the model on this iPhone is Pro's. Subscribe in Settings, "
+    + "or download Anvil Core in Settings › Models."
+
   private var failure: some View {
     VStack(spacing: 16) {
       Image(systemName: "exclamationmark.triangle")
@@ -246,7 +255,11 @@ struct ChatScreen: View {
       // The engine's own reason, in full: it is the one clue to what to change, and a screen that
       // hides it leaves someone re-downloading a model that was never the problem.
       if case .failed(let reason) = chat.loadState {
-        Text(reason)
+        // The engine's reason, unless the truer one is that the only chat model on the phone is
+        // Pro's and Pro isn't active: "no model is installed" sends someone to download what
+        // they have. Anvil Core replaced by Pro and a subscription lapsed is the ordinary way
+        // here, and what to do about it is a subscription or Core, not a search.
+        Text(proModelIsLocked ? Self.proLockedReason : reason)
           .font(.subheadline)
           .foregroundStyle(.secondary)
           .multilineTextAlignment(.center)

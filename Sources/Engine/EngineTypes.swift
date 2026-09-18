@@ -55,6 +55,10 @@ enum ReplyEvent: Sendable {
   case memorySaved(String)
   /// Anvil Dream has started on a picture with this prompt.
   case generatingImage(String)
+  /// A picture was asked for and will be made once the reply is finished, with the chat model
+  /// set down first: the two don't fit in memory together on most phones, and a picture
+  /// attempted beside the chat model is the phone thrashing for minutes or the app killed.
+  case imageDeferred(String)
   /// The picture, as JPEG data, and what it was made from.
   case imageGenerated(Data, prompt: String)
   case imageGenerationFailed(String)

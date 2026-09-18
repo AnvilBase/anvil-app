@@ -119,6 +119,10 @@ final class ChatModel {
     pro.isUnlocked && imageModel != nil && settings.imageGenerationEnabled
   }
 
+  /// A picture the model asked for during its reply, to be made once the reply is done. See
+  /// `EngineEvent.imageDeferred`.
+  private var deferredPicture: String?
+
   /// Whether a picture has been made since the app was launched. The first one loads the whole
   /// pipeline from disk before it can begin, which is most of a minute on some phones, and a
   /// wait with no word about it reads as something gone wrong. So the first one, once it has
@@ -130,6 +134,13 @@ final class ChatModel {
   private var firstPictureNote: Task<Void, Never>?
   /// How long the first picture goes before the screen says the first one is slower.
   private static let firstPictureNoteAfter: Duration = .seconds(10)
+
+  /// Whether this phone has to choose between the chat model and the picture model. Both
+  /// resident is over 7 GB — Anvil Raw and Anvil Dream together — and a phone with 8 has
+  /// nothing left for iOS. Twelve is the line below which they take turns.
+  private static var pictureNeedsChatModelSetDown: Bool {
+    ProcessInfo.processInfo.physicalMemory < 12_000_000_000
+  }
 
   /// Called as a picture starts, from whichever path starts it.
   func pictureBegan() {
@@ -835,6 +846,20 @@ final class ChatModel {
     updateMessage(replyID) { $0.imagePrompt = description }
     pictureBegan()
     defer { pictureEnded() }
+    // On a phone that can't hold both, the chat model is set down for the picture and picked
+    // up again after. Its conversation is rebuilt from history on the next message, which
+    // costs a moment then; the alternative was the phone thrashing for minutes, or the app
+    // killed with 6 GB resident — both of which happened.
+    let setDownChatModel = Self.pictureNeedsChatModelSetDown
+    if setDownChatModel {
+      activeConversation = nil
+      await device.unload()
+    }
+    defer {
+      if setDownChatModel, let loadedModel {
+        Task { await self.load(loadedModel, force: true) }
+      }
+    }
     do {
       let image = try await dream.generate(description, from: imageModel)
       guard let data = ImageProcessing.jpegData(image) else { throw DreamEngine.Failure.noOutput }
@@ -975,6 +1000,14 @@ final class ChatModel {
       if isStopping {
         updateMessage(reply.id) { if $0.text.isEmpty { $0.text = "(stopped)" } }
       }
+
+      // The picture the model asked for on the way, now that the words are in.
+      if !isStopping, let prompt = deferredPicture, let imageModel {
+        deferredPicture = nil
+        await makePicture(prompt, into: reply.id, chatID: chatID, with: imageModel)
+        activeConversation = nil
+      }
+      deferredPicture = nil
 
       // The last word on pictures, with Anvil Raw. A message that mentioned one, put some way
       // the words above didn't catch, and a model that answered by declining: the picture is
@@ -1129,6 +1162,10 @@ final class ChatModel {
       activeConversation?.memories = memory.promptItems
     case .generatingImage(let prompt):
       updateMessage(replyID) { $0.imagePrompt = prompt }
+    case .imageDeferred(let prompt):
+      // Shown as being made from now — the brush under the words — and made once they stop.
+      updateMessage(replyID) { $0.imagePrompt = prompt }
+      deferredPicture = prompt
     case .imageGenerated(let data, let prompt):
       if let image = ImageProcessing.decode(data) { images[replyID] = image }
       updateMessage(replyID) {

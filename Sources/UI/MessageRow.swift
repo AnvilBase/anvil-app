@@ -153,6 +153,13 @@ struct MessageRow: View {
           .transition(.opacity)
       }
 
+      // A picture is made after the words, with the chat model set down to make room for it,
+      // so the brush works under a reply that is already there.
+      if !message.text.isEmpty, isStreaming, message.imagePrompt != nil, image == nil {
+        workingIndicator
+          .transition(.opacity)
+      }
+
       if let sources = message.sources, !sources.isEmpty { sourceList(sources) }
     }
     // The first words cross-fade with the indicator they replace.

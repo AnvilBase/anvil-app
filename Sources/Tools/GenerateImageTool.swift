@@ -22,22 +22,20 @@ struct GenerateImageTool: Tool {
   func run() async throws -> Any {
     let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !trimmed.isEmpty else { return ["error": "The prompt is empty."] }
-    guard let generate = ToolSession.shared.imageGenerator else {
+    guard ToolSession.shared.imageGenerator != nil else {
       return ["error": "Image generation isn't available right now."]
     }
-    ToolSession.shared.send(.generatingImage(trimmed))
-    do {
-      let data = try await generate(trimmed)
-      ToolSession.shared.send(.imageGenerated(data, prompt: trimmed))
-      return [
-        "generated": true,
-        "prompt": trimmed,
-        "note": "The picture is already on screen above your reply. Add one short sentence about "
-          + "it. Don't describe it in detail and don't say you can't show images.",
-      ]
-    } catch {
-      ToolSession.shared.send(.imageGenerationFailed(error.localizedDescription))
-      return ["error": "The picture couldn't be made: \(error.localizedDescription)"]
-    }
+    // Asked for here, made after the reply. Making it now, in the middle of the model's turn,
+    // meant the chat model and the picture model in memory at once — which on an 8 GB phone
+    // is minutes of thrashing or the app killed. The chat finishes its sentence, sets its
+    // model down, paints, and picks the model up again.
+    ToolSession.shared.send(.imageDeferred(trimmed))
+    return [
+      "generated": true,
+      "prompt": trimmed,
+      "note": "The picture will appear under your reply in a moment. Add one short sentence "
+        + "saying it's on its way. Don't describe it in detail and don't say you can't show "
+        + "images.",
+    ]
   }
 }
