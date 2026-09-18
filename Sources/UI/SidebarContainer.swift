@@ -72,7 +72,8 @@ struct SidebarContainer<Sidebar: View, Content: View>: View {
       // drag, and on a long chat that is what made the drawer stutter.
       shape
         .fill(theme.page)
-        .frame(width: size.width, height: size.height)
+        .frame(width: size.width)
+        .frame(maxHeight: .infinity)
         // Two soft ones rather than one dark one. A single 28% shadow at this size reads as a
         // grey band painted down the edge of the page — and it no longer has to carry the
         // separating on its own, now that the hairline draws the edge and the page lifts off the
@@ -84,7 +85,13 @@ struct SidebarContainer<Sidebar: View, Content: View>: View {
         .allowsHitTesting(false)
 
       content
-        .frame(width: size.width, height: size.height)
+        // The width is the measurement's, because the drawer's travel is worked out from it. The
+        // height is not: the keyboard takes its share of the screen from below, and the
+        // measurement does not always follow it — the chat stayed the height of the whole
+        // screen, centred in what was left, its bar off the top and its composer under the
+        // keys. Filling whatever height there is keeps the composer on the keyboard.
+        .frame(width: size.width)
+        .frame(maxHeight: .infinity)
         .overlay {
           // The chat lifts off the drawer as it slides rather than being dimmed into it, a
           // shade at a time and in step with the finger. Under the clip, not over it: a full
