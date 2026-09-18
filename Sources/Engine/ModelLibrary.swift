@@ -153,6 +153,39 @@ final class ModelLibrary {
     return (received, total, min(Double(received) / Double(total), 1))
   }
 
+  /// Which of the plan's files is in hand, and what is being done with it. One bar for Anvil Pro
+  /// counts its two files as one thing, and this is the line under it that says which of the two
+  /// is coming down right now, and whether it is being fetched, checked or unpacked.
+  struct Stage: Equatable {
+    let model: CatalogModel
+    /// Which file this is of how many: 1 of 2.
+    let position: Int
+    let count: Int
+    let phase: ModelDownloader.Phase
+
+    /// "Downloading Anvil Raw, the chat model (1 of 2)".
+    var label: String {
+      let verb: String
+      switch phase {
+      case .checking: verb = "Checking"
+      case .installing: verb = model.isImage ? "Unpacking" : "Installing"
+      case .downloading, .idle, .finished, .failed: verb = "Downloading"
+      }
+      let which = count > 1 ? " (\(position) of \(count))" : ""
+      return "\(verb) \(model.name), \(ModelPlan.role(of: model))\(which)"
+    }
+  }
+
+  /// The file of the plan on its way, if one is: the plan's files arrive one at a time.
+  func stage(of plan: ModelPlan) -> Stage? {
+    let models = plan.publishedModels
+    guard let index = models.firstIndex(where: { downloads[$0.id]?.isActive ?? false }),
+      let downloader = downloads[models[index].id]
+    else { return nil }
+    return Stage(
+      model: models[index], position: index + 1, count: models.count, phase: downloader.phase)
+  }
+
   /// What the plan still costs in space: the files of it that aren't on the phone yet. Half of
   /// Anvil Pro already down is half of Anvil Pro left to fetch, and the row that offers it should
   /// say the number that pressing it will actually cost.

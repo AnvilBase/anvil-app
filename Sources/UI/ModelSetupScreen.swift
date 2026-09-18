@@ -140,6 +140,17 @@ struct ModelSetupScreen: View {
         .font(.subheadline)
         .foregroundStyle(.secondary)
 
+      // Anvil Pro is two files, and the card says which two before the button that fetches
+      // them: each by the name the catalog gives it, what it is for, and what it weighs. A tick
+      // marks one already here, so half of Pro on the phone reads as half.
+      if plan.listsFiles {
+        VStack(alignment: .leading, spacing: 6) {
+          ForEach(plan.publishedModels) { model in
+            fileLine(model)
+          }
+        }
+      }
+
       // The two numbers worth knowing before pressing Download: what it costs in space — the
       // whole plan, both files of it — and how big a model it is. An announced plan has no file
       // yet, so no size.
@@ -185,6 +196,11 @@ struct ModelSetupScreen: View {
         // One bar for the plan, not one per file: Anvil Pro is two downloads and one thing being
         // downloaded, so the bar counts what is already here as ground covered.
         let progress = library.progress(of: plan)
+        // Which file the bar is on, by name: the pair's bar alone doesn't say.
+        if let stage = library.stage(of: plan) {
+          Text(stage.label)
+            .font(.subheadline.weight(.medium))
+        }
         ProgressView(value: progress?.fraction ?? downloader.fraction)
           // The same ink Download is filled with, rather than the accent: on this screen the one
           // thing you started is the one thing that should be showing its progress in it.
@@ -280,6 +296,31 @@ struct ModelSetupScreen: View {
             .foregroundStyle(.secondary)
         }
       }
+    }
+  }
+
+  /// One file of a plan: a tick or an empty ring for whether it is here, the name with what it
+  /// is for underneath, and its size. The role sits under the name rather than beside it so the
+  /// name never has to wrap to make room for it.
+  private func fileLine(_ model: CatalogModel) -> some View {
+    let installed = library.isInstalled(model)
+    return HStack(alignment: .firstTextBaseline, spacing: 8) {
+      Image(systemName: installed ? "checkmark.circle.fill" : "circle")
+        .font(.subheadline)
+        .foregroundStyle(installed ? Color.primary : Color.secondary)
+      VStack(alignment: .leading, spacing: 2) {
+        Text(model.name)
+          .font(.subheadline.weight(.medium))
+          .lineLimit(1)
+        Text(ModelPlan.roleTitle(of: model))
+          .font(.caption)
+          .foregroundStyle(.secondary)
+      }
+      Spacer()
+      Text(model.formattedSize)
+        .font(.subheadline)
+        .foregroundStyle(.secondary)
+        .monospacedDigit()
     }
   }
 

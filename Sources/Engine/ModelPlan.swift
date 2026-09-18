@@ -93,4 +93,19 @@ struct ModelPlan: Identifiable, Hashable, Sendable {
 
   /// Whether this file is one of the plan's.
   func contains(_ model: CatalogModel) -> Bool { models.contains { $0.id == model.id } }
+
+  /// Whether the plan is more than one file, which is when the files are worth listing by name:
+  /// one file is the plan itself; two is two things arriving as one, and whoever presses Download
+  /// should see both and know which is which.
+  var listsFiles: Bool { publishedModels.count > 1 }
+
+  /// What a file of the plan is for, in a sentence: "Anvil Raw, the chat model".
+  static func role(of model: CatalogModel) -> String {
+    model.isImage ? "the picture model" : "the chat model"
+  }
+
+  /// The same, as a label beside the name: "Chat model", "Picture model".
+  static func roleTitle(of model: CatalogModel) -> String {
+    model.isImage ? "Picture model" : "Chat model"
+  }
 }

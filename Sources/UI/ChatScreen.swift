@@ -646,6 +646,12 @@ private struct DownloadProgressBanner: View {
         }
         ProgressView(value: progress.fraction)
           .tint(theme.sendFill)
+        // The bar is the plan's; this says which of its files is coming down.
+        if let stage = library.stage(of: plan) {
+          Text(stage.label)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
         Text("\(Self.format(progress.received)) of \(Self.format(progress.total))")
           .font(.caption)
           .foregroundStyle(.secondary)

@@ -87,7 +87,10 @@ struct ProScreen: View {
           // that walking away doesn't stop it — the download outlives this screen.
           ProgressView(value: library.progress(of: plan)?.fraction ?? 0)
             .tint(theme.sendFill)
-          Text("Anvil Pro is downloading. You can leave this screen.")
+          // Which file is on its way, by name — Anvil Pro is two — and that walking away is fine.
+          Text(
+            (library.stage(of: plan)?.label ?? "Anvil Pro is downloading")
+              + ". You can leave this screen.")
             .font(.footnote)
             .foregroundStyle(.secondary)
             .multilineTextAlignment(.center)

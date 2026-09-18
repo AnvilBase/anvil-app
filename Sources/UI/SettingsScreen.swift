@@ -476,6 +476,15 @@ struct SettingsScreen: View {
                   .font(.footnote)
                   .foregroundStyle(.secondary)
               }
+              // What the row fetches, file by file, the way the install screen's card says it:
+              // Anvil Pro is two files, and the one pressing this should know which two.
+              if plan.listsFiles {
+                ForEach(plan.publishedModels) { model in
+                  Text("\(model.name), \(ModelPlan.role(of: model)) · \(model.formattedSize)")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                }
+              }
             }
           } icon: {
             Image(systemName: "arrow.down.circle")
@@ -974,6 +983,12 @@ private struct DownloadingRow: View {
         Text("\(Int(fraction * 100))%")
           .foregroundStyle(.secondary)
           .monospacedDigit()
+      }
+      // Which of the plan's files the bar is on, and what is being done with it.
+      if let stage = library.stage(of: plan) {
+        Text(stage.label)
+          .font(.footnote)
+          .foregroundStyle(.secondary)
       }
       ProgressView(value: fraction)
         .tint(theme.sendFill)

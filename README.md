@@ -133,9 +133,13 @@ gathered into one card, so its size is both of them added up. Anvil Core is the 
 default, marked **Recommended**: tap **Download** and leave it running. It is the model the chat
 runs on until another is chosen, and the one it comes back to if the Pro model can't be used. Anvil
 Pro leads to the paywall until Pro is active, and a plan the catalog has announced but not published
-yet says "Coming soon". Pro's files arrive one after another rather than together — the picture
-model is only installed beside a model to chat with — under one progress bar for the pair, and a
-download that stops stops the plan there, so **Try again** carries on from what has already landed.
+yet says "Coming soon". Pro's card lists its two files by name before the button — **Anvil Raw**,
+the chat model, and **Anvil Dream**, the picture model, each with its size and a tick once it is
+on the phone — and they arrive one after another rather than together, the picture model only
+beside a model to chat with, under one progress bar for the pair. A line under the bar says which
+of the two is coming down and whether it is being fetched, checked or unpacked; the same line
+shows in Settings, on the Pro page and in the chat's banner. A download that stops stops the plan
+there, so **Try again** carries on from what has already landed.
 The development app has a **Skip** in the corner, for getting to the chat without waiting on
 gigabytes; the chat then says no model is installed until one is.
 
@@ -148,21 +152,22 @@ The files behind the two:
 | Model | Size | Licence |
 | --- | --- | --- |
 | Anvil Core (`anvil-forge`) | 2.59 GB | [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0) |
-| Anvil Raw (`anvil-raw`, Pro, unrestricted) | not published yet | [Gemma Terms of Use](https://ai.google.dev/gemma/terms) |
+| Anvil Raw (`anvil-raw`, Pro, unrestricted) | 4.17 GB | [Gemma Terms of Use](https://ai.google.dev/gemma/terms) |
 | Anvil Dream (`anvil-dream`, Pro, pictures) | 3.02 GB | [CreativeML Open RAIL++-M](https://github.com/Stability-AI/generative-models/blob/main/model_licenses/LICENSE-SDXL1.0) |
 
-A model is served as a list of 512 MB parts, because a file that size can't be hosted as a single
-asset. The app downloads them one at a time, checks each against its SHA-256, appends it to the file
-it's building, and deletes it — so the phone needs the model's size free, plus one part, not twice the
-model. Progress is written down after every part, so closing the app or losing Wi-Fi costs you at most
-the part in flight; reopening the screen offers to carry on. The transfer runs in a background
-`URLSession`, so it keeps going while you're in another app.
+A model is served as a list of 128 MiB parts, each behind a URL on anvilai.com that redirects to
+the part in a Cloudflare R2 bucket (`models.anvilai.com`), where a part that size is cached at the
+edge. The app fetches them several at once, checks each against its SHA-256, appends it in order to
+the file it's building, and deletes it — so the phone needs the model's size free, plus one part, not
+twice the model. Progress is written down after every part, so closing the app or losing Wi-Fi costs
+you at most the part in flight; reopening the screen offers to carry on. The transfer runs in a
+background `URLSession`, so it keeps going while you're in another app.
 
 Downloads are Wi-Fi only unless you turn on **Download over cellular** on that screen. The catalog and
 the model files are published from
-[AnvilBase/anvil-models](https://github.com/AnvilBase/anvil-models), which also holds the script that
-publishes them — point `ANVIL_HOST` (see [Configuration](#configuration)) at your own
-deployment to serve your own.
+[AnvilBase/anvil-models](https://github.com/AnvilBase/anvil-models), which holds the script that
+publishes them to the bucket and says how the bucket is served — point `ANVIL_HOST` (see
+[Configuration](#configuration)) at your own deployment to serve your own.
 
 Models you download sit side by side. **Settings › Models** lists the same two, with a mark against
 the one in use — tap the other to switch, swipe one to delete it — and offers whichever isn't on the
