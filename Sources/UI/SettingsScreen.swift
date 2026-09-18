@@ -54,6 +54,7 @@ struct SettingsScreen: View {
           page("Models", systemImage: "cpu", badge: proAwaitsDownload) {
             modelSection
             imageSection
+            storageSection
           }
           page("Chat", systemImage: "text.bubble") {
             systemPromptSection
@@ -226,24 +227,6 @@ struct SettingsScreen: View {
     // No header: the page is called Models, and this is the first thing on it.
     Section {
       ForEach(modelRows) { row in modelRow(row) }
-      // What the models on this phone take, and what is left. Always here, whether or
-      // not there is anything to download: a model is the largest thing the app puts on
-      // a phone, and the list of them is where to say so.
-      VStack(alignment: .leading, spacing: 8) {
-        Text("Total storage")
-          .font(.subheadline)
-        // The models and what the engines have cached beside them, which is what iOS counts
-        // against the app: the bar says the number Settings › Storage says. The caches keep
-        // themselves: whatever isn't a model's own goes on its own (`ModelFiles.pruneCaches`).
-        StorageBar(
-          needed: installedModelBytes + cacheBytes, free: freeBytes, capacity: capacityBytes,
-          // The models, and the engine cache named as its own thing: a phone with one 4.17 GB
-          // model on it should not read "6.58 GB of models".
-          installedCaption: cacheBytes > 0
-            ? "\(Self.format(installedModelBytes)) of models · \(Self.format(cacheBytes)) of cache"
-            : "\(Self.format(installedModelBytes)) of models",
-          isProposed: false)
-      }
     }
     .task {
       catalog = (try? await ModelCatalog.load()) ?? []
@@ -258,6 +241,28 @@ struct SettingsScreen: View {
 
   /// What anvilai.com publishes, read as the two things on offer.
   private var plans: [ModelPlan] { ModelPlan.plans(from: catalog) }
+
+  /// What the app holds on the phone, in two rows: the models and their cache together on a
+  /// bar, captioned with the models' own share, and the cache on a row of its own. A model is
+  /// the largest thing the app puts on a phone, and this is where to say so. The caches keep
+  /// themselves — whatever isn't a model's own goes on its own (`ModelFiles.pruneCaches`) — so
+  /// the row reports and nothing more.
+  private var storageSection: some View {
+    Section("Storage") {
+      VStack(alignment: .leading, spacing: 8) {
+        Text("Total storage")
+        // The models and what the engines have cached beside them, which is what iOS counts
+        // against the app: the bar says the number Settings › Storage says.
+        StorageBar(
+          needed: installedModelBytes + cacheBytes, free: freeBytes, capacity: capacityBytes,
+          installedCaption: "\(Self.format(installedModelBytes)) of models",
+          isProposed: false)
+      }
+      LabeledContent("Cache size") {
+        Text(Self.format(cacheBytes))
+      }
+    }
+  }
 
   /// Everything the models take together — a text model is a file, an image model a
   /// folder, and `ModelFile` already carries the size of either.
