@@ -266,7 +266,10 @@ struct SettingsScreen: View {
         cacheBytes == 0 || isClearingCaches || chat.loadState == .loading || chat.isGenerating
           || library.isDownloading)
     }
-    .task { catalog = (try? await ModelCatalog.load()) ?? [] }
+    .task {
+      catalog = (try? await ModelCatalog.load()) ?? []
+      await library.adoptNames(from: catalog)
+    }
     .task(id: library.installed) {
       freeBytes = DeviceStorage.free()
       capacityBytes = DeviceStorage.capacity()

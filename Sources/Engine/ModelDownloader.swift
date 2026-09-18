@@ -265,7 +265,8 @@ struct ModelDownloadState: Codable {
 /// newer version. One record per file, written next to the model files.
 struct InstalledModel: Codable {
   let id: String
-  let name: String
+  /// The catalog's name for it, as of the last time the catalog was read.
+  var name: String
   let version: String
   let fileName: String
   /// Whether the catalog had it as part of Anvil Pro. Optional so records from before the flag
@@ -578,6 +579,21 @@ enum ModelDownloadFiles {
 
   static func forget(_ fileName: String) {
     try? writeInstalled(installedModels().filter { $0.fileName != fileName })
+  }
+
+  /// Gives the record of a downloaded model the name the catalog calls it now. A record keeps
+  /// the name the model was downloaded under, and the catalog can rename a model — Anvil Raw
+  /// became Anvil Pro — without the file changing; the phone should call it what the catalog
+  /// does. True when a record changed.
+  static func rename(id: String, to name: String) -> Bool {
+    var records = installedModels()
+    var changed = false
+    for index in records.indices where records[index].id == id && records[index].name != name {
+      records[index].name = name
+      changed = true
+    }
+    if changed { try? writeInstalled(records) }
+    return changed
   }
 
   private static func writeInstalled(_ records: [InstalledModel]) throws {

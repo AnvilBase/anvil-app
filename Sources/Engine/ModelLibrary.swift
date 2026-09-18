@@ -348,6 +348,19 @@ final class ModelLibrary {
   /// it was killed for the memory. The staged parts are still on disk and the file being built is a
   /// correct prefix of the model, so this picks up where it stopped rather than starting over.
   ///
+  /// Calls each installed model what the catalog calls it now. The name is written down when
+  /// a model is downloaded, and the catalog can rename one afterwards — Anvil Raw became Anvil
+  /// Pro — so whenever the catalog is read, the records are brought into line and the files
+  /// read again. A renamed model reads as a different file to the chat, which reloads it once.
+  func adoptNames(from catalog: [CatalogModel]) async {
+    var changed = false
+    for model in catalog
+    where installed.contains(where: { $0.catalogID == model.id && $0.displayName != model.name }) {
+      changed = ModelDownloadFiles.rename(id: model.id, to: model.name) || changed
+    }
+    if changed { await refresh() }
+  }
+
   /// Called on launch and each time the app comes back to the screen, because "still downloading"
   /// ought to mean still downloading — a download waiting behind a Resume button someone has to
   /// find is one that stopped. A model this run has already tried and failed is left alone:

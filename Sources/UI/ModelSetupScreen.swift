@@ -326,6 +326,7 @@ struct ModelSetupScreen: View {
       // screen.
       let catalog = try await ModelCatalog.load()
       plans = ModelPlan.plans(from: catalog)
+      await library.adoptNames(from: catalog)
     } catch {
       catalogError = error.localizedDescription
     }
