@@ -237,6 +237,11 @@ struct SettingsScreen: View {
         // themselves: whatever isn't a model's own goes on its own (`ModelFiles.pruneCaches`).
         StorageBar(
           needed: installedModelBytes + cacheBytes, free: freeBytes, capacity: capacityBytes,
+          // The models, and the engine cache named as its own thing: a phone with one 4.17 GB
+          // model on it should not read "6.58 GB of models".
+          installedCaption: cacheBytes > 0
+            ? "\(Self.format(installedModelBytes)) of models · \(Self.format(cacheBytes)) of cache"
+            : "\(Self.format(installedModelBytes)) of models",
           isProposed: false)
       }
     }
@@ -258,6 +263,10 @@ struct SettingsScreen: View {
   /// folder, and `ModelFile` already carries the size of either.
   private var installedModelBytes: Int64 {
     library.installed.reduce(0) { $0 + $1.fileSize }
+  }
+
+  private static func format(_ bytes: Int64) -> String {
+    ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
   }
 
   /// Pictures, which Anvil Pro makes: one switch, and only once there is something to switch. It

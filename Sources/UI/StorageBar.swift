@@ -20,6 +20,10 @@ struct StorageBar: View {
   let free: Int64?
   /// Everything the phone holds, used and free, or nil when it won't say.
   let capacity: Int64?
+  /// For what is installed: what the caption calls it. "6.58 GB of models" over a phone with
+  /// one 4.17 GB model on it read as a mistake; the rest is the engine's cache, and the caption
+  /// says so when it is told the split.
+  var installedCaption: String? = nil
   /// Whether the middle band is something being weighed up or something already there.
   /// A download asks whether it fits and is answered in green or red; what is installed
   /// isn't a question, so it is drawn plainly and says what it takes.
@@ -96,7 +100,7 @@ struct StorageBar: View {
   private var caption: String {
     // What is installed says what it takes and nothing more: the bar already shows the
     // phone's share, and the free figure beside it was a second number to read.
-    if !isProposed { return "\(Self.format(needed)) of models" }
+    if !isProposed { return installedCaption ?? "\(Self.format(needed)) of models" }
     // The one number that matters when it fits: what pressing Download costs. What is left
     // afterwards used to follow it, and read as a second thing to weigh up when the bar
     // and its colour had already said the phone can take it.
