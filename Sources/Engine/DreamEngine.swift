@@ -2,6 +2,7 @@ import CoreGraphics
 import CoreML
 import Foundation
 import StableDiffusion
+import os
 
 /// Anvil Dream: a picture from a line of text, made on this iPhone.
 ///
@@ -21,6 +22,11 @@ actor DreamEngine {
     /// The first Anvil Dream, a Stable Diffusion 1.5 model, which this engine no longer runs.
     case outdated
     case noOutput
+    /// The phone hasn't the memory left for the picture model beside what is already loaded.
+    /// Said rather than tried: a picture attempted without the room is the app killed mid-way,
+    /// which is what happened — 6.3 GB resident, the chat model and this one together, on a
+    /// phone with 8.
+    case notEnoughMemory
 
     var errorDescription: String? {
       switch self {
@@ -35,6 +41,9 @@ actor DreamEngine {
         "This is the old picture model. Update Anvil Pro in Settings › Models to make pictures."
       case .noOutput:
         "The picture model produced nothing."
+      case .notEnoughMemory:
+        "Not enough memory for a picture right now. Try again from a new chat, or after closing "
+          + "other apps."
       }
     }
   }
@@ -45,6 +54,14 @@ actor DreamEngine {
   private static let decoderScaleFactor: Float32 = 0.13025
   /// How long the models stay in memory after a picture.
   private static let idleSeconds: Double = 90
+  /// What the pipeline needs free before it is loaded: its weights are 3.1 GB and it works in
+  /// more than that. A first estimate from one crash, not a measurement, and worth revising
+  /// once there is one: too high refuses pictures that would have worked, too low is the app
+  /// killed. Refusing is the one of the two anyone can recover from.
+  private static let memoryNeeded: Int = 3_500_000_000
+  /// Below this after a picture, the models are let go at once rather than kept for the next
+  /// one: the room they hold is room the chat is about to need.
+  private static let memoryComfortable: Int = 1_500_000_000
 
   private struct Pipeline {
     let textEncoder: TextEncoderXL
@@ -70,8 +87,16 @@ actor DreamEngine {
     _ prompt: String, from model: ModelFile, seed: UInt64? = nil
   ) async throws -> CGImage {
     release?.cancel()
+    // Asked before anything is loaded, of the budget iOS actually gives this process — not
+    // the phone's RAM, which the chat model has already taken most of. A picture there is no
+    // room for is refused in a sentence rather than attempted and killed.
+    if pipeline == nil, os_proc_available_memory() < Self.memoryNeeded {
+      throw Failure.notEnoughMemory
+    }
     let pipeline = try load(model.url)
-    defer { scheduleRelease() }
+    defer {
+      if os_proc_available_memory() < Self.memoryComfortable { unload() } else { scheduleRelease() }
+    }
     var noise = SeededNoise(seed: seed ?? UInt64.random(in: 0...UInt64.max))
 
     let batch = pipeline.sampleShape[0]

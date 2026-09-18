@@ -18,6 +18,9 @@ struct ModelFile: Hashable, Sendable, Identifiable {
   /// The model the catalog recommends, Anvil Core: the one the chat runs on until another is
   /// chosen, and the one it comes back to.
   var isRecommended: Bool = false
+  /// For an image model, what the folder should add up to, from the install record. Nil for a
+  /// record that predates it, in which case the folder is checked file by file only.
+  var expectedBytes: Int64? = nil
   /// A text model, which the chat runs on, or an image model, which Anvil Dream makes pictures
   /// with. Only a text model is ever the active one.
   var kind: ModelKind = .text
@@ -358,7 +361,7 @@ final class ModelLibrary {
         // through is picked up by `resumeInterrupted`, which unpacks it again from the archive if
         // that is still on the phone; otherwise Anvil Pro asks to be downloaded again, and asks for
         // the picture model alone, since the model to chat with is already here.
-        if file.kind == .image, !ImageArchive.isComplete(file.url) {
+        if file.kind == .image, !ImageArchive.isComplete(file.url, unpackedBytes: file.expectedBytes) {
           try? await Task.detached { try ModelFiles.remove(file) }.value
           continue
         }
@@ -531,6 +534,7 @@ enum ModelFiles {
       version: record?.version,
       isPro: record?.pro ?? false,
       isRecommended: record?.recommended ?? false,
+      expectedBytes: record?.unpackedBytes,
       kind: isImage ? .image : .text)
   }
 

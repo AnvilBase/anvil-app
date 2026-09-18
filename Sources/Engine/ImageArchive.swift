@@ -98,9 +98,9 @@ enum ImageArchive {
 
   /// Whether a folder holds the whole of a model, for deciding whether what is on the phone is
   /// worth keeping.
-  static func isComplete(_ directory: URL) -> Bool {
+  static func isComplete(_ directory: URL, unpackedBytes: Int64? = nil) -> Bool {
     do {
-      try requireComplete(directory)
+      try requireComplete(directory, unpackedBytes: unpackedBytes)
       return true
     } catch {
       return false

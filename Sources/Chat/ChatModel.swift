@@ -819,12 +819,12 @@ final class ChatModel {
         $0.text = "Couldn't make the picture: \(error.localizedDescription)"
         $0.isError = true
       }
-      // A folder missing a file the model needs is not going to start working on the next try, and
-      // asking again is the only thing anyone can do from here. So it goes now, rather than being
-      // offered over and over: the library looks again and finds it is not a model.
-      if let failure = error as? DreamEngine.Failure, case .incomplete = failure {
-        await repairImageModel?()
-      }
+      // Whatever went wrong, the library looks at the folder again. Looking is cheap — it reads
+      // sizes and one small file — and it only throws away a folder that is actually not a
+      // model, so a picture that failed for some passing reason costs nothing. But a folder
+      // that is damaged in a way the engine reported as something else, or that Core ML
+      // refused rather than the tokenizer, is found here rather than offered over and over.
+      await repairImageModel?()
     }
   }
 

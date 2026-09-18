@@ -249,6 +249,10 @@ struct InstalledModel: Codable {
   /// Whether the catalog recommends it — Anvil Core — which makes it the model the chat falls
   /// back to. Optional for the same reason.
   var recommended: Bool? = nil
+  /// For an image model, what its folder held when it was checked and recorded, to the byte —
+  /// so a later look at the folder can tell whether it is still all there. Optional: records
+  /// from before this have nothing to measure against, and are checked file by file.
+  var unpackedBytes: Int64? = nil
 }
 
 /// The file work behind a download. Not tied to an actor, so hashing and copying gigabytes stays off
@@ -444,7 +448,8 @@ enum ModelDownloadFiles {
     records.append(
       InstalledModel(
         id: model.id, name: model.name, version: model.version, fileName: installedName,
-        pro: model.isPro, kind: model.modelKind, recommended: model.isRecommended))
+        pro: model.isPro, kind: model.modelKind, recommended: model.isRecommended,
+        unpackedBytes: model.unpackedBytes))
     try writeInstalled(records)
 
     discard(model)
