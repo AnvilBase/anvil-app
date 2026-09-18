@@ -27,6 +27,8 @@ struct StorageBar: View {
   /// What the download gives back before it takes anything: Anvil Core's space, when
   /// Anvil Pro is what is being weighed. Counted as free, because by the time the first
   /// byte lands it will be — Core goes first — and the room shown is the room there is.
+  /// The caption counts it too: what Pro costs this phone is what it keeps less what
+  /// Core gives back.
   var reclaimed: Int64 = 0
 
   /// What is free once the download has given back what it will.
@@ -110,7 +112,18 @@ struct StorageBar: View {
     // afterwards used to follow it, and read as a second thing to weigh up when the bar
     // and its colour had already said the phone can take it.
     guard let free = effectiveFree else { return "\(Self.format(needed)) to download" }
-    if fits { return "\(Self.format(keeps ?? needed)) to download" }
+    if fits {
+      let kept = keeps ?? needed
+      // A download that gives space back first — Anvil Pro, which takes Anvil Core off the
+      // phone before it lands — costs the phone the difference, not the whole. Said as what
+      // the phone will hold more than it does now, once Core has gone: the gross figure read
+      // as if Core stayed, and the bar beside it had already left Core out.
+      guard reclaimed > 0 else { return "\(Self.format(kept)) to download" }
+      let net = kept - reclaimed
+      return net >= 0
+        ? "\(Self.format(kept)) to download · \(Self.format(net)) more than now"
+        : "\(Self.format(kept)) to download · \(Self.format(-net)) less than now"
+    }
     // What is missing, said as the number to go and free up, because that is the thing
     // to act on. The buffer is part of it: it is needed, so it is counted.
     let short = Self.buffer - (free - needed)

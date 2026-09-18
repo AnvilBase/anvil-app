@@ -52,7 +52,7 @@ struct SettingsScreen: View {
       Form {
         proSection
         Section {
-          page("Models", systemImage: "cpu") {
+          page("Models", systemImage: "cpu", badge: proAwaitsDownload) {
             modelSection
             imageSection
           }
@@ -114,7 +114,8 @@ struct SettingsScreen: View {
   /// the first screen, with the group's own sections in it, and the row is the page's name with
   /// its mark in front — in the row's ink, as the Community and Feedback rows have theirs.
   private func page<Content: View>(
-    _ title: String, systemImage: String, @ViewBuilder content: @escaping () -> Content
+    _ title: String, systemImage: String, badge: Bool = false,
+    @ViewBuilder content: @escaping () -> Content
   ) -> some View {
     NavigationLink {
       Form { content() }
@@ -123,11 +124,34 @@ struct SettingsScreen: View {
           .navigationBarTitleDisplayMode(.inline)
         #endif
     } label: {
-      // In the row's ink, not the tint a link's symbol takes on its own: the mark names the
-      // page, it doesn't act, and nothing here should be louder than the words beside it.
-      Label(title, systemImage: systemImage)
-        .foregroundStyle(Color.primary)
+      HStack {
+        // In the row's ink, not the tint a link's symbol takes on its own: the mark names the
+        // page, it doesn't act, and nothing here should be louder than the words beside it.
+        Label(title, systemImage: systemImage)
+          .foregroundStyle(Color.primary)
+        Spacer()
+        // The one thing louder than the words: a page with something waiting on it — Anvil
+        // Pro paid for and not yet on the phone — says so from here, before it is opened.
+        if badge { attentionBadge }
+      }
     }
+  }
+
+  /// The red mark that says a row has something waiting behind it.
+  private var attentionBadge: some View {
+    Image(systemName: "exclamationmark.circle.fill")
+      .foregroundStyle(.red)
+      .accessibilityLabel("Needs attention")
+  }
+
+  /// Pro is paid for but not on the phone — none of it, or half of it — and nothing of it is on
+  /// its way. Someone who bought Pro and never downloaded it has a subscription doing nothing,
+  /// and the badge on the Models row is how they find out where to go.
+  private var proAwaitsDownload: Bool {
+    guard pro.isUnlocked, library.installingPro == nil else { return false }
+    let hasChat = library.installed.contains { $0.isPro && $0.kind == .text }
+    let hasPictures = library.installed.contains { $0.isPro && $0.kind == .image }
+    return !(hasChat && hasPictures)
   }
 
   // MARK: - Pro
@@ -348,7 +372,7 @@ struct SettingsScreen: View {
       NavigationLink {
         ProScreen()
       } label: {
-        LabeledContent { proBadge } label: { Text(plan.name) }
+        LabeledContent { proBadge } label: { Text("Upgrade to \(plan.name) Model") }
       }
     } else if library.isInstalled(plan) {
       installedRow(plan)
@@ -468,7 +492,11 @@ struct SettingsScreen: View {
         HStack {
           Label {
             VStack(alignment: .leading, spacing: 2) {
-              Text(plan.name)
+              HStack(spacing: 6) {
+                Text(plan.name)
+                // The same mark the Models row wore on the way here: this is the row it meant.
+                if plan.isPro, proAwaitsDownload { attentionBadge }
+              }
               // The same line the install screen's card carries, for the subscriber who comes to
               // Pro from here instead: pressing this takes Anvil Core off the phone.
               if plan.isPro, library.proReplacesInstalledFree {
