@@ -35,12 +35,12 @@ actor DreamEngine {
         // thrown away by the app itself the moment this is raised — see `ChatModel.repairImageModel`
         // — and either the download it came from is still on the phone, in which case it is unpacked
         // again on its own, or Settings › Models offers Anvil Dream again.
-        "Anvil Dream didn't arrive in one piece — \(name) is missing. Anvil has removed it; "
-          + "Settings › Models has it again."
+        "The image generation model didn't arrive in one piece — \(name) is missing. Anvil has "
+          + "removed it; Settings › Models has it again."
       case .outdated:
-        "This is the old Anvil Dream. Update it in Settings › Models to make pictures."
+        "This is the old image generation model. Update it in Settings › Models to make pictures."
       case .noOutput:
-        "Anvil Dream produced nothing."
+        "The image generation model produced nothing."
       case .notEnoughMemory:
         "Not enough memory for a picture right now. Try again from a new chat, or after closing "
           + "other apps."

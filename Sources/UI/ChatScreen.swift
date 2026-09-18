@@ -636,7 +636,7 @@ private struct DownloadProgressBanner: View {
     if let plan = library.downloadingPlan, let progress = library.progress(of: plan) {
       VStack(alignment: .leading, spacing: 6) {
         HStack {
-          Text("Downloading \(plan.name)")
+          Text("Downloading \(plan.sentenceName)")
             .font(.subheadline.weight(.semibold))
           Spacer()
           Text("\(Int(progress.fraction * 100))%")

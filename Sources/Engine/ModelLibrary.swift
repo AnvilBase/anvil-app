@@ -161,7 +161,7 @@ final class ModelLibrary {
     let count: Int
     let phase: ModelDownloader.Phase
 
-    /// "Downloading Anvil Raw, the chat model (1 of 2)".
+    /// "Downloading Anvil Pro", "Unpacking the image generation model".
     var label: String {
       let verb: String
       switch phase {
@@ -170,7 +170,8 @@ final class ModelLibrary {
       case .downloading, .idle, .finished, .failed: verb = "Downloading"
       }
       let which = count > 1 ? " (\(position) of \(count))" : ""
-      return "\(verb) \(model.name), \(ModelPlan.role(of: model))\(which)"
+      let name = model.isImage ? "the image generation model" : model.name
+      return "\(verb) \(name)\(which)"
     }
   }
 

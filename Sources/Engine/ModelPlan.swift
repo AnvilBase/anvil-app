@@ -1,9 +1,12 @@
 import Foundation
 
 /// One of the things Anvil offers, the way the screens list them: Anvil Core, free and the
-/// default; Anvil Pro, the unrestricted model; and Anvil Dream, the one that makes pictures. Each
-/// is one catalog model and one download — chosen, fetched and deleted on its own. The two that
-/// need Anvil Pro wait behind the paywall until it is active.
+/// default; Anvil Pro, the unrestricted model; and Image generation, the model that makes
+/// pictures. Each is one catalog model and one download — chosen, fetched and deleted on its own.
+/// The two that need Anvil Pro wait behind the paywall until it is active.
+///
+/// The picture model is called Anvil Dream in the catalog and nowhere in the app: on screen it is
+/// what it is for, "Image generation", the same words as the switch that turns it on.
 ///
 /// For a while every Pro model was gathered into one Anvil Pro that arrived and went together.
 /// The catalog is read one model to a plan again, and the plan keeps the shape the screens were
@@ -21,11 +24,21 @@ struct ModelPlan: Identifiable, Hashable, Sendable {
 
   init(_ model: CatalogModel) {
     id = model.id
-    name = model.name
+    name = model.isImage ? Self.imageGenerationName : model.name
     summary = model.summary
     isPro = model.isPro
     models = [model]
   }
+
+  /// What the picture model is called on screen, whatever the catalog calls it.
+  static let imageGenerationName = "Image generation"
+
+  /// Whether this is the model that makes pictures.
+  var isImage: Bool { models.first?.isImage ?? false }
+
+  /// The name as it reads in a sentence: "Downloading Anvil Pro", "Downloading the image
+  /// generation model".
+  var sentenceName: String { isImage ? "the image generation model" : name }
 
   /// The catalog as plans, in the catalog's order: one each.
   static func plans(from catalog: [CatalogModel]) -> [ModelPlan] {
@@ -61,8 +74,4 @@ struct ModelPlan: Identifiable, Hashable, Sendable {
   /// Whether this file is one of the plan's.
   func contains(_ model: CatalogModel) -> Bool { models.contains { $0.id == model.id } }
 
-  /// What a model is for, in a sentence: "Anvil Dream, the picture model".
-  static func role(of model: CatalogModel) -> String {
-    model.isImage ? "the picture model" : "the chat model"
-  }
 }

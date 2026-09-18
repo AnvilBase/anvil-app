@@ -402,7 +402,7 @@ final class ChatModel {
       if pro.isUnlocked {
         chatNotice =
           imageModel == nil
-          ? "Download Anvil Dream in Settings › Models to make pictures."
+          ? "Download the image generation model in Settings › Models to make pictures."
           : "Image generation is off. Turn it on in Settings › Models to make pictures."
       } else {
         showingPro = true

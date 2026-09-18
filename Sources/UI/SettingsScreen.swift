@@ -321,7 +321,7 @@ struct SettingsScreen: View {
             if !on { Task { await chat.unloadImageModel() } }
           }
         if !dreamIsHere {
-          Text("Download Anvil Dream in Models to make pictures.")
+          Text("Download the image generation model in Models to make pictures.")
             .font(.footnote)
             .foregroundStyle(.secondary)
         }
