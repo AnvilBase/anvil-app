@@ -228,6 +228,7 @@ struct AppSettings: Codable, Equatable, Sendable {
     voiceIdentifier = try value(.voiceIdentifier, defaults.voiceIdentifier)
     appearance = try value(.appearance, defaults.appearance)
     hasSeenWelcome = try value(.hasSeenWelcome, defaults.hasSeenWelcome)
+    hasFinishedModelSetup = try value(.hasFinishedModelSetup, defaults.hasFinishedModelSetup)
     theme = try value(.theme, defaults.theme)
     appIcon = try value(.appIcon, defaults.appIcon)
     appLockEnabled = try value(.appLockEnabled, defaults.appLockEnabled)

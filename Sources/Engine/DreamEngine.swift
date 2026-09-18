@@ -174,8 +174,15 @@ actor DreamEngine {
     // The models were converted for the Neural Engine; Core ML uses the CPU where there isn't one.
     configuration.computeUnits = .cpuAndNeuralEngine
 
-    let tokenizer = try BPETokenizer(
-      mergesAt: try require("merges.txt"), vocabularyAt: try require("vocab.json"))
+    // Read the vocabulary here first, with a `try` that can fail. Apple's tokenizer reads it
+    // with a `try!` that can't: a vocab.json that doesn't parse — empty, from an unpack that
+    // stopped short — took the whole app down at the moment someone asked for a picture. A
+    // file that fails here is reported as what it is, and the library throws the folder away.
+    let vocabularyURL = try require("vocab.json")
+    guard let vocabulary = try? Data(contentsOf: vocabularyURL),
+      (try? JSONDecoder().decode([String: Int].self, from: vocabulary)) != nil
+    else { throw Failure.incomplete("vocab.json") }
+    let tokenizer = try BPETokenizer(mergesAt: try require("merges.txt"), vocabularyAt: vocabularyURL)
 
     let chunk1 = resources.appendingPathComponent("UnetChunk1.mlmodelc")
     let chunk2 = resources.appendingPathComponent("UnetChunk2.mlmodelc")

@@ -61,7 +61,11 @@ private struct RootView: View {
   /// this is nil, and that screen shows, only before there has ever been one.
   private var chatModel: ModelFile? {
     if case .ready(let model) = library.state { return model }
-    return chat.settings.hasFinishedModelSetup ? missingModel : nil
+    // Two ways of knowing setup is behind us, because one of them once wasn't read back
+    // from disk and the screen came back. The flag is what is remembered; a model on
+    // the phone — usable or not — is what is true regardless of what was remembered.
+    let setupIsDone = chat.settings.hasFinishedModelSetup || library.hasTextModel
+    return setupIsDone ? missingModel : nil
   }
 
   /// A model that isn't there, for the chat to open on when there is nothing to open on.

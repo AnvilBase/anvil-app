@@ -28,6 +28,10 @@ struct CatalogModel: Codable, Identifiable, Hashable, Sendable {
   let parts: [CatalogPart]
   /// Free space to insist on before starting. Absent means "the model, plus a gigabyte".
   let minimumFreeBytes: Int64?
+  /// For an image model: what the archive unpacks to, to the byte. What was unpacked is
+  /// measured against it, because an unpack can stop short without saying so — and a
+  /// folder that is nearly a model is the one failure a file-by-file check can't see.
+  let unpackedBytes: Int64?
   let recommended: Bool?
   /// Part of Anvil Pro: listed behind the paywall, and downloaded or switched to only while Pro is
   /// active. Absent means free.

@@ -54,7 +54,7 @@ enum ImageArchive {
   /// answer — `DreamEngine.Failure.outdated`, which says to update it. Reading that as damage would
   /// have the app throwing away a model it only needed to replace, downloading it again, and
   /// arriving at the same conclusion.
-  static func requireComplete(_ directory: URL) throws {
+  static func requireComplete(_ directory: URL, unpackedBytes: Int64? = nil) throws {
     let resources = DreamEngine.resources(in: directory)
     let fileManager = FileManager.default
     func present(_ name: String) -> Bool {
@@ -67,6 +67,33 @@ enum ImageArchive {
     guard present("Unet.mlmodelc")
       || (present("UnetChunk1.mlmodelc") && present("UnetChunk2.mlmodelc"))
     else { throw Failure.incomplete("Unet.mlmodelc") }
+
+    // Existing is not enough. An unpack that stops part way leaves every entry after the
+    // stop as an empty file — vocab.json, merges.txt, a decoder's weights, all present and
+    // all nothing — and that passed here once, was promoted, and took the app down the
+    // first time anyone asked for a picture. Nothing in the package is legitimately empty.
+    var total: Int64 = 0
+    if let files = fileManager.enumerator(
+      at: resources, includingPropertiesForKeys: [.fileSizeKey, .isRegularFileKey],
+      options: .skipsHiddenFiles)
+    {
+      for case let file as URL in files {
+        let values = try? file.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
+        guard values?.isRegularFile == true else { continue }
+        let size = Int64(values?.fileSize ?? 0)
+        if size == 0 { throw Failure.incomplete(file.lastPathComponent) }
+        total += size
+      }
+    }
+    // And the one file that is read by code which can't fail politely has to parse.
+    let vocabulary = try Data(contentsOf: resources.appendingPathComponent("vocab.json"))
+    guard (try? JSONDecoder().decode([String: Int].self, from: vocabulary)) != nil else {
+      throw Failure.incomplete("vocab.json")
+    }
+    // A file that stopped short is neither missing nor empty, and only the total finds it.
+    if let unpackedBytes, total != unpackedBytes {
+      throw Failure.incomplete("\(total) of \(unpackedBytes) bytes")
+    }
   }
 
   /// Whether a folder holds the whole of a model, for deciding whether what is on the phone is

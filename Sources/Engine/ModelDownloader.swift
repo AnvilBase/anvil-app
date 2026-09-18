@@ -415,10 +415,17 @@ enum ModelDownloadFiles {
       // either not there at all or all there.
       let staging = destination.appendingPathExtension("unpacking")
       try? fileManager.removeItem(at: staging)
+      // Room for the unpacked folder beside the archive it comes from, checked before a byte
+      // is written: both exist at once until the move, and an unpack that runs out of disk
+      // stops short without saying so — every entry past the stop an empty file.
+      let unpacked = model.unpackedBytes ?? ModelFiles.fileSize(of: partial) ?? model.sizeBytes
+      if let free = freeBytes(), free < unpacked + storageBuffer {
+        throw Failure.notEnoughSpace(needed: unpacked + storageBuffer, free: free)
+      }
       do {
         try ImageArchive.expand(partial, into: staging)
-        // And a truncated archive that unpacked without complaint is not a model either.
-        try ImageArchive.requireComplete(staging)
+        // And what came out is measured against what should have, to the byte.
+        try ImageArchive.requireComplete(staging, unpackedBytes: model.unpackedBytes)
       } catch {
         // Half a folder is no model; the archive stays so trying again is only the unpacking.
         try? fileManager.removeItem(at: staging)
