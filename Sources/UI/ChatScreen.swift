@@ -301,6 +301,8 @@ struct ChatScreen: View {
   private var composer: some View {
     VStack(spacing: 0) {
       downloadProgress
+      // The development app's one line of readings, and whether the model is still warming up.
+      if showsDevelopmentFeatures { DevStatusStrip(chat: chat) }
       Composer(
         chat: chat,
         isInputFocused: $inputFocused,

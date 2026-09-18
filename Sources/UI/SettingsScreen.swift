@@ -1,9 +1,14 @@
 import StoreKit
 import SwiftUI
 
-/// Everything you can change, in the order it matters: Pro, which model is loaded, what it is told,
-/// what it remembers, how you talk to it, what it can reach, how long chats are kept, how it looks,
-/// and whether it locks. Then where to find people, how to tell us, and what the app is.
+/// Everything you can change, as a short list of pages: Pro first, then which model is loaded,
+/// how the chat behaves, how you talk to it, how long chats are kept, how it looks, and whether
+/// it locks. Then where to find people, how to tell us, and what the app is. Each row opens a page
+/// that holds one group and nothing else, so the first screen is read in a glance and no page
+/// asks to be scrolled.
+///
+/// It was one long form once, every group stacked on the last, and the thing you came for was
+/// always somewhere below the fold. The groups are the same; they are simply behind their names.
 ///
 /// Short on purpose. Each section is its controls and nothing under them: a setting whose name
 /// needs a paragraph is a setting with the wrong name. What Anvil Pro adds sits in the section it
@@ -43,19 +48,29 @@ struct SettingsScreen: View {
     NavigationStack {
       Form {
         proSection
-        modelSection
-        imageSection
-        systemPromptSection
-        memorySection
-        voiceSection
-        webSearchSection
-        personalizationSection
-        historySection
-        securitySection
-        appearanceSection
-        communitySection
-        feedbackSection
-        aboutSection
+        Section {
+          page("Models", systemImage: "cpu") {
+            modelSection
+            imageSection
+          }
+          page("Chat", systemImage: "text.bubble") {
+            systemPromptSection
+            memorySection
+            personalizationSection
+            webSearchSection
+          }
+          page("Voice", systemImage: "waveform") { voiceSection }
+          page("Chat history", systemImage: "clock.arrow.circlepath") { historySection }
+        }
+        Section {
+          page("Appearance", systemImage: "paintpalette") { appearanceSection }
+          page("Security", systemImage: "lock") { securitySection }
+        }
+        Section {
+          page("Community", systemImage: "person.2") { communitySection }
+          page("Feedback", systemImage: "envelope") { feedbackSection }
+          page("About", systemImage: "info.circle") { aboutSection }
+        }
         if showsDevelopmentFeatures { developerSection }
       }
       .navigationTitle("Settings")
@@ -89,6 +104,23 @@ struct SettingsScreen: View {
         }
       }
       .navigationDestination(isPresented: $showingProForChoice) { ProScreen() }
+    }
+  }
+
+  /// One group on a page of its own, behind a row on the first screen. The page is a form like
+  /// the first screen, with the group's own sections in it, and the row is the page's name with
+  /// its mark in front — in the row's ink, as the Community and Feedback rows have theirs.
+  private func page<Content: View>(
+    _ title: String, systemImage: String, @ViewBuilder content: @escaping () -> Content
+  ) -> some View {
+    NavigationLink {
+      Form { content() }
+        .navigationTitle(title)
+        #if os(iOS)
+          .navigationBarTitleDisplayMode(.inline)
+        #endif
+    } label: {
+      Label(title, systemImage: systemImage)
     }
   }
 
@@ -163,7 +195,8 @@ struct SettingsScreen: View {
   /// row: they arrive together, go together, and neither is a thing to choose instead of the
   /// other. Whether pictures get made at all is a switch rather than a model: see `imageSection`.
   private var modelSection: some View {
-    Section("Models") {
+    // No header: the page is called Models, and this is the first thing on it.
+    Section {
       ForEach(modelRows) { row in modelRow(row) }
       // What the models on this phone take, and what is left. Always here, whether or
       // not there is anything to download: a model is the largest thing the app puts on

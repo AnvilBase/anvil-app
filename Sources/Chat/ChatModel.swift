@@ -114,7 +114,7 @@ final class ChatModel {
   /// Whether a reply can come with a picture: Anvil Dream is on the phone and switched on, and Pro
   /// is active. The library only ever hands over a Pro model while Pro is active, but this is
   /// decided in one place, so it is asked again here. Every way a picture gets made asks this, so
-  /// the switch in Settings › Image turns off all of them at once.
+  /// the switch in Settings › Models turns off all of them at once.
   var canGenerateImages: Bool {
     pro.isUnlocked && imageModel != nil && settings.imageGenerationEnabled
   }
@@ -393,7 +393,7 @@ final class ChatModel {
         chatNotice =
           imageModel == nil
           ? "Download Anvil Pro in Settings › Models to make pictures."
-          : "Image generation is off. Turn it on in Settings › Image to make pictures."
+          : "Image generation is off. Turn it on in Settings › Models to make pictures."
       } else {
         showingPro = true
         return
