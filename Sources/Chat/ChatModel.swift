@@ -364,7 +364,7 @@ final class ChatModel {
     // Generating and preparing an image both show what they are doing already; only waiting on the
     // model looks like nothing happening.
     guard loadState == .loading else { return }
-    showMomentarily("Loading the model. The first time takes a minute.")
+    showMomentarily("Warming up model")
   }
 
   private func showMomentarily(_ message: String) {
