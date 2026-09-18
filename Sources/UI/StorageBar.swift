@@ -94,10 +94,9 @@ struct StorageBar: View {
   }
 
   private var caption: String {
-    if !isProposed {
-      guard let free, let capacity else { return "\(Self.format(needed)) of models" }
-      return "\(Self.format(needed)) of models · \(Self.format(free)) free of \(Self.format(capacity))"
-    }
+    // What is installed says what it takes and nothing more: the bar already shows the
+    // phone's share, and the free figure beside it was a second number to read.
+    if !isProposed { return "\(Self.format(needed)) of models" }
     // The one number that matters when it fits: what pressing Download costs. What is left
     // afterwards used to follow it, and read as a second thing to weigh up when the bar
     // and its colour had already said the phone can take it.
