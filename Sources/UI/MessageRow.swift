@@ -18,6 +18,9 @@ struct MessageRow: View {
   /// Whether to offer the measurements for this reply. They are for working on Anvil, not for
   /// using it, so the public app never shows them.
   let showsMetrics: Bool
+  /// Whether the first picture of this launch has gone on long enough to say why. Decided by
+  /// the model; drawn here under "Making the picture…".
+  var firstPictureIsTakingItsTime: Bool = false
   let onEdit: () -> Void
   let onRegenerate: () -> Void
   let onSelectText: () -> Void
@@ -170,9 +173,24 @@ struct MessageRow: View {
   /// says what it's looking for, and a picture says it's being made.
   private var workingIndicator: some View {
     HStack(spacing: 8) {
-      PixelThinking()
+      // A picture gets the brush; everything else the pixels. Painting is a different kind of
+      // wait from thinking — longer, with a thing at the end — and looks like one.
       if message.imagePrompt != nil, image == nil {
-        Text("Making the picture…")
+        PixelPainting()
+      } else {
+        PixelThinking()
+      }
+      if message.imagePrompt != nil, image == nil {
+        VStack(alignment: .leading, spacing: 2) {
+          Text("Making the picture…")
+          if firstPictureIsTakingItsTime {
+            Text("The first one takes a little longer while the model warms up.")
+              .font(.footnote)
+              .foregroundStyle(.tertiary)
+              .transition(.opacity)
+          }
+        }
+        .animation(.easeOut(duration: 0.25), value: firstPictureIsTakingItsTime)
       } else if message.sources != nil {
         Text("Reading results…")
       } else if message.searchQueries != nil {

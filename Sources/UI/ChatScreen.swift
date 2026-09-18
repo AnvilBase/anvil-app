@@ -429,6 +429,7 @@ struct ChatScreen: View {
               canEdit: !chat.isGenerating,
               canRegenerate: chat.canRegenerate(message.id),
               showsMetrics: showsDevelopmentFeatures,
+              firstPictureIsTakingItsTime: chat.firstPictureIsTakingItsTime,
               onEdit: {
                 chat.beginEditing(message.id)
                 inputFocused = true

@@ -119,6 +119,37 @@ final class ChatModel {
     pro.isUnlocked && imageModel != nil && settings.imageGenerationEnabled
   }
 
+  /// Whether a picture has been made since the app was launched. The first one loads the whole
+  /// pipeline from disk before it can begin, which is most of a minute on some phones, and a
+  /// wait with no word about it reads as something gone wrong. So the first one, once it has
+  /// gone on for a while, says why.
+  private var hasMadePictureSinceLaunch = false
+  /// True while the first picture of this launch has been going for long enough to deserve a
+  /// word about it. The screen shows the word; this decides when.
+  private(set) var firstPictureIsTakingItsTime = false
+  private var firstPictureNote: Task<Void, Never>?
+  /// How long the first picture goes before the screen says the first one is slower.
+  private static let firstPictureNoteAfter: Duration = .seconds(10)
+
+  /// Called as a picture starts, from whichever path starts it.
+  func pictureBegan() {
+    guard !hasMadePictureSinceLaunch else { return }
+    firstPictureNote?.cancel()
+    firstPictureNote = Task { [weak self] in
+      try? await Task.sleep(for: Self.firstPictureNoteAfter)
+      guard let self, !Task.isCancelled else { return }
+      firstPictureIsTakingItsTime = true
+    }
+  }
+
+  /// Called as a picture finishes, however it finished.
+  func pictureEnded() {
+    hasMadePictureSinceLaunch = true
+    firstPictureNote?.cancel()
+    firstPictureNote = nil
+    firstPictureIsTakingItsTime = false
+  }
+
   /// What to do when the picture model turns out to be damaged: the library looks at the folder
   /// again, throws it away, and the chat stops being offered pictures until it is back. Set by the
   /// chat screen, which is where the chat and the library meet.
@@ -802,6 +833,8 @@ final class ChatModel {
     _ description: String, into replyID: ChatMessage.ID, chatID: UUID, with imageModel: ModelFile
   ) async {
     updateMessage(replyID) { $0.imagePrompt = description }
+    pictureBegan()
+    defer { pictureEnded() }
     do {
       let image = try await dream.generate(description, from: imageModel)
       guard let data = ImageProcessing.jpegData(image) else { throw DreamEngine.Failure.noOutput }
@@ -888,7 +921,9 @@ final class ChatModel {
     let imageGenerator: (@Sendable (String) async throws -> Data)?
     if options.imageGeneration, let imageModel {
       let dream = dream
-      imageGenerator = { prompt in
+      imageGenerator = { [weak self] prompt in
+        await MainActor.run { self?.pictureBegan() }
+        defer { Task { @MainActor in self?.pictureEnded() } }
         let image = try await dream.generate(prompt, from: imageModel)
         guard let data = ImageProcessing.jpegData(image) else { throw DreamEngine.Failure.noOutput }
         return data

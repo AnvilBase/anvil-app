@@ -168,9 +168,13 @@ struct SettingsScreen: View {
       // What the models on this phone take, and what is left. Always here, whether or
       // not there is anything to download: a model is the largest thing the app puts on
       // a phone, and the list of them is where to say so.
-      StorageBar(
-        needed: installedModelBytes, free: freeBytes, capacity: capacityBytes,
-        isProposed: false)
+      VStack(alignment: .leading, spacing: 8) {
+        Text("Total storage")
+          .font(.subheadline)
+        StorageBar(
+          needed: installedModelBytes, free: freeBytes, capacity: capacityBytes,
+          isProposed: false)
+      }
     }
     .task { catalog = (try? await ModelCatalog.load()) ?? [] }
     .task(id: library.installed) {
