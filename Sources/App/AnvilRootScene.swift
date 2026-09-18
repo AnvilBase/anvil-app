@@ -151,10 +151,6 @@ private struct RootView: View {
     .onChange(of: pro.isUnlocked, initial: true) { _, unlocked in
       library.proUnlocked = unlocked
     }
-    // Bought, rather than merely unlocked: only a subscription supersedes Anvil Core.
-    .onChange(of: pro.isEntitled, initial: true) { _, entitled in
-      library.proIsPurchased = entitled
-    }
     // The first model to finish is the end of setting one up, and there is no going back
     // to that screen afterwards.
     .onChange(of: library.state, initial: true) { _, state in

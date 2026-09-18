@@ -158,7 +158,8 @@ struct ModelSetupScreen: View {
       // in space, and a plan with nothing published yet has no size to speak of.
       if !plan.isComingSoon, !library.isInstalled(plan) {
         StorageBar(
-          needed: library.remainingSize(of: plan), free: freeBytes, capacity: capacityBytes)
+          needed: library.remainingSize(of: plan), free: freeBytes, capacity: capacityBytes,
+          reclaimed: library.reclaimed(by: plan))
       }
 
       action(for: plan)

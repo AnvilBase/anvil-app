@@ -21,6 +21,13 @@ struct StorageBar: View {
   /// A download asks whether it fits and is answered in green or red; what is installed
   /// isn't a question, so it is drawn plainly and says what it takes.
   var isProposed: Bool = true
+  /// What the download gives back before it takes anything: Anvil Core's space, when
+  /// Anvil Pro is what is being weighed. Counted as free, because by the time the first
+  /// byte lands it will be — Core goes first — and the room shown is the room there is.
+  var reclaimed: Int64 = 0
+
+  /// What is free once the download has given back what it will.
+  private var effectiveFree: Int64? { free.map { $0 + reclaimed } }
 
   /// Room to leave over once the model is in. A phone with a few megabytes spare is a
   /// phone that stutters, warns, and eventually can't take a photo — so the answer to
@@ -32,7 +39,7 @@ struct StorageBar: View {
 
   /// Whether there is room for the model and the room to spare after it.
   var fits: Bool {
-    guard isProposed, let free else { return true }
+    guard isProposed, let free = effectiveFree else { return true }
     return free - needed >= Self.buffer
   }
 
@@ -79,7 +86,7 @@ struct StorageBar: View {
   /// that is everything already on the phone; for what is installed it is everything
   /// else, so the models' share reads as its own slice rather than as part of the rest.
   private var used: Int64 {
-    guard let capacity, let free else { return 0 }
+    guard let capacity, let free = effectiveFree else { return 0 }
     let occupied = max(capacity - free, 0)
     return isProposed ? occupied : max(occupied - needed, 0)
   }
@@ -96,7 +103,7 @@ struct StorageBar: View {
       guard let free, let capacity else { return "\(Self.format(needed)) of models" }
       return "\(Self.format(needed)) of models · \(Self.format(free)) free of \(Self.format(capacity))"
     }
-    guard let free else { return "\(Self.format(needed)) to download" }
+    guard let free = effectiveFree else { return "\(Self.format(needed)) to download" }
     if fits {
       return "\(Self.format(needed)) to download · \(Self.format(free - needed)) free afterwards"
     }

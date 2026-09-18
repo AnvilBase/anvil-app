@@ -68,12 +68,7 @@ final class ModelLibrary {
     didSet { if proUnlocked != oldValue { apply(installed) } }
   }
 
-  /// Whether Pro is actually bought, as opposed to being looked at. The development
-  /// app's preview switch unlocks Pro for a run and is off again at the next launch —
-  /// and deleting Anvil Core on the strength of that left the phone with a Pro model it
-  /// was no longer allowed to use and nothing else, which is a chat with no model in
-  /// it. What is previewed is the screens; files are not deleted for a preview.
-  var proIsPurchased = false
+
 
   private var isRefreshing = false
   private var installTasks: [String: Task<Void, Never>] = [:]
@@ -178,19 +173,16 @@ final class ModelLibrary {
         if plan.isPro { installingPro = nil }
         if downloadingPlan?.id == plan.id { downloadingPlan = nil }
       }
-      // Anvil Pro replaces Anvil Core rather than joining it: two chat models on one phone is
-      // gigabytes held by the one nobody chats with any more. Core goes ahead of the download only
-      // when the phone hasn't room for both — the download would refuse to start otherwise, and a
-      // phone with room for one of the two should still be able to have Pro.
-      if plan.isPro, !fits(plan), proIsPurchased { await removeSuperseded() }
+      // Anvil Pro replaces Anvil Core rather than joining it, and it replaces it first:
+      // the room Core was holding is the room Pro is about to need, so it is given back
+      // before the download rather than after it. Two chat models on one phone is
+      // gigabytes held by the one nobody chats with any more, and a phone with space for
+      // one of the two should be able to have Pro without being told it is full.
+      if plan.isPro { await removeSuperseded() }
       for model in plan.publishedModels where !isInstalled(model) {
         install(model)
         while let task = installTasks[model.id] { _ = await task.value }
         guard isInstalled(model) else { return }
-        // Otherwise Core goes the moment Pro's own chat model is here to stand in for it: the chat
-        // keeps working all the way down, and a download cancelled or stopped part-way leaves the
-        // phone with what it started with.
-        if plan.isPro, !model.isImage { await removeSuperseded() }
       }
     }
   }
@@ -225,6 +217,16 @@ final class ModelLibrary {
   /// so the space coming back is something you were told about rather than something you notice.
   var proReplacesInstalledFree: Bool {
     installed.contains { $0.kind == .text && !$0.isPro && $0.catalogID != nil }
+  }
+
+  /// The space downloading this plan would give back: Anvil Core's, for Anvil Pro, and
+  /// nothing for anything else. The screens count it against what the download costs, so
+  /// what they show is the room the phone will actually be left with.
+  func reclaimed(by plan: ModelPlan) -> Int64 {
+    guard plan.isPro else { return 0 }
+    return installed
+      .filter { $0.kind == .text && !$0.isPro && $0.catalogID != nil }
+      .reduce(0) { $0 + $1.fileSize }
   }
 
   /// Stops whatever the plan has going and throws away what it had. What is already installed
@@ -437,20 +439,11 @@ final class ModelLibrary {
   /// so Pro doesn't take it away. The image model isn't touched either — Pro has one and free
   /// doesn't, so there is nothing it replaces.
   private func removeSuperseded() async {
-    guard proIsPurchased else { return }
     for file in installed where file.kind == .text && !file.isPro && file.catalogID != nil {
       await remove(file)
     }
   }
 
-  /// Whether the whole of a plan fits beside what is already on the phone, buffer and all. False is
-  /// what sends Anvil Core out ahead of the download rather than after it.
-  private func fits(_ plan: ModelPlan) -> Bool {
-    let pending = plan.publishedModels.filter { !isInstalled($0) }
-    guard let first = pending.first else { return true }
-    let rest = pending.dropFirst().reduce(Int64(0)) { $0 + $1.sizeBytes }
-    return ModelDownloadFiles.storageShortfall(for: first, from: 0, reserving: rest) == nil
-  }
 
   private func setState(_ newState: State) {
     if state != newState { state = newState }
