@@ -15,6 +15,11 @@ struct SidebarContainer<Sidebar: View, Content: View>: View {
 
   /// How far the drag has moved the chat since it started, cleared when the drag ends.
   @State private var drag: CGFloat = 0
+  /// How much of the screen the keyboard covers, measured from the keyboard itself: only
+  /// whether it is up matters here. The container shrinks with the keyboard, so the drawer
+  /// sits on it; the drawer's bottom padding clears the home indicator when there is no
+  /// keyboard and just the keys when there is.
+  @State private var keyboardHeight: CGFloat = 0
 
   /// The insets to keep the drawer clear of the notch and the home indicator.
   ///
@@ -41,7 +46,7 @@ struct SidebarContainer<Sidebar: View, Content: View>: View {
     // where the offset was worked out — did not, until the keyboard came up and changed the
     // layout. Everything here is worked out in the body itself, where a read is a dependency.
     let insets = Self.resolvedInsets(measured.insets)
-    let keyboardUp = measured.insets.bottom > WindowInsets.current.bottom + 60
+    let keyboardUp = keyboardHeight > 0
     let size = measured.size == .zero ? WindowInsets.windowSize : measured.size
     let width = min(ChatStyle.sidebarWidth, size.width * 0.86)
     let offset = min(max((isOpen ? width : 0) + drag, 0), width)
@@ -76,9 +81,7 @@ struct SidebarContainer<Sidebar: View, Content: View>: View {
         .fill(theme.page)
         .frame(width: size.width)
         .frame(maxHeight: .infinity)
-        // While the drawer is open the keyboard is the drawer's — its search field raised
-        // it — and the chat behind stays exactly where it was rather than rising with it.
-        .ignoresSafeArea(isOpen ? .keyboard : [])
+        .padding(.bottom, isOpen ? -keyboardHeight : 0)
         // Two soft ones rather than one dark one. A single 28% shadow at this size reads as a
         // grey band painted down the edge of the page — and it no longer has to carry the
         // separating on its own, now that the hairline draws the edge and the page lifts off the
@@ -91,13 +94,16 @@ struct SidebarContainer<Sidebar: View, Content: View>: View {
 
       content
         // The width is the measurement's, because the drawer's travel is worked out from it. The
-        // height is not: the keyboard takes its share of the screen from below, and the
-        // measurement does not always follow it — the chat stayed the height of the whole
-        // screen, centred in what was left, its bar off the top and its composer under the
-        // keys. Filling whatever height there is keeps the composer on the keyboard.
+        // height is whatever there is, which the keyboard takes its share of — how the composer
+        // rides up when the keyboard is the chat's. With the drawer open the keyboard is the
+        // drawer's search field's, and the chat behind must hold still: it is laid out taller by
+        // the keyboard's height through a negative padding, which extends what is drawn without
+        // extending what is reported, so nothing above overflows. (Ignoring the keyboard's safe
+        // area or sizing the chat to the window both overflowed, and a view that overflows with
+        // a focused field under the keys is shifted up wholesale by the system — the very
+        // thing being fixed.)
         .frame(width: size.width)
         .frame(maxHeight: .infinity)
-        .ignoresSafeArea(isOpen ? .keyboard : [])
         .overlay {
           // The chat lifts off the drawer as it slides rather than being dimmed into it, a
           // shade at a time and in step with the finger. Under the clip, not over it: a full
@@ -118,6 +124,9 @@ struct SidebarContainer<Sidebar: View, Content: View>: View {
             .opacity(progress)
             .allowsHitTesting(false)
         }
+        // After the clip, so the clip runs the full taller height rather than cutting the page
+        // off at the keyboard with a rounded corner just above the keys.
+        .padding(.bottom, isOpen ? -keyboardHeight : 0)
         .offset(x: offset)
         .accessibilityHidden(progress > 0.5)
     }
@@ -144,10 +153,33 @@ struct SidebarContainer<Sidebar: View, Content: View>: View {
       Measured(size: proxy.size, insets: proxy.safeAreaInsets)
     } action: { measured = $0 }
     // The notch and the home indicator are the chat's business, not the container's, so it runs
-    // edge to edge. The keyboard is deliberately not ignored: the chat has to keep that inset for
-    // the composer to ride up with the keyboard, and to follow a finger dragging it back down.
+    // edge to edge. The keyboard is kept: the container shrinks with it, which is how the chat's
+    // composer rides up when the keyboard is the chat's, and how the drawer's search field sits
+    // on the keys when it is the drawer's — the chat behind the drawer is sized to the window
+    // then, above, and holds still.
     .ignoresSafeArea(.container)
+    #if canImport(UIKit)
+      .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { note in
+        keyboardTo(note)
+      }
+      .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+        withAnimation(.snappy(duration: 0.25)) { keyboardHeight = 0 }
+      }
+    #endif
   }
+
+  #if canImport(UIKit)
+    /// How far up the screen the keyboard now reaches, from its own frame.
+    private func keyboardTo(_ note: Notification) {
+      guard let frame = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue else { return }
+      let keyboard = frame.cgRectValue
+      let window = UIApplication.shared.connectedScenes
+        .compactMap { $0 as? UIWindowScene }.flatMap(\.windows).first { $0.isKeyWindow }
+      let height = window?.bounds.height ?? UIScreen.main.bounds.height
+      let covered = max(0, height - keyboard.minY)
+      withAnimation(.snappy(duration: 0.25)) { keyboardHeight = covered }
+    }
+  #endif
 
   /// Lands on the side the finger was heading for, and carries on at the speed it left at: a flick
   /// decides on its own however little ground it covered, a slow drag by where it let go.
