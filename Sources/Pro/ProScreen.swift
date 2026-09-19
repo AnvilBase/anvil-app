@@ -122,7 +122,7 @@ struct ProScreen: View {
               // button stays pressable without a product for that reason alone; a tap still does
               // nothing. Compiled out of the public app, not hidden in it.
               .simultaneousGesture(
-                LongPressGesture(minimumDuration: 0.8).onEnded { _ in pro.previewUnlocked = true }
+                LongPressGesture(minimumDuration: 0.8).onEnded { _ in pro.previewPro() }
               )
               .sensoryFeedback(.success, trigger: pro.previewUnlocked)
             #else

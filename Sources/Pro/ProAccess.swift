@@ -69,6 +69,14 @@ final class ProAccess {
         if previewUnlocked, !oldValue { welcomes += 1 }
       }
     }
+
+    /// What holding Subscribe in the development app does: Pro on, and welcomed in — every
+    /// press, even one that finds the preview already on, since the press is the thing being
+    /// tried. A real purchase can only land once, so `purchase` counts its own.
+    func previewPro() {
+      // Switching it on counts itself; a press that finds it already on counts here.
+      if previewUnlocked { welcomes += 1 } else { previewUnlocked = true }
+    }
     private static let previewKey = "proPreviewUnlocked"
   #endif
 
