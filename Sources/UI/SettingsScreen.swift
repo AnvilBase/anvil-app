@@ -378,7 +378,22 @@ struct SettingsScreen: View {
   /// swipe to delete it.
   @ViewBuilder
   private func imageModelRow(_ plan: ModelPlan) -> some View {
-    if library.isInstalled(plan) {
+    if !plan.fitsThisPhone {
+      // A model this phone hasn't the memory for: named, with what it needs where its size
+      // would be, and nothing to press. On the phone already — downloaded before the catalog
+      // said — it can be swiped away, and is never painted with.
+      LabeledContent(plan.name) {
+        Text("Needs \(plan.formattedMinimumMemory ?? "more") memory")
+          .foregroundStyle(.secondary)
+      }
+      .swipeActions(edge: .trailing) {
+        if library.isInstalled(plan) {
+          Button("Delete", role: .destructive) {
+            Task { await library.remove(plan) }
+          }
+        }
+      }
+    } else if library.isInstalled(plan) {
       Button {
         guard !library.isActiveImage(plan) else { return }
         library.selectImage(plan)

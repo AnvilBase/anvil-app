@@ -30,6 +30,10 @@ struct ModelPlan: Identifiable, Hashable, Sendable {
   /// Whether this is a model that makes pictures.
   var isImage: Bool { models.first?.isImage ?? false }
 
+  /// Whether this phone has the memory the model needs.
+  var fitsThisPhone: Bool { models.allSatisfy(\.fitsThisPhone) }
+  var formattedMinimumMemory: String? { models.first?.formattedMinimumMemory }
+
   /// The name as it reads in a sentence: "Downloading Anvil Dream Lite".
   var sentenceName: String { name }
 

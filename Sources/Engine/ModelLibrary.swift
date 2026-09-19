@@ -223,7 +223,7 @@ final class ModelLibrary {
   /// the phone, and what goes is what someone swipes away. A download that stops leaves Try
   /// again to carry on from what is already down rather than start over.
   func install(_ plan: ModelPlan) {
-    guard planTasks[plan.id] == nil, purchasable(plan) else { return }
+    guard planTasks[plan.id] == nil, purchasable(plan), plan.fitsThisPhone else { return }
     // Room for it, decided before a byte is fetched.
     if let short = storageShortfall(for: plan) {
       storageWarning = ModelDownloadFiles.storageMessage(
@@ -283,12 +283,19 @@ final class ModelLibrary {
   /// the one chosen in Settings › Image, or, if that one has gone, whichever is here. It is never
   /// the active model; it works beside whichever text model is.
   var imageModel: ModelFile? {
-    let candidates = installed.filter { $0.kind == .image && usable($0) }
+    let candidates = installed.filter {
+      $0.kind == .image && usable($0) && !tooBigForThisPhone.contains($0.fileName)
+    }
     if let chosenImageFileName, let chosen = candidates.first(where: { $0.fileName == chosenImageFileName }) {
       return chosen
     }
     return candidates.first
   }
+
+  /// Image models on the phone that the catalog says this phone hasn't the memory for — Anvil
+  /// Dream on an 8 GB iPhone. Kept on the phone, never painted with: the first picture was
+  /// the app killed. Learned when the catalog is read.
+  private(set) var tooBigForThisPhone: Set<String> = []
 
   /// The image model chosen to make pictures with, by file name, remembered across launches.
   /// Anvil Dream and Anvil Dream Lite can both be on the phone; this is which one paints.
@@ -296,7 +303,9 @@ final class ModelLibrary {
 
   /// Makes pictures with this plan's model from now on.
   func selectImage(_ plan: ModelPlan) {
-    guard let file = installedFiles(of: plan).first(where: { $0.kind == .image }) else { return }
+    guard plan.fitsThisPhone,
+      let file = installedFiles(of: plan).first(where: { $0.kind == .image })
+    else { return }
     chosenImageFileName = file.fileName
     ModelFiles.setActiveImageFileName(file.fileName)
   }
@@ -374,6 +383,10 @@ final class ModelLibrary {
   /// Pro — so whenever the catalog is read, the records are brought into line and the files
   /// read again. A renamed model reads as a different file to the chat, which reloads it once.
   func adoptNames(from catalog: [CatalogModel]) async {
+    tooBigForThisPhone = Set(
+      installed.compactMap { file in
+        catalog.first { $0.id == file.catalogID && !$0.fitsThisPhone }.map { _ in file.fileName }
+      })
     var changed = false
     for model in catalog
     where installed.contains(where: { $0.catalogID == model.id && $0.displayName != model.name }) {

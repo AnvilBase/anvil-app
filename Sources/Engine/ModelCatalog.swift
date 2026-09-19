@@ -32,6 +32,10 @@ struct CatalogModel: Codable, Identifiable, Hashable, Sendable {
   /// measured against it, because an unpack can stop short without saying so — and a
   /// folder that is nearly a model is the one failure a file-by-file check can't see.
   let unpackedBytes: Int64?
+  /// The least memory a phone needs to run the model at all. Anvil Dream compiles and runs in
+  /// over five gigabytes on its first picture and is killed on an 8 GB phone, so it says 12.
+  /// Absent means any phone.
+  let minimumMemoryBytes: Int64?
   let recommended: Bool?
   /// Part of Anvil Pro: listed behind the paywall, and downloaded or switched to only while Pro is
   /// active. Absent means free.
@@ -49,6 +53,16 @@ struct CatalogModel: Codable, Identifiable, Hashable, Sendable {
   var isPro: Bool { pro ?? false }
   var modelKind: ModelKind { kind ?? .text }
   var isImage: Bool { modelKind == .image }
+
+  /// Whether this phone has the memory the model needs.
+  var fitsThisPhone: Bool {
+    UInt64(minimumMemoryBytes ?? 0) <= ProcessInfo.processInfo.physicalMemory
+  }
+
+  /// The memory the model needs, for the row that says this phone hasn't got it.
+  var formattedMinimumMemory: String? {
+    minimumMemoryBytes.map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .memory) }
+  }
 
   /// The model, and two gigabytes to spare — iOS gets unhappy well before a phone is actually
   /// full, and a model that lands on a full phone is a phone that can't take a photo. The catalog
