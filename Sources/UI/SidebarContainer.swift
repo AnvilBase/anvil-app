@@ -76,6 +76,9 @@ struct SidebarContainer<Sidebar: View, Content: View>: View {
         .fill(theme.page)
         .frame(width: size.width)
         .frame(maxHeight: .infinity)
+        // While the drawer is open the keyboard is the drawer's — its search field raised
+        // it — and the chat behind stays exactly where it was rather than rising with it.
+        .ignoresSafeArea(isOpen ? .keyboard : [])
         // Two soft ones rather than one dark one. A single 28% shadow at this size reads as a
         // grey band painted down the edge of the page — and it no longer has to carry the
         // separating on its own, now that the hairline draws the edge and the page lifts off the
@@ -94,6 +97,7 @@ struct SidebarContainer<Sidebar: View, Content: View>: View {
         // keys. Filling whatever height there is keeps the composer on the keyboard.
         .frame(width: size.width)
         .frame(maxHeight: .infinity)
+        .ignoresSafeArea(isOpen ? .keyboard : [])
         .overlay {
           // The chat lifts off the drawer as it slides rather than being dimmed into it, a
           // shade at a time and in step with the finger. Under the clip, not over it: a full
