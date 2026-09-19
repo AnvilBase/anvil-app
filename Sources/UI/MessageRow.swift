@@ -210,7 +210,7 @@ struct MessageRow: View {
               .animation(.easeOut(duration: 0.3), value: pictureStage.fraction)
           }
           if firstPictureIsTakingItsTime {
-            Text("The first one takes a little longer while the model warms up.")
+            Text("The first one in the session takes a little longer as the model warms up.")
               .font(.footnote)
               .foregroundStyle(.tertiary)
               .transition(.opacity)
