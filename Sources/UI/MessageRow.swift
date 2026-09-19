@@ -194,7 +194,7 @@ struct MessageRow: View {
       PixelThinking()
       if message.imagePrompt != nil, image == nil {
         VStack(alignment: .leading, spacing: 4) {
-          Text("Making the picture…")
+          Text("Making the picture")
           // How far along it is, in the engine's own words, over a bar that runs the stages
           // end to end. The bar is the width of a short line of text: a hint of progress,
           // not a download.
@@ -219,9 +219,9 @@ struct MessageRow: View {
         .animation(.easeOut(duration: 0.25), value: firstPictureIsTakingItsTime)
         .animation(.easeOut(duration: 0.25), value: pictureStage == nil)
       } else if message.sources != nil {
-        Text("Reading results…")
+        Text("Reading results")
       } else if message.searchQueries != nil {
-        Text("Searching the web…")
+        Text("Searching the web")
       }
     }
     .font(.subheadline)

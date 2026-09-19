@@ -459,11 +459,11 @@ enum PictureStage: Equatable, Sendable {
   /// Anvil Dream Lite…", "Preparing Anvil Dream for this iPhone…".
   func label(modelName: String) -> String {
     switch self {
-    case .loading: "Loading \(modelName)…"
-    case .reading: "Reading the prompt…"
-    case .preparing: "Preparing \(modelName) for this iPhone…"
-    case .painting(let pass, let passes): "Step \(pass) of \(passes)…"
-    case .finishing: "Finishing…"
+    case .loading: "Loading \(modelName)"
+    case .reading: "Reading the prompt"
+    case .preparing: "Preparing \(modelName) for this iPhone"
+    case .painting(let pass, let passes): "Step \(pass) of \(passes)"
+    case .finishing: "Finishing"
     }
   }
 }

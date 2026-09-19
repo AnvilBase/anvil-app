@@ -166,8 +166,8 @@ final class ModelLibrary {
     /// arriving — the bar already says that, and a line repeating it is a line too many.
     var note: String? {
       switch phase {
-      case .checking: "Checking…"
-      case .installing: model.isImage ? "Unpacking…" : "Installing…"
+      case .checking: "Checking"
+      case .installing: model.isImage ? "Unpacking" : "Installing"
       case .downloading, .idle, .finished, .failed: nil
       }
     }
