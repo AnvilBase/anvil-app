@@ -390,11 +390,17 @@ final class ChatModel {
     // request for a picture: "make this image brighter" is about the photo. It goes to the text
     // model, with Anvil Dream kept out of that turn (see `submit`).
     let hasAttachment = pendingImage != nil || pendingFile != nil
-    let asksForPicture = !hasAttachment && ImageRequest.isAsking(typedNow)
-    // With Anvil Raw, a picture asked for is made without asking the model, and "make it
+    // With Anvil Pro, a picture asked for is made without asking the model, and "make it
     // darker" or "another one" after a picture is the picture changed. With Anvil Core the
     // model is asked, through its tool, and decides for itself.
     let makesDirectly = canGenerateImages && isUnrestricted
+    // "Generate a banana" names no picture and is one all the same. Read as the ask it is where
+    // the picture can be made straight away: asked of the model instead, a small one answered
+    // "Generated a banana!" and made nothing, and a sentence about a picture is worse than the
+    // picture with no sentence.
+    let asksForPicture =
+      !hasAttachment
+      && (ImageRequest.isAsking(typedNow) || (makesDirectly && ImageRequest.probablyAsking(typedNow)))
     let followsPicture =
       !hasAttachment && !asksForPicture && makesDirectly && lastPicturePrompt != nil
       && ImageRequest.isFollowUp(typedNow)
@@ -934,12 +940,12 @@ final class ChatModel {
     }
   }
 
-  /// The line under a picture made straight from the message: what it is, as a sentence.
+  /// The line under a picture: the prompt the image model was given, word for word, and
+  /// nothing else — no sentence from the chat model about it, no rewording. What was sent is
+  /// what is shown.
   private static func caption(for description: String) -> String {
     let trimmed = description.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard let first = trimmed.first else { return "Here it is." }
-    let sentence = first.uppercased() + trimmed.dropFirst()
-    return sentence.last.map { ".!?".contains($0) } == true ? sentence : sentence + "."
+    return trimmed.isEmpty ? "Here it is." : trimmed
   }
 
   /// Adds your message and streams the reply to it.
@@ -1058,14 +1064,15 @@ final class ChatModel {
       }
       deferredPicture = nil
 
-      // The last word on pictures, with Anvil Raw. A message that mentioned one, put some way
-      // the words above didn't catch, and a model that answered by declining: the picture is
-      // made anyway, and the refusal goes under it. Raw's no is not the app's; Core's is.
+      // The last word on pictures, with Anvil Pro. A message that mentioned one, put some way
+      // the words above didn't catch, and a model that answered by declining — or by saying it
+      // had made one, and making nothing: the picture is made anyway, and its caption takes the
+      // place of the words. Pro's no is not the app's, and neither is its "done"; Core's are.
       if !isStopping, canGenerateImages, isUnrestricted, image == nil, file == nil, let imageModel,
         ImageRequest.mightBeAsking(typed),
         let written = messages.first(where: { $0.id == reply.id }),
         !written.hasImage, written.imagePrompt == nil, !written.isError,
-        ImageRequest.looksLikeRefusal(written.text)
+        ImageRequest.looksLikeRefusal(written.text) || ImageRequest.claimsPicture(written.text)
       {
         await makePicture(
           ImageRequest.description(in: typed), into: reply.id, chatID: chatID, with: imageModel)

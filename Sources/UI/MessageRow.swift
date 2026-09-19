@@ -183,7 +183,10 @@ struct MessageRow: View {
   /// alone — there is nothing to say about it that the animation doesn't already say. Searching
   /// says what it's looking for, and a picture says it's being made.
   private var workingIndicator: some View {
-    HStack(spacing: 8) {
+    // A picture's words are several lines beside the grid, so they start where it starts; a
+    // single line sits centred on it as before.
+    let makingPicture = message.imagePrompt != nil && image == nil
+    return HStack(alignment: makingPicture ? .top : .center, spacing: 8) {
       // The same pixels whatever the wait is for: a picture had a brush of its own for a while,
       // and the grid read better. What kind of wait it is, the words beside it say.
       PixelThinking()

@@ -40,6 +40,39 @@ enum ImageRequest {
     return patterns.contains { $0.firstMatch(in: text, range: range) != nil }
   }
 
+  /// Things a verb of making makes that are words, not pictures: "make me a poem", "generate
+  /// a list". A message asking for one of these is for the chat model.
+  private static let wordsToMake =
+    "(poem|poems|story|stories|list|lists|essay|code|email|emails|letter|letters|summary|joke"
+    + "|jokes|script|plan|recipe|recipes|table|name|names|title|titles|caption|captions|song|songs"
+    + "|lyrics|paragraph|sentence|sentences|text|response|reply|answer|question|questions|quiz"
+    + "|outline|haiku|limerick|speech|bio|tweet|tweets|post|posts|message|messages|note|notes"
+    + "|report|function|program|regex|query|schema|json|sql|prompt|prompts|idea|ideas|excuse"
+    + "|explanation|description|definition|word|words|slogan|tagline|headline|password|number)"
+
+  /// The looser ask: a message that opens with a verb of making and goes on to name something
+  /// that isn't words — "generate a banana", "make me a dragon", "create a sunset over the sea".
+  /// No word for a picture in it, so `isAsking` lets it through to the model, and a small model
+  /// asked to "generate a banana" answers with a sentence saying it did. Where a picture can be
+  /// made without asking the model — Anvil Pro — this is read as the ask it plainly is.
+  private static let probablyAsk = try! NSRegularExpression(
+    pattern: "^\\s*(please\\s+)?((can|could|would|will)\\s+you\\s+)?(please\\s+)?"
+      + "(generate|make|create|produce|render|imagine|visuali[sz]e|show\\s+me|give\\s+me)\\s+"
+      + "(me\\s+)?(an?\\s+|the\\s+|some\\s+|another\\s+|one\\s+more\\s+)?"
+      + "(?!(quick\\s+|short\\s+|long\\s+|new\\s+|good\\s+|nice\\s+)?\(wordsToMake)\\b)\\S",
+    options: .caseInsensitive)
+
+  static func probablyAsking(_ text: String) -> Bool {
+    probablyAsk.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
+  }
+
+  /// The verb of making at the front of a looser ask, to take off the description.
+  private static let making = try! NSRegularExpression(
+    pattern: "^\\s*(please\\s+)?((can|could|would|will)\\s+you\\s+)?(please\\s+)?"
+      + "(generate|make|create|produce|render|imagine|visuali[sz]e|show\\s+me|give\\s+me)\\s+"
+      + "(me\\s+)?(an?\\s+|the\\s+|some\\s+)?",
+    options: .caseInsensitive)
+
   /// The ask at the front of a message — "can you make me a picture of", "generate an image:" —
   /// with the picture's own word kept in it. The word is the ask, and everything after it is
   /// the picture. What the word was still says something: "a painting of mountains" wants a
@@ -83,6 +116,11 @@ enum ImageRequest {
         [
           "draw": "drawing", "paint": "painting", "sketch": "sketch", "illustrate": "illustration",
         ][trimmed[verbRange].lowercased()]
+    } else if let match = making.firstMatch(in: trimmed, range: range),
+      let whole = Range(match.range, in: trimmed)
+    {
+      // "generate a banana": the banana is the picture, the generating is the ask.
+      description = String(trimmed[whole.upperBound...])
     }
     description = description.replacingOccurrences(
       of: "[,\\s]*\\bplease\\b[.!?\\s]*$", with: "", options: [.regularExpression, .caseInsensitive])
@@ -116,6 +154,23 @@ enum ImageRequest {
       + "|as\\s+an\\s+ai|i\\s+apologi[sz]e|sorry,?\\s+but)",
     options: .caseInsensitive)
 
+  /// Whether a reply says a picture was made rather than showing one: "Generated a banana!",
+  /// "(made a picture of: a cat)", "Here's your image". A model without the tool in hand, or
+  /// one that reached for it and missed, narrates the picture it didn't make; the narration is
+  /// worth nothing, and the picture is made in its place.
+  private static let claim = try! NSRegularExpression(
+    pattern: "^\\W{0,3}(\\w+\\W+){0,6}?(made|generated|generating|created|creating|drew|drawn|painted"
+      + "|rendered|here('s|\\s+is|\\s+you\\s+go))\\b",
+    options: .caseInsensitive)
+
+  static func claimsPicture(_ reply: String) -> Bool {
+    var head = String(reply.prefix(240))
+    if let end = head.range(of: "[.!?](\\s|$)", options: .regularExpression) {
+      head = String(head[..<end.lowerBound])
+    }
+    return claim.firstMatch(in: head, range: NSRange(head.startIndex..., in: head)) != nil
+  }
+
   static func looksLikeRefusal(_ reply: String) -> Bool {
     // The first sentence only: a refusal opens with itself, and an answer that gets to "I can't
     // stress enough" a sentence in is an answer.
@@ -134,7 +189,10 @@ enum ImageRequest {
   private static let followUp = try! NSRegularExpression(
     pattern: "^\\s*(make\\s+it|make\\s+them|now|again|another(\\s+one)?|one\\s+more|more|but|with"
       + "|without|same\\s+but|same\\s+thing\\s+but|change|instead|this\\s+time|redo|try\\s+again"
-      + "|add|remove|closer|further|darker|lighter|bigger|smaller|as\\s+an?|in\\s+the\\s+style)\\b",
+      + "|add|remove|closer|further|darker|lighter|bigger|smaller|as\\s+an?|in\\s+the\\s+style"
+      // "generate it again", "do that again", "make one more", "draw another".
+      + "|(generate|make|create|draw|paint|render|do|try)\\s+((it|that|one|the\\s+same)\\s+)?"
+      + "(again|once\\s+more|one\\s+more|another(\\s+one)?))\\b",
     options: .caseInsensitive)
 
   static func isFollowUp(_ text: String) -> Bool {
@@ -146,7 +204,9 @@ enum ImageRequest {
   /// one" leave nothing, and the earlier description stands on its own — a new picture of it.
   static func followUpDescription(_ text: String, after previous: String) -> String {
     let stripped = text.replacingOccurrences(
-      of: "^\\s*(make\\s+it|make\\s+them|now|again|another(\\s+one)?|one\\s+more|same\\s+but"
+      of: "^\\s*((generate|make|create|draw|paint|render|do|try)\\s+((it|that|one|the\\s+same)\\s+)?"
+        + "(again|once\\s+more|one\\s+more|another(\\s+one)?)"
+        + "|make\\s+it|make\\s+them|now|again|another(\\s+one)?|one\\s+more|same\\s+but"
         + "|same\\s+thing\\s+but|this\\s+time|redo|try\\s+again|but|instead)\\b[,:\\s]*",
       with: "", options: [.regularExpression, .caseInsensitive]
     )
