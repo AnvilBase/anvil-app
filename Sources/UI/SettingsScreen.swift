@@ -299,23 +299,22 @@ struct SettingsScreen: View {
       ForEach(plans.filter(\.isImage)) { plan in
         imageModelRow(plan)
       }
-      proGated("Image generation") {
-        // The switch, under the models it serves. With Pro but before a download has landed,
-        // it is there, off, faded and can't be thrown: there is nothing yet for it to switch
-        // on, and a switch that says On over a model that isn't on the phone is a promise the
-        // next message breaks. The setting itself is left alone, so the switch comes back to
-        // what it was set to once a model is here.
-        let dreamIsHere = library.imageModel != nil
-        Toggle(
-          "Image generation",
-          isOn: dreamIsHere ? $settings.imageGenerationEnabled : .constant(false)
-        )
-        .disabled(!dreamIsHere)
-        // The same fade a locked card wears on the install screen.
-        .opacity(dreamIsHere ? 1 : 0.55)
-        .onChange(of: settings.imageGenerationEnabled) { _, on in
-          if !on { Task { await chat.unloadImageModel() } }
-        }
+      // The switch, under the models it serves — a switch either way, never a badge and a
+      // link. Off, faded and unthrowable until there is something for it to switch on: Pro
+      // active and a picture model on the phone. A switch that says On over a model that
+      // isn't there is a promise the next message breaks, and a row that turns into a link
+      // is a control that moved. The setting itself is left alone, so the switch comes back
+      // to what it was set to once both are true.
+      let canMakePictures = pro.isUnlocked && library.imageModel != nil
+      Toggle(
+        "Image generation",
+        isOn: canMakePictures ? $settings.imageGenerationEnabled : .constant(false)
+      )
+      .disabled(!canMakePictures)
+      // The same fade a locked card wears on the install screen.
+      .opacity(canMakePictures ? 1 : 0.55)
+      .onChange(of: settings.imageGenerationEnabled) { _, on in
+        if !on { Task { await chat.unloadImageModel() } }
       }
     }
   }
