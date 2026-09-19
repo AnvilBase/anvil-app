@@ -282,14 +282,15 @@ struct SettingsScreen: View {
     // would be, leading to the paywall like every other locked row: what the app can do
     // shouldn't be invisible until it is paid for.
     Section("Image Models") {
+      // The models that make pictures, in the catalog's order — Anvil Dream Lite, smaller and
+      // quicker, then Anvil Dream — listed whether or not Pro is active, the way the chat
+      // models are: each what it costs to download, how far it has got, or here with a mark
+      // against the one in use; without Pro, the door to the page that sells it. Tap one to
+      // paint with it, swipe to take it off the phone. Both can be here; one paints.
+      ForEach(plans.filter(\.isImage)) { plan in
+        imageModelRow(plan)
+      }
       proGated("Image generation") {
-        // The models that make pictures, in the catalog's order — Anvil Dream Lite, smaller and
-        // quicker, then Anvil Dream — each what it costs to download, how far it has got, or
-        // here with a mark against the one in use. Tap one to paint with it, swipe to take it
-        // off the phone. Both can be here; one paints.
-        ForEach(plans.filter(\.isImage)) { plan in
-          imageModelRow(plan)
-        }
         // The switch, under the models it serves. With Pro but before a download has landed,
         // it is there, off, faded and can't be thrown: there is nothing yet for it to switch
         // on, and a switch that says On over a model that isn't on the phone is a promise the
@@ -378,7 +379,14 @@ struct SettingsScreen: View {
   /// swipe to delete it.
   @ViewBuilder
   private func imageModelRow(_ plan: ModelPlan) -> some View {
-    if !plan.fitsThisPhone {
+    if plan.isPro, !pro.isUnlocked, plan.fitsThisPhone {
+      // Listed whether or not its file is on the phone, and the door to the page that sells it.
+      NavigationLink {
+        ProScreen()
+      } label: {
+        LabeledContent { proBadge } label: { Text(plan.name) }
+      }
+    } else if !plan.fitsThisPhone {
       // A model this phone hasn't the memory for: named, with what it needs where its size
       // would be, and nothing to press. On the phone already — downloaded before the catalog
       // said — it can be swiped away, and is never painted with.
