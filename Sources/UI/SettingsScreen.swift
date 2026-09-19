@@ -224,8 +224,7 @@ struct SettingsScreen: View {
   /// is active. Whether pictures get made at all is a switch rather than a model: see
   /// `imageSection`.
   private var modelSection: some View {
-    // No header: the page is called Models, and this is the first thing on it.
-    Section {
+    Section("Text Models") {
       ForEach(modelRows) { row in modelRow(row) }
     }
     .task {
@@ -282,13 +281,20 @@ struct SettingsScreen: View {
     // Always here. Without Pro the row keeps its name and wears the badge where the switch
     // would be, leading to the paywall like every other locked row: what the app can do
     // shouldn't be invisible until it is paid for.
-    Section("Image") {
+    Section("Image Models") {
       proGated("Image generation") {
-        // With Pro but before its download has landed, the switch is there, off, faded and
-        // can't be thrown: there is nothing yet for it to switch on, and a switch that says On
-        // over a model that isn't on the phone is a promise the next message breaks. The
-        // setting itself is left alone, so the switch comes back to what it was set to once
-        // the model is here.
+        // The models that make pictures, in the catalog's order — Anvil Dream Lite, smaller and
+        // quicker, then Anvil Dream — each what it costs to download, how far it has got, or
+        // here with a mark against the one in use. Tap one to paint with it, swipe to take it
+        // off the phone. Both can be here; one paints.
+        ForEach(plans.filter(\.isImage)) { plan in
+          imageModelRow(plan)
+        }
+        // The switch, under the models it serves. With Pro but before a download has landed,
+        // it is there, off, faded and can't be thrown: there is nothing yet for it to switch
+        // on, and a switch that says On over a model that isn't on the phone is a promise the
+        // next message breaks. The setting itself is left alone, so the switch comes back to
+        // what it was set to once a model is here.
         let dreamIsHere = library.imageModel != nil
         Toggle(
           "Image generation",
@@ -299,13 +305,6 @@ struct SettingsScreen: View {
         .opacity(dreamIsHere ? 1 : 0.55)
         .onChange(of: settings.imageGenerationEnabled) { _, on in
           if !on { Task { await chat.unloadImageModel() } }
-        }
-        // The models that make pictures, under the switch they serve — Anvil Dream, and Anvil
-        // Dream Lite, smaller and quicker — each what it costs to download, how far it has got,
-        // or here with a mark against the one in use. Tap one to paint with it, swipe to take it
-        // off the phone. Both can be here; one paints.
-        ForEach(plans.filter(\.isImage)) { plan in
-          imageModelRow(plan)
         }
       }
     }
