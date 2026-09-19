@@ -51,7 +51,7 @@ struct SettingsScreen: View {
       Form {
         proSection
         Section {
-          page("Models", systemImage: "cpu", badge: proAwaitsDownload) {
+          page("Models", systemImage: "cpu", badge: proAwaitsDownload, load: loadCatalog) {
             modelSection
             imageSection
             storageSection
@@ -115,10 +115,16 @@ struct SettingsScreen: View {
   /// its mark in front — in the row's ink, as the Community and Feedback rows have theirs.
   private func page<Content: View>(
     _ title: String, systemImage: String, badge: Bool = false,
+    load: (@Sendable () async -> Void)? = nil,
     @ViewBuilder content: @escaping () -> Content
   ) -> some View {
     NavigationLink {
       Form { content() }
+        // Whatever the page needs fetched, asked for by the page itself. A `.task` on a
+        // section is a task on each of its rows, so a section that starts empty — the models,
+        // before the catalog has arrived — never runs it, and the page that was waiting for
+        // the catalog to fill it waited for ever.
+        .task { await load?() }
         .navigationTitle(title)
         #if os(iOS)
           .navigationBarTitleDisplayMode(.inline)
@@ -227,15 +233,13 @@ struct SettingsScreen: View {
     Section("Text Models") {
       ForEach(modelRows) { row in modelRow(row) }
     }
-    .task {
-      catalog = (try? await ModelCatalog.load()) ?? []
-      await library.adoptNames(from: catalog)
-    }
-    .task(id: library.installed) {
-      freeBytes = DeviceStorage.free()
-      capacityBytes = DeviceStorage.capacity()
-      cacheBytes = await Task.detached { ModelFiles.cacheBytes() }.value
-    }
+  }
+
+  /// What anvilai.com publishes, and the names the models go by now. Asked for by the Models
+  /// page as a whole, so it runs whether or not any section on it has a row yet.
+  @Sendable private func loadCatalog() async {
+    catalog = (try? await ModelCatalog.load()) ?? []
+    await library.adoptNames(from: catalog)
   }
 
   /// What anvilai.com publishes, read as the two things on offer.
@@ -250,6 +254,11 @@ struct SettingsScreen: View {
     Section("Storage") {
       VStack(alignment: .leading, spacing: 8) {
         Text("Total storage")
+          .task(id: library.installed) {
+            freeBytes = DeviceStorage.free()
+            capacityBytes = DeviceStorage.capacity()
+            cacheBytes = await Task.detached { ModelFiles.cacheBytes() }.value
+          }
         // The two together are what iOS counts against the app: the bar says the number
         // Settings › Storage says, in two parts.
         StorageBar(
