@@ -148,7 +148,7 @@ The three:
 | Model | Size | Licence |
 | --- | --- | --- |
 | Anvil Core (`anvil-forge`) | 2.59 GB | [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0) |
-| Anvil Pro (`anvil-raw`, Pro, unrestricted) | 4.17 GB | [Gemma Terms of Use](https://ai.google.dev/gemma/terms) |
+| Anvil Pro (`anvil-raw`, Pro, unrestricted, sees photos) | 4.40 GB | [Gemma Terms of Use](https://ai.google.dev/gemma/terms) |
 | Anvil Dream (`anvil-dream`, Pro, pictures, 1024 px) | 3.02 GB | [CreativeML Open RAIL++-M](https://github.com/Stability-AI/generative-models/blob/main/model_licenses/LICENSE-SDXL1.0) |
 | Anvil Dream Lite (`anvil-dream-lite`, Pro, pictures, 512 px) | 0.87 GB | [MIT](https://huggingface.co/SimianLuo/LCM_Dreamshaper_v7) |
 
