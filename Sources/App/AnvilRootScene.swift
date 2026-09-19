@@ -173,11 +173,12 @@ private struct RootView: View {
     .environment(library)
     // The library hears about Pro here, the one place the App Store's answer is read, so a Pro
     // model falls back the moment a subscription lapses, the same way the theme does.
-    .onChange(of: pro.isUnlocked, initial: true) { was, unlocked in
+    .onChange(of: pro.isUnlocked, initial: true) { _, unlocked in
       library.proUnlocked = unlocked
-      // Pro arriving — not Pro already there at launch — is the moment for the welcome.
-      if unlocked, !was { showingProWelcome = true }
     }
+    // Every subscribe and every restore that finds Pro, wherever it was pressed, is welcomed;
+    // Pro merely already there at launch is not.
+    .onChange(of: pro.welcomes) { _, _ in showingProWelcome = true }
     // The first model to finish is the end of setting one up, and there is no going back
     // to that screen afterwards.
     .onChange(of: library.state, initial: true) { _, state in

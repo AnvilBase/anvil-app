@@ -50,8 +50,7 @@ struct ProScreen: View {
     // Pro arriving while this page is up: the welcome comes over it (see `RootView`), and this
     // page, with nothing left to sell, steps back to wherever it was opened from while it is
     // covered — so the welcome fades out over the screen you were on before.
-    .onChange(of: pro.isUnlocked) { _, unlocked in
-      guard unlocked else { return }
+    .onChange(of: pro.welcomes) { _, _ in
       Task {
         try? await Task.sleep(for: .milliseconds(650))
         dismiss()

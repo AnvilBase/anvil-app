@@ -32,6 +32,10 @@ final class ProAccess {
   private(set) var monthly: Product?
   private(set) var yearly: Product?
   private(set) var isPurchasing = false
+  /// Counts the times Pro has been welcomed in: a purchase that went through, a restore that
+  /// found a subscription, or the development app's preview switched on. The root view shows
+  /// the welcome each time it moves — every subscribe and every restore, not only the first.
+  private(set) var welcomes = 0
   /// What went wrong the last time a purchase or restore was tried, for the paywall to show.
   private(set) var lastError: String?
 
@@ -60,7 +64,10 @@ final class ProAccess {
     /// screen still said to unlock, and the welcome never came — until a screen was rebuilt for
     /// some other reason and read the new value.
     var previewUnlocked: Bool = UserDefaults.standard.bool(forKey: ProAccess.previewKey) {
-      didSet { UserDefaults.standard.set(previewUnlocked, forKey: Self.previewKey) }
+      didSet {
+        UserDefaults.standard.set(previewUnlocked, forKey: Self.previewKey)
+        if previewUnlocked, !oldValue { welcomes += 1 }
+      }
     }
     private static let previewKey = "proPreviewUnlocked"
   #endif
@@ -148,6 +155,7 @@ final class ProAccess {
         }
         await transaction.finish()
         await refreshEntitlement()
+        if isUnlocked { welcomes += 1 }
       case .userCancelled, .pending:
         break
       @unknown default:
@@ -168,5 +176,6 @@ final class ProAccess {
       return
     }
     await refreshEntitlement()
+    if isUnlocked { welcomes += 1 }
   }
 }
