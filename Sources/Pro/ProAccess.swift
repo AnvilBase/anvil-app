@@ -53,9 +53,14 @@ final class ProAccess {
     /// left the phone with a Pro model it wasn't allowed to run and nothing else — a chat that
     /// couldn't load a model, and no way to get one back but downloading Core again. A real
     /// subscription doesn't forget itself between launches; neither should the stand-in.
-    var previewUnlocked: Bool {
-      get { UserDefaults.standard.bool(forKey: Self.previewKey) }
-      set { UserDefaults.standard.set(newValue, forKey: Self.previewKey) }
+    ///
+    /// A stored property, written through to the defaults, rather than a computed one over
+    /// them: this class is observed, and observation sees stored properties change. Computed,
+    /// the switch flipped and nothing on screen heard — the Pro page stayed as it was, the model
+    /// screen still said to unlock, and the welcome never came — until a screen was rebuilt for
+    /// some other reason and read the new value.
+    var previewUnlocked: Bool = UserDefaults.standard.bool(forKey: ProAccess.previewKey) {
+      didSet { UserDefaults.standard.set(previewUnlocked, forKey: Self.previewKey) }
     }
     private static let previewKey = "proPreviewUnlocked"
   #endif
