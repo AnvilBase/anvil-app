@@ -173,23 +173,37 @@ actor DreamEngine {
     return image
   }
 
-  /// Anvil Dream's loop: the sampler its package names, with guidance as a batch of two.
+  /// Anvil Dream's loop: the sampler its package names, with guidance however its U-Net takes it.
   private func generate(
     _ prompt: String, with pipeline: XLPipeline, noise: inout SeededNoise,
     freshlyLoaded: Bool, progress: @Sendable (PictureStage) -> Void
   ) throws -> CGImage {
     let batch = pipeline.sampleShape[0]
-    let guided = batch == 2
+    let guidance = pipeline.sampling.guidance
+    // Guidance is worth doing whenever the package asks for it, and how it is done follows from
+    // the U-Net's own batch. One built for two rows takes both halves in a single call. One built
+    // for a single row takes the same two halves as two calls, which is the same arithmetic while
+    // only ever holding one batch — half the peak, on a phone that was being killed for it.
+    let guided = guidance > 1
+    let stacked = guided && batch == 2
+    let sequential = guided && batch == 1
     let (prompted, pooled) = try Self.encode(prompt, with: pipeline)
-    // With guidance, the unconditioned half comes first and is the empty prompt as the encoders
-    // read it — what the tools these models were made and tuned in sample with — rather than the
-    // zeros diffusers substitutes.
+    // With guidance, the unconditioned half is the empty prompt as the encoders read it — what the
+    // tools these models were made and tuned in sample with — rather than the zeros diffusers
+    // substitutes.
     let blank = try guided ? emptyPrompt(for: pipeline) : nil
     // The encoders are done with for this picture, and the U-Net wants the room.
     pipeline.textEncoder.unloadResources()
     pipeline.textEncoder2.unloadResources()
-    let hiddenStates = blank.map { Self.batched($0.hiddenStates, prompted) } ?? prompted
-    let textEmbeds = blank.map { Self.batched($0.pooled, pooled) } ?? pooled
+    let hiddenStates: MLShapedArray<Float32>
+    let textEmbeds: MLShapedArray<Float32>
+    if stacked, let blank {
+      hiddenStates = Self.batched(blank.hiddenStates, prompted)
+      textEmbeds = Self.batched(blank.pooled, pooled)
+    } else {
+      hiddenStates = prompted
+      textEmbeds = pooled
+    }
     let size = Self.xlImageSize
     let timeIds = MLShapedArray<Float32>(
       scalars: (0..<batch).flatMap { _ in [size, size, 0, 0, size, size] }, shape: pipeline.timeIdShape)
@@ -197,7 +211,6 @@ actor DreamEngine {
     let latentShape = [1] + pipeline.sampleShape.dropFirst()
     let count = latentShape.reduce(1, *)
     let sampler = SDXLSampler(method: pipeline.sampling.method, steps: pipeline.sampling.steps)
-    let guidance = pipeline.sampling.guidance
     let start = noise.gaussians(count: count).map { $0 * sampler.sigmas[0] }
     let passes = sampler.passCount
     var pass = 0
@@ -213,28 +226,44 @@ actor DreamEngine {
       let scale = 1 / (sigma * sigma + 1).squareRoot()
       let scaled = sample.map { $0 * scale }
       let input = MLShapedArray<Float32>(
-        scalars: guided ? scaled + scaled : scaled, shape: pipeline.sampleShape)
+        scalars: stacked ? scaled + scaled : scaled, shape: pipeline.sampleShape)
       let timestep = MLShapedArray<Float32>(
         scalars: [Float](repeating: sampler.timestep(for: sigma), count: batch), shape: [batch])
-      let predicted = try Self.predictNoise(
-        pipeline.unet,
-        inputs: [
-          "sample": MLFeatureValue(multiArray: MLMultiArray(input)),
-          "timestep": MLFeatureValue(multiArray: MLMultiArray(timestep)),
-          "encoder_hidden_states": MLFeatureValue(multiArray: MLMultiArray(hiddenStates)),
-          "text_embeds": MLFeatureValue(multiArray: MLMultiArray(textEmbeds)),
-          "time_ids": MLFeatureValue(multiArray: MLMultiArray(timeIds)),
-        ]
-      ).scalars
+      func predict(
+        _ states: MLShapedArray<Float32>, _ embeds: MLShapedArray<Float32>
+      ) throws -> [Float] {
+        try Self.predictNoise(
+          pipeline.unet,
+          inputs: [
+            "sample": MLFeatureValue(multiArray: MLMultiArray(input)),
+            "timestep": MLFeatureValue(multiArray: MLMultiArray(timestep)),
+            "encoder_hidden_states": MLFeatureValue(multiArray: MLMultiArray(states)),
+            "text_embeds": MLFeatureValue(multiArray: MLMultiArray(embeds)),
+            "time_ids": MLFeatureValue(multiArray: MLMultiArray(timeIds)),
+          ]
+        ).scalars
+      }
+
       // The noise the model sees, pushed away from the unconditioned guess by the guidance, and
       // from it the clean image: epsilon prediction, in sigma space.
       var denoised = [Float](repeating: 0, count: count)
-      for i in 0..<count {
-        let epsilon =
-          guided
-          ? predicted[i] + guidance * (predicted[count + i] - predicted[i])
-          : predicted[i]
-        denoised[i] = sample[i] - sigma * epsilon
+      if sequential, let blank {
+        let unconditioned = try predict(blank.hiddenStates, blank.pooled)
+        try Task.checkCancellation()
+        let conditioned = try predict(hiddenStates, textEmbeds)
+        for i in 0..<count {
+          let epsilon = unconditioned[i] + guidance * (conditioned[i] - unconditioned[i])
+          denoised[i] = sample[i] - sigma * epsilon
+        }
+      } else {
+        let predicted = try predict(hiddenStates, textEmbeds)
+        for i in 0..<count {
+          let epsilon =
+            stacked
+            ? predicted[i] + guidance * (predicted[count + i] - predicted[i])
+            : predicted[i]
+          denoised[i] = sample[i] - sigma * epsilon
+        }
       }
       return denoised
     }
