@@ -77,11 +77,14 @@ struct SidebarContainer<Sidebar: View, Content: View>: View {
       // The shadow is cast by a plain shape behind the chat, not by the chat itself. Shadowing
       // the conversation means rendering the whole screen off-screen again on every frame of the
       // drag, and on a long chat that is what made the drawer stutter.
+      // Drawn as an overlay on an empty view that fills the container, so with the drawer open
+      // the page and the chat can be the window's full height — still, whatever the keyboard
+      // does — while what the stack is told is the container's height, and nothing overflows.
+      Color.clear.overlay(alignment: .top) {
       shape
         .fill(theme.page)
-        .frame(width: size.width)
+        .frame(width: size.width, height: isOpen ? WindowInsets.windowSize.height : nil)
         .frame(maxHeight: .infinity)
-        .padding(.bottom, isOpen ? -keyboardHeight : 0)
         // Two soft ones rather than one dark one. A single 28% shadow at this size reads as a
         // grey band painted down the edge of the page — and it no longer has to carry the
         // separating on its own, now that the hairline draws the edge and the page lifts off the
@@ -91,18 +94,16 @@ struct SidebarContainer<Sidebar: View, Content: View>: View {
         .shadow(color: .black.opacity(0.06 * progress), radius: 8, x: -2)
         .offset(x: offset)
         .allowsHitTesting(false)
+      }
 
+      Color.clear.overlay(alignment: .top) {
       content
         // The width is the measurement's, because the drawer's travel is worked out from it. The
-        // height is whatever there is, which the keyboard takes its share of — how the composer
-        // rides up when the keyboard is the chat's. With the drawer open the keyboard is the
-        // drawer's search field's, and the chat behind must hold still: it is laid out taller by
-        // the keyboard's height through a negative padding, which extends what is drawn without
-        // extending what is reported, so nothing above overflows. (Ignoring the keyboard's safe
-        // area or sizing the chat to the window both overflowed, and a view that overflows with
-        // a focused field under the keys is shifted up wholesale by the system — the very
-        // thing being fixed.)
-        .frame(width: size.width)
+        // height: drawer closed, whatever there is, which the keyboard takes its share of — how
+        // the composer rides up when the keyboard is the chat's. Drawer open, the window's,
+        // whatever the keyboard does: the keyboard is the drawer's search field's, and the chat
+        // behind holds still. Being an overlay, the taller chat reports nothing to the stack.
+        .frame(width: size.width, height: isOpen ? WindowInsets.windowSize.height : nil)
         .frame(maxHeight: .infinity)
         .overlay {
           // The chat lifts off the drawer as it slides rather than being dimmed into it, a
@@ -124,11 +125,9 @@ struct SidebarContainer<Sidebar: View, Content: View>: View {
             .opacity(progress)
             .allowsHitTesting(false)
         }
-        // After the clip, so the clip runs the full taller height rather than cutting the page
-        // off at the keyboard with a rounded corner just above the keys.
-        .padding(.bottom, isOpen ? -keyboardHeight : 0)
         .offset(x: offset)
         .accessibilityHidden(progress > 0.5)
+      }
     }
     // Fills what it is given, the way the GeometryReader did, and measures it.
     .frame(maxWidth: .infinity, maxHeight: .infinity)
