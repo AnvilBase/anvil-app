@@ -19,10 +19,6 @@ struct ChatSidebar: View {
   @State private var isSearching = false
   @State private var confirmingClearAll = false
   @FocusState private var searchFocused: Bool
-  /// How much of the drawer the keyboard is sitting over. The drawer keeps its full height while
-  /// the keyboard is up — see `SidebarContainer` — so the search field, which lives along the
-  /// bottom, has to be lifted clear of it by hand or you can't see what you're typing.
-  @State private var keyboardOverlap: CGFloat = 0
 
   private var trimmedQuery: String { query.trimmingCharacters(in: .whitespaces) }
 
@@ -52,44 +48,7 @@ struct ChatSidebar: View {
       actionBar
     }
     .background(theme.sidebar)
-    .onChange(of: isSearching) { _, searching in
-      // Nothing to lift once search is closed, and the field that raised the keyboard is gone.
-      if !searching { keyboardOverlap = 0 }
-    }
-    #if canImport(UIKit)
-      .onReceive(
-        NotificationCenter.default.publisher(
-          for: UIResponder.keyboardWillChangeFrameNotification)
-      ) { note in
-        keyboardTo(note)
-      }
-      .onReceive(
-        NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)
-      ) { _ in
-        withAnimation(.snappy(duration: 0.22)) { keyboardOverlap = 0 }
-      }
-    #endif
   }
-
-  #if canImport(UIKit)
-    /// How far up the screen the keyboard now reaches, less the home indicator the drawer already
-    /// clears, so the search field comes to rest just above the keys.
-    private func keyboardTo(_ note: Notification) {
-      guard
-        let frame = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue
-      else { return }
-      let window = UIApplication.shared.connectedScenes
-        .compactMap { $0 as? UIWindowScene }
-        .flatMap(\.windows)
-        .first { $0.isKeyWindow }
-      let keyboard = frame.cgRectValue
-      // The drawer runs the full height of the window, and already keeps itself clear of the home
-      // indicator, so only what the keyboard covers above that has to be made up for.
-      let bottomInset = max(window?.safeAreaInsets.bottom ?? 0, 12)
-      let covered = max(0, (window?.bounds.height ?? keyboard.maxY) - keyboard.minY - bottomInset)
-      withAnimation(.snappy(duration: 0.22)) { keyboardOverlap = covered }
-    }
-  #endif
 
   // MARK: - Top
 
@@ -247,7 +206,7 @@ struct ChatSidebar: View {
     .animation(ChatStyle.confirmMotion, value: confirmingClearAll)
     .padding(.horizontal, 14)
     .padding(.top, 8)
-    .padding(.bottom, 12 + (isSearching ? keyboardOverlap : 0))
+    .padding(.bottom, 12)
   }
 
   /// The one thing pressing Clear All puts on the screen: the button that means it, over the button

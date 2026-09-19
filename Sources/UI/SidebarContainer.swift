@@ -41,6 +41,7 @@ struct SidebarContainer<Sidebar: View, Content: View>: View {
     // where the offset was worked out — did not, until the keyboard came up and changed the
     // layout. Everything here is worked out in the body itself, where a read is a dependency.
     let insets = Self.resolvedInsets(measured.insets)
+    let keyboardUp = measured.insets.bottom > WindowInsets.current.bottom + 60
     let size = measured.size == .zero ? WindowInsets.windowSize : measured.size
     let width = min(ChatStyle.sidebarWidth, size.width * 0.86)
     let offset = min(max((isOpen ? width : 0) + drag, 0), width)
@@ -52,9 +53,12 @@ struct SidebarContainer<Sidebar: View, Content: View>: View {
 
     ZStack(alignment: .leading) {
       sidebar
-        // A fallback keeps the drawer off the very edge on a device that reports no insets.
+        // A fallback keeps the drawer off the very edge on a device that reports no insets. The
+        // bottom clears the home indicator, or, with the keyboard up — when the measured inset
+        // is the keyboard's height, not the indicator's — just the keys: the drawer shrinks
+        // with the keyboard the way the chat does, so its search field comes to rest on it.
         .padding(.top, max(insets.top, 12))
-        .padding(.bottom, max(insets.bottom, 12))
+        .padding(.bottom, keyboardUp ? 12 : max(WindowInsets.current.bottom, 12))
         .frame(width: width)
         .frame(maxHeight: .infinity)
         // Closing, the drawer doesn't simply get covered over — it goes out of focus and fades,
@@ -64,8 +68,6 @@ struct SidebarContainer<Sidebar: View, Content: View>: View {
         .opacity(revealed)
         .offset(x: -(1 - progress) * width * 0.22)
         .accessibilityHidden(progress < 0.5)
-        // The drawer keeps its full height if the keyboard is up behind the chat.
-        .ignoresSafeArea(.keyboard)
 
       // The shadow is cast by a plain shape behind the chat, not by the chat itself. Shadowing
       // the conversation means rendering the whole screen off-screen again on every frame of the
