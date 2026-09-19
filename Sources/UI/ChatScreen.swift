@@ -309,12 +309,13 @@ struct ChatScreen: View {
 
   private var composer: some View {
     VStack(spacing: 0) {
-      // The development app's one line of readings, and whether the model is still warming up.
-      if showsDevelopmentFeatures { DevStatusStrip(chat: chat) }
+      // The development app's line of readings rides inside the composer, right above the
+      // capsule, so an attachment above the capsule doesn't push it up.
       Composer(
         chat: chat,
         isInputFocused: $inputFocused,
-        onShowPhoto: { fullScreenPhoto = FullScreenPhoto(image: $0) })
+        onShowPhoto: { fullScreenPhoto = FullScreenPhoto(image: $0) },
+        showsStatusStrip: showsDevelopmentFeatures)
     }
   }
 

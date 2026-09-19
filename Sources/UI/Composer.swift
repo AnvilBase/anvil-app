@@ -26,6 +26,9 @@ struct Composer: View {
   @Bindable var chat: ChatModel
   @FocusState.Binding var isInputFocused: Bool
   let onShowPhoto: (CGImage) -> Void
+  /// The development app's line of readings, drawn directly above the capsule — under a photo
+  /// or a file waiting to be sent, not pushed up by them — so it is always in the same place.
+  var showsStatusStrip: Bool = false
 
   @State private var photoSelection: PhotosPickerItem?
   @State private var showingCamera = false
@@ -72,6 +75,7 @@ struct Composer: View {
       pendingPhoto
       pendingFile
       if showingAttachOptions { attachOptions }
+      if showsStatusStrip { DevStatusStrip(chat: chat).padding(.horizontal, -16) }
       inputCapsule
     }
     .padding(.horizontal, 16)
