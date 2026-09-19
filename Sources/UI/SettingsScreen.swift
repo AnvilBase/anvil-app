@@ -385,27 +385,12 @@ struct SettingsScreen: View {
   /// swipe to delete it.
   @ViewBuilder
   private func imageModelRow(_ plan: ModelPlan) -> some View {
-    if plan.isPro, !pro.isUnlocked, plan.fitsThisPhone {
+    if plan.isPro, !pro.isUnlocked {
       // Listed whether or not its file is on the phone, and the door to the page that sells it.
       NavigationLink {
         ProScreen()
       } label: {
         LabeledContent { proBadge } label: { Text(plan.name) }
-      }
-    } else if !plan.fitsThisPhone {
-      // A model this phone hasn't the memory for: named, with what it needs where its size
-      // would be, and nothing to press. On the phone already — downloaded before the catalog
-      // said — it can be swiped away, and is never painted with.
-      LabeledContent(plan.name) {
-        Text("Needs \(plan.formattedMinimumMemory ?? "more") memory")
-          .foregroundStyle(.secondary)
-      }
-      .swipeActions(edge: .trailing) {
-        if library.isInstalled(plan) {
-          Button("Delete", role: .destructive) {
-            Task { await library.remove(plan) }
-          }
-        }
       }
     } else if library.isInstalled(plan) {
       Button {
@@ -440,6 +425,29 @@ struct SettingsScreen: View {
     } else {
       downloadRow(plan)
     }
+    // A model asking for more memory than this phone has is a word under its row, never a
+    // refusal: the first picture is the expensive one — the model is compiled for the phone as
+    // it runs — and after that the compiled copy is cached and the rest are cheap. One has been
+    // made on a phone with less than it asks for, so the choice is the owner's.
+    if !plan.fitsThisPhone {
+      memoryWarning(plan)
+    }
+  }
+
+  /// What a model asking for more memory than this phone has is warned about, under its row:
+  /// the first picture may not finish, and the rest are fine if it does.
+  private func memoryWarning(_ plan: ModelPlan) -> some View {
+    Label {
+      Text(
+        "\(plan.name) is happiest with \(plan.formattedMinimumMemory ?? "more") of memory. "
+          + "On this iPhone the first picture may run out and close Anvil; if it gets through "
+          + "one, the rest are quicker.")
+    } icon: {
+      Image(systemName: "exclamationmark.triangle")
+    }
+    .font(.footnote)
+    .foregroundStyle(.secondary)
+    .listRowSeparator(.hidden, edges: .bottom)
   }
 
   /// A model that is on the phone: tap to run the chat on it, swipe to delete it.
