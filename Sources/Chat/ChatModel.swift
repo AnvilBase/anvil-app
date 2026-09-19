@@ -433,9 +433,12 @@ final class ChatModel {
       removedImageIDs = truncate(from: editingMessageID)
       self.editingMessageID = nil
     }
-    if asksForPicture, makesDirectly {
-      submitPicture(
-        typed, description: ImageRequest.description(in: typed), removedImageIDs: removedImageIDs)
+    // A picture is only painted straight away when the message says what of. "Generate a photo"
+    // asks for one and names nothing, and there is no picture in that to make — so it goes to the
+    // model like any other message, and the model asks what to paint. Painting it anyway meant
+    // handing the words "generate a photo" to a model that had nothing to steer by.
+    if asksForPicture, makesDirectly, let description = ImageRequest.description(in: typed) {
+      submitPicture(typed, description: description, removedImageIDs: removedImageIDs)
     } else if followsPicture, let previous = lastPicturePrompt {
       submitPicture(
         typed, description: ImageRequest.followUpDescription(typed, after: previous),
@@ -891,6 +894,11 @@ final class ChatModel {
     _ description: String, into replyID: ChatMessage.ID, chatID: UUID, with imageModel: ModelFile
   ) async {
     updateMessage(replyID) { $0.imagePrompt = description }
+    // Every picture goes through here — the ones asked for in the message, the ones the model
+    // asked for with its tool, the follow-ups — so this is the one place the description has to
+    // be filled out, and the only one that cannot be gone around. What the caption shows is what
+    // was asked for; what the model is given is that plus the frame behind it. See `ImagePrompt`.
+    let painted = ImagePrompt.expanded(description)
     pictureBegan()
     defer { pictureEnded() }
     // On a phone that can't hold both, the chat model is set down for the picture and picked
@@ -915,7 +923,7 @@ final class ChatModel {
       }
     }
     do {
-      let image = try await dream.generate(description, from: imageModel, progress: pictureProgress)
+      let image = try await dream.generate(painted, from: imageModel, progress: pictureProgress)
       guard let data = ImageProcessing.jpegData(image) else { throw DreamEngine.Failure.noOutput }
       if let decoded = ImageProcessing.decode(data) { images[replyID] = decoded }
       updateMessage(replyID) {
@@ -1072,10 +1080,13 @@ final class ChatModel {
         ImageRequest.mightBeAsking(typed),
         let written = messages.first(where: { $0.id == reply.id }),
         !written.hasImage, written.imagePrompt == nil, !written.isError,
-        ImageRequest.looksLikeRefusal(written.text) || ImageRequest.claimsPicture(written.text)
+        ImageRequest.looksLikeRefusal(written.text) || ImageRequest.claimsPicture(written.text),
+        // Same rule as the straight-away path: a message that named nothing has no picture in it.
+        // A refusal to one is left standing, since the alternative is answering "generate a photo"
+        // with whatever the weights hold when nothing was asked.
+        let description = ImageRequest.description(in: typed)
       {
-        await makePicture(
-          ImageRequest.description(in: typed), into: reply.id, chatID: chatID, with: imageModel)
+        await makePicture(description, into: reply.id, chatID: chatID, with: imageModel)
         // The engine's conversation holds the refusal; the next send rebuilds it from history.
         activeConversation = nil
       }

@@ -449,12 +449,30 @@ actor DreamEngine {
     MLShapedArray(concatenating: [unconditioned, conditioned], alongAxis: 0)
   }
 
-  /// The empty prompt as `pipeline`'s encoders read it, worked out the first time it is wanted.
+  /// What the picture is steered away from.
+  ///
+  /// Guidance works out to `1.5 × asked - 0.5 × this`, so whatever is named here is subtracted
+  /// from every picture. It used to be the empty string, which meant subtracting half of whatever
+  /// the model draws when nothing is asked of it — and for this model that is a woman with no
+  /// clothes on, so the empty string was the worst available choice: it took half a nude off a
+  /// nude and called it guidance. Naming the thing outright is what the subtraction is for.
+  ///
+  /// The watermarks are here because the model reproduces them — it learned them from the stock
+  /// it was trained on, and they turn up baked into the corners of a picture as texture.
+  ///
+  /// No word for a person is on this list. Steering away from nudity is the point; steering away
+  /// from people would break every picture that asks for one.
+  private static let negativePrompt =
+    "nude, naked, topless, nudity, nsfw, explicit, genitalia, breasts, cleavage, underwear, "
+    + "lingerie, suggestive, sexual, watermark, signature, text, logo, blurry, low quality, "
+    + "deformed, extra limbs"
+
+  /// The negative prompt as `pipeline`'s encoders read it, worked out the first time it is wanted.
   private func emptyPrompt(
     for pipeline: XLPipeline
   ) throws -> (hiddenStates: MLShapedArray<Float32>, pooled: MLShapedArray<Float32>) {
     if let emptyPromptEncoding { return emptyPromptEncoding }
-    let encoded = try Self.encode("", with: pipeline)
+    let encoded = try Self.encode(Self.negativePrompt, with: pipeline)
     emptyPromptEncoding = encoded
     return encoded
   }

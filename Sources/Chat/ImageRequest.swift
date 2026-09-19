@@ -113,14 +113,26 @@ enum ImageRequest {
 
   /// The imperative ask — "draw me", "can you paint" — which names no picture, only the making
   /// of one. The verb says what kind: a drawing, a painting, a sketch.
+  /// The "me" is taken whether or not anything follows it. Asked for with a trailing space —
+  /// `(me\\s+)?` — "draw me" kept its "me" and painted a stranger, since the app has no idea what
+  /// you look like. `\\b` keeps it off the front of a word: "draw mermaid" still wants a mermaid.
   private static let imperative = try! NSRegularExpression(
     pattern: "^\\s*(please\\s+)?((can|could|would|will)\\s+you\\s+)?(please\\s+)?"
-      + "(draw|paint|sketch|illustrate|render)\\s+(me\\s+)?",
+      + "(draw|paint|sketch|illustrate|render)\\s+(me\\b\\s*)?",
     options: .caseInsensitive)
 
   /// What to make, from a message that `isAsking`: the message with its ask taken off the front
-  /// and a trailing "please" off the end. The whole message, if that would leave nothing.
-  static func description(in text: String) -> String {
+  /// and a trailing "please" off the end. Nil when that leaves nothing — when the ask *was* the
+  /// whole message.
+  ///
+  /// "Generate a photo" names no subject. It used to return the message itself, on the reasoning
+  /// that some words are better than none; they are not. The words handed over were "generate a
+  /// photo", which describes nothing, so the model had nothing to steer by and fell back on
+  /// whatever its weights hold with no prompt at all — which for a photoreal checkpoint is a
+  /// woman, undressed as often as not. Nobody asked for her and no one could have predicted her
+  /// from the message. So a message with no subject in it is not a picture to make: nil, and the
+  /// caller asks what to paint instead of guessing.
+  static func description(in text: String) -> String? {
     let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
     var description = trimmed
     var style: String?
@@ -151,7 +163,7 @@ enum ImageRequest {
     description = description.replacingOccurrences(
       of: "[,\\s]*\\bplease\\b[.!?\\s]*$", with: "", options: [.regularExpression, .caseInsensitive])
     description = description.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
-    guard !description.isEmpty else { return trimmed }
+    guard !description.isEmpty else { return nil }
     if let style, style != "photo", style != "photograph" { description += ", \(style)" }
     return description
   }
