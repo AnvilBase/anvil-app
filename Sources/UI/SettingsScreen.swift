@@ -360,14 +360,12 @@ struct SettingsScreen: View {
   private func planRow(_ plan: ModelPlan) -> some View {
     if plan.isPro, !pro.isUnlocked {
       // Listed whether or not its file is on the phone, and the door to the page that sells it:
-      // what Pro is for is the thing that can't be had yet. The model that is Pro's namesake
-      // says what pressing it is; the picture model keeps its name and wears the badge.
+      // what Pro is for is the thing that can't be had yet. Its own name and the badge, the
+      // same as every other row — the badge already says what pressing it leads to.
       NavigationLink {
         ProScreen()
       } label: {
-        LabeledContent { proBadge } label: {
-          Text(plan.textModel != nil ? "Upgrade to \(plan.name) Model" : plan.name)
-        }
+        LabeledContent { proBadge } label: { Text(plan.name) }
       }
     } else if library.isInstalled(plan) {
       installedRow(plan)
