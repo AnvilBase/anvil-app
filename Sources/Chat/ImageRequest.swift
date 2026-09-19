@@ -8,7 +8,9 @@ import Foundation
 /// actually be made, and a message that can't have one is read here first. Sure over sensitive:
 /// it takes a verb of making within a few words of a word for a picture — "generate an image",
 /// "make me a picture" — or a picture "of" something, and lets everything else through. A message
-/// with a photo attached is never asking: "make this image brighter" is about the photo.
+/// with a photo attached is never asking: "make this image brighter" is about the photo. Nor is a
+/// message asking for words about one: "give me a prompt for a high quality image" wants the
+/// prompt, and is read as words however many picture words follow it.
 enum ImageRequest {
   private static let nouns =
     "(image|images|picture|pictures|photo|photos|photograph|drawing|painting|illustration|sketch"
@@ -36,8 +38,26 @@ enum ImageRequest {
   ]
 
   static func isAsking(_ text: String) -> Bool {
+    if wantsWords(text) { return false }
     let range = NSRange(text.startIndex..., in: text)
     return patterns.contains { $0.firstMatch(in: text, range: range) != nil }
+  }
+
+  /// Asking for words *about* a picture rather than for the picture: "give me a prompt for a high
+  /// quality image", "write a caption for this photo". The picture words are in the message and
+  /// the patterns above happily match them, but what was asked for is the prompt, and painting it
+  /// instead answers a question nobody asked. What is wanted is named right at the front — a
+  /// prompt, a list, a story — so only the front of the message is read.
+  private static let wanting = try! NSRegularExpression(
+    pattern: "^\\s*(please\\s+)?((can|could|would|will)\\s+you\\s+)?(please\\s+)?"
+      + "(generate|make|create|produce|give\\s+me|show\\s+me|write|suggest|come\\s+up\\s+with"
+      + "|think\\s+of|draft|compose|i\\s+need|i\\s+want)\\s+"
+      + "(me\\s+)?(an?\\s+|the\\s+|some\\s+|another\\s+|one\\s+more\\s+)?"
+      + "(\\w+\\s+){0,2}?\(wordsToMake)\\b",
+    options: .caseInsensitive)
+
+  static func wantsWords(_ text: String) -> Bool {
+    wanting.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
   }
 
   /// Things a verb of making makes that are words, not pictures: "make me a poem", "generate
@@ -55,15 +75,21 @@ enum ImageRequest {
   /// No word for a picture in it, so `isAsking` lets it through to the model, and a small model
   /// asked to "generate a banana" answers with a sentence saying it did. Where a picture can be
   /// made without asking the model — Anvil Pro — this is read as the ask it plainly is.
+  /// The check for words comes before the article rather than after it. After it, the article is
+  /// optional and the engine simply gives it back: "give me a prompt" fails the check at "prompt",
+  /// retries with the "a " unconsumed, and passes at "a" instead, which is how asking for a prompt
+  /// came to paint a picture. Ahead of the article, there is nothing to give back.
   private static let probablyAsk = try! NSRegularExpression(
     pattern: "^\\s*(please\\s+)?((can|could|would|will)\\s+you\\s+)?(please\\s+)?"
       + "(generate|make|create|produce|render|imagine|visuali[sz]e|show\\s+me|give\\s+me)\\s+"
-      + "(me\\s+)?(an?\\s+|the\\s+|some\\s+|another\\s+|one\\s+more\\s+)?"
-      + "(?!(quick\\s+|short\\s+|long\\s+|new\\s+|good\\s+|nice\\s+)?\(wordsToMake)\\b)\\S",
+      + "(?!(me\\s+)?(an?\\s+|the\\s+|some\\s+|another\\s+|one\\s+more\\s+)?"
+      + "(quick\\s+|short\\s+|long\\s+|new\\s+|good\\s+|nice\\s+)?\(wordsToMake)\\b)"
+      + "(me\\s+)?(an?\\s+|the\\s+|some\\s+|another\\s+|one\\s+more\\s+)?\\S",
     options: .caseInsensitive)
 
   static func probablyAsking(_ text: String) -> Bool {
-    probablyAsk.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
+    if wantsWords(text) { return false }
+    return probablyAsk.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
   }
 
   /// The verb of making at the front of a looser ask, to take off the description.
