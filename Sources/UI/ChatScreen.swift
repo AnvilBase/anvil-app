@@ -420,6 +420,7 @@ struct ChatScreen: View {
               showsMetrics: showsDevelopmentFeatures,
               firstPictureIsTakingItsTime: chat.firstPictureIsTakingItsTime,
               pictureStage: chat.pictureStage,
+              pictureModelName: chat.imageModel?.displayName ?? "the model",
               onEdit: {
                 chat.beginEditing(message.id)
                 inputFocused = true

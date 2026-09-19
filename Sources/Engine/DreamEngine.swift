@@ -455,11 +455,13 @@ enum PictureStage: Equatable, Sendable {
     }
   }
 
-  var label: String {
+  /// The line for the screen, naming the model where the model is what is happening: "Loading
+  /// Anvil Dream Lite…", "Preparing Anvil Dream for this iPhone…".
+  func label(modelName: String) -> String {
     switch self {
-    case .loading: "Loading the model…"
+    case .loading: "Loading \(modelName)…"
     case .reading: "Reading the prompt…"
-    case .preparing: "Preparing the model for this iPhone…"
+    case .preparing: "Preparing \(modelName) for this iPhone…"
     case .painting(let pass, let passes): "Step \(pass) of \(passes)…"
     case .finishing: "Finishing…"
     }

@@ -24,6 +24,8 @@ struct MessageRow: View {
   var firstPictureIsTakingItsTime: Bool = false
   /// Where the picture has got to, when one is being made: a line and a bar under the brush.
   var pictureStage: PictureStage? = nil
+  /// What the picture model is called, for the stages that name it.
+  var pictureModelName: String = "the model"
   let onEdit: () -> Void
   let onResend: () -> Void
   let onRegenerate: () -> Void
@@ -197,7 +199,7 @@ struct MessageRow: View {
           // end to end. The bar is the width of a short line of text: a hint of progress,
           // not a download.
           if let pictureStage {
-            Text(pictureStage.label)
+            Text(pictureStage.label(modelName: pictureModelName))
               .font(.footnote)
               .foregroundStyle(.tertiary)
               .monospacedDigit()
