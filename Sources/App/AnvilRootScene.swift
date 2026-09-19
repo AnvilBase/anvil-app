@@ -49,6 +49,8 @@ private struct RootView: View {
   let lock: AppLock
 
   @Environment(\.scenePhase) private var scenePhase
+  /// The welcome that comes up the moment Pro arrives, and goes on its own.
+  @State private var showingProWelcome = false
 
   /// One screen going and the next arriving. Short, and eased in rather than sprung: this is the
   /// app moving you on, not something you did being acknowledged.
@@ -112,6 +114,16 @@ private struct RootView: View {
           .transition(.opacity)
       }
     }
+    // The welcome to Pro, over whatever was being looked at, for a moment: it fades in as the
+    // subscription lands and out again over the same screen — or, if that was the Pro page,
+    // over the one it was opened from, since the page steps back behind it (see `ProScreen`).
+    .overlay {
+      if showingProWelcome {
+        ProWelcome { showingProWelcome = false }
+          .transition(.opacity)
+      }
+    }
+    .animation(.easeInOut(duration: 0.55), value: showingProWelcome)
     // Over everything, and only while locked. What it covers is this view; the sheets a screen may
     // have up are closed by that screen when the lock comes down — see `ChatScreen`.
     .overlay {
@@ -161,8 +173,10 @@ private struct RootView: View {
     .environment(library)
     // The library hears about Pro here, the one place the App Store's answer is read, so a Pro
     // model falls back the moment a subscription lapses, the same way the theme does.
-    .onChange(of: pro.isUnlocked, initial: true) { _, unlocked in
+    .onChange(of: pro.isUnlocked, initial: true) { was, unlocked in
       library.proUnlocked = unlocked
+      // Pro arriving — not Pro already there at launch — is the moment for the welcome.
+      if unlocked, !was { showingProWelcome = true }
     }
     // The first model to finish is the end of setting one up, and there is no going back
     // to that screen afterwards.

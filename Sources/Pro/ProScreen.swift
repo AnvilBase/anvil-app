@@ -13,6 +13,7 @@ struct ProScreen: View {
   @Environment(ModelLibrary.self) private var library
   @Environment(\.theme) private var theme
   @Environment(\.openURL) private var openURL
+  @Environment(\.dismiss) private var dismiss
 
   var body: some View {
     ScrollView {
@@ -46,6 +47,16 @@ struct ProScreen: View {
     .background(theme.page)
     .safeAreaInset(edge: .bottom) { footer }
     .navigationBarTitleDisplayMode(.inline)
+    // Pro arriving while this page is up: the welcome comes over it (see `RootView`), and this
+    // page, with nothing left to sell, steps back to wherever it was opened from while it is
+    // covered — so the welcome fades out over the screen you were on before.
+    .onChange(of: pro.isUnlocked) { _, unlocked in
+      guard unlocked else { return }
+      Task {
+        try? await Task.sleep(for: .milliseconds(650))
+        dismiss()
+      }
+    }
   }
 
   /// Whether both of the models Pro unlocks are on the phone. Until they are, the page says
